@@ -20,31 +20,34 @@ export function ProductCard({ product }: { product: Product }) {
   };
 
   return (
-    <Card className="flex flex-col p-4">
-      <div className="relative mb-4 h-48 w-full overflow-hidden rounded bg-surface-page">
-        <Image
-          src={product.imageUrl}
-          alt={product.name}
-          fill
-          className="object-cover"
-          sizes="(max-width: 768px) 100vw, 25vw"
-        />
-      </div>
+    <Card className="flex h-[418px] w-[289px] flex-col rounded border border-[#DFDFDF] p-4">
+  <div className="relative mb-4 h-[222px] w-[257px] overflow-hidden rounded bg-surface-page">
+    <Image
+      src={product.imageUrl}
+      alt={product.name}
+      fill
+      className="object-cover"
+      sizes="(max-width: 768px) 100vw, 25vw"
+    />
+  </div>
 
-      <h3 className="mb-2 line-clamp-2 text-sm font-medium text-ink">
-        {product.name}
-      </h3>
+  <h3 className="mb-2 line-clamp-2 text-sm font-medium text-ink">
+    {product.name}
+  </h3>
 
-      <p className="mb-4 text-sm text-muted">
-        Price: <span className="font-semibold text-primary">${product.price.toFixed(2)}</span>
-      </p>
+  <p className="mb-4 text-sm text-muted">
+    Price:{" "}
+    <span className="font-semibold text-primary">
+      ${product.price.toFixed(2)}
+    </span>
+  </p>
 
-      <div className="mt-auto flex items-center gap-3">
-        <QuantitySelector initialValue={product.quantity} />
-        <Button onClick={handleAddToCart} className="flex-1">
-          Add to Cart
-        </Button>
-      </div>
-    </Card>
+  <div className="mt-auto flex items-center gap-3">
+    <QuantitySelector initialValue={product.quantity} />
+    <Button className="flex-1 h-9 rounded px-3 py-1.5">
+      Add to Cart
+    </Button>
+  </div>
+</Card>
   );
 }

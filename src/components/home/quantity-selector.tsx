@@ -25,29 +25,31 @@ export function QuantitySelector({
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={handleDecrement}
-        aria-label="Decrease quantity"
-        className="flex h-9 w-9 items-center justify-center rounded border border-border text-primary hover:bg-surface-page"
-      >
-        <Minus className="h-4 w-4" />
-      </button>
-      <span
-        aria-live="polite"
-        className="flex h-9 w-12 items-center justify-center rounded border border-border text-sm text-ink"
-      >
-        {String(quantity).padStart(2, "0")}
-      </span>
-      <button
-        type="button"
-        onClick={handleIncrement}
-        aria-label="Increase quantity"
-        className="flex h-9 w-9 items-center justify-center rounded border border-border text-primary hover:bg-surface-page"
-      >
-        <Plus className="h-4 w-4" />
-      </button>
-    </div>
+    <div className="flex items-center gap-1">
+  <button
+    type="button"
+    onClick={handleDecrement}
+    aria-label="Decrease quantity"
+    className="flex h-9 w-9 items-center justify-center rounded border border-border text-primary hover:bg-surface-page"
+  >
+    <Minus className="h-4 w-4" />
+  </button>
+
+  <span
+    aria-live="polite"
+    className="flex h-9 w-[44px] items-center justify-center rounded border border-border text-sm text-ink"
+  >
+    {String(quantity)}
+  </span>
+
+  <button
+    type="button"
+    onClick={handleIncrement}
+    aria-label="Increase quantity"
+    className="flex h-9 w-9 items-center justify-center rounded border border-border text-primary hover:bg-surface-page"
+  >
+    <Plus className="h-4 w-4" />
+  </button>
+</div>
   );
 }

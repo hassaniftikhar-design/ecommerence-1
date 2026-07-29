@@ -12,7 +12,9 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <SiteHeader />
-      <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
+      <main className="mx-auto w-full max-w-[1246px] px-4 py-8 lg:px-0">
+  {children}
+</main>
     </>
   );
 }
