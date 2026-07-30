@@ -31,7 +31,7 @@ export const MOCK_ORDER_DETAIL: OrderDetail = {
     id: `order-line-${i + 1}`,
     title:
       "Cargo Trousers for Men - 6 Pocket Trousers - 6 Pocket Cargo Trousers in all Colors - Cargo Trouser",
-    imageUrl: "https://placehold.co/80x80/f8f9fa/212529?text=Trouser",
+    imageUrl: "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80",
     price: 0,
     quantity: 12,
     stock: 45,

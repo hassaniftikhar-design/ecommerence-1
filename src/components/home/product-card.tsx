@@ -1,10 +1,59 @@
+
+
+// "use client";
+
+// import Image from "next/image";
+
+// import { Button } from "@/components/ui/button";
+// import { Card } from "@/components/ui/card";
+// import { QuantitySelector } from "@/components/home/quantity-selector";
+// import type { Product } from "@/types/product.types";
+
+// export function ProductCard({ product }: { product: Product }) {
+//   const handleAddToCart = () => {
+//     // TODO(backend-integration): call addToCart endpoint
+//   };
+
+//   return (
+//     <Card className="@container flex h-full w-full flex-col rounded-md border border-[#E2E8F0] bg-white p-2.5 shadow-sm @xs:p-4">
+//       <div className="relative mb-3 aspect-square w-full overflow-hidden rounded bg-[#F8F9FA] @xs:mb-4">
+//         <Image
+//           src={product.imageUrl}
+//           alt={product.name}
+//           fill
+//           className="object-cover"
+//           sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+//         />
+//       </div>
+
+//       <h3 className="mb-1 line-clamp-2 text-xs font-medium text-gray-900 @xs:mb-2 @xs:text-sm">
+//         {product.name}
+//       </h3>
+
+//       <p className="mb-3 text-xs font-medium text-gray-500 @xs:mb-4 @xs:text-sm">
+//         Price:{" "}
+//         <span className="text-base font-semibold text-[#007BFF] @xs:text-lg">
+//           ${product.price.toFixed(2)}
+//         </span>
+//       </p>
+
+//       <div className="mt-auto flex flex-row flex-nowrap items-center justify-between gap-1 @xs:gap-2">
+//         <QuantitySelector initialValue={product.quantity} />
+//         <Button 
+//           onClick={handleAddToCart}
+//           className="h-6 w-full flex-1 whitespace-nowrap rounded bg-[#007BFF] px-1 py-1 text-[10px] font-medium text-white hover:bg-[#0056b3] @xs:h-9 @xs:px-3 @xs:text-sm"
+//         >
+//           Add to Cart
+//         </Button>
+//       </div>
+//     </Card>
+//   );
+// }
+
+
+
 "use client";
 
-// Client Component: holds the per-card quantity state and the
-// (placeholder) add-to-cart click handler. The image/name/price above
-// it are static, but they live in the same component as the
-// interactive controls because they're never rendered independently of
-// them -- splitting them out would just be indirection without reuse.
 import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
@@ -14,40 +63,42 @@ import type { Product } from "@/types/product.types";
 
 export function ProductCard({ product }: { product: Product }) {
   const handleAddToCart = () => {
-    // TODO(backend-integration): call
-    // product.service.ts#addToCart(product.id, quantity) once a real
-    // cart/session exists.
+    // TODO(backend-integration): call addToCart endpoint
   };
 
   return (
-    <Card className="flex h-[418px] w-[289px] flex-col rounded border border-[#DFDFDF] p-4">
-  <div className="relative mb-4 h-[222px] w-[257px] overflow-hidden rounded bg-surface-page">
-    <Image
-      src={product.imageUrl}
-      alt={product.name}
-      fill
-      className="object-cover"
-      sizes="(max-width: 768px) 100vw, 25vw"
-    />
-  </div>
+    <Card className="@container flex h-full w-full flex-col rounded-md border border-[#E2E8F0] bg-white p-2.5 shadow-sm @xs:p-4">
+      <div className="relative mb-3 aspect-square w-full overflow-hidden rounded bg-[#F8F9FA] @xs:mb-4">
+        <Image
+          src={product.imageUrl}
+          alt={product.name}
+          fill
+          className="object-cover"
+          sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+        />
+      </div>
 
-  <h3 className="mb-2 line-clamp-2 text-sm font-medium text-ink">
-    {product.name}
-  </h3>
+      <h3 className="mb-1 line-clamp-2 text-xs font-medium text-gray-900 @xs:mb-2 @xs:text-sm">
+        {product.name}
+      </h3>
 
-  <p className="mb-4 text-sm text-muted">
-    Price:{" "}
-    <span className="font-semibold text-primary">
-      ${product.price.toFixed(2)}
-    </span>
-  </p>
+      <p className="mb-3 text-xs font-medium text-gray-500 @xs:mb-4 @xs:text-sm">
+        Price:{" "}
+        <span className="text-base font-semibold text-[#007BFF] @xs:text-lg">
+          ${product.price.toFixed(2)}
+        </span>
+      </p>
 
-  <div className="mt-auto flex items-center gap-3">
-    <QuantitySelector initialValue={product.quantity} />
-    <Button className="flex-1 h-9 rounded px-3 py-1.5">
-      Add to Cart
-    </Button>
-  </div>
-</Card>
+      
+      <div className="mt-auto flex flex-row items-center justify-between gap-1 max-[395px]:flex-col max-[395px]:gap-2 @xs:gap-2">
+        <QuantitySelector initialValue={product.quantity} />
+        <Button 
+          onClick={handleAddToCart}
+          className="h-7 w-full flex-1 whitespace-nowrap rounded bg-[#007BFF] px-1 py-1 text-[10px] font-medium text-white hover:bg-[#0056b3] max-[395px]:h-8 max-[395px]:text-xs @xs:h-9 @xs:px-3 @xs:text-sm"
+        >
+          Add to Cart
+        </Button>
+      </div>
+    </Card>
   );
 }

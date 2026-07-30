@@ -6,9 +6,11 @@ import type { Product } from "@/types/product.types";
 // own interactive bits, which keeps the grid's own JS footprint at
 // zero -- a good example of "push client boundaries as far down the
 // tree as possible" rather than marking the whole page client-side.
+   
+
 export function ProductGrid({ products }: { products: Product[] }) {
   return (
-    <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-6">
       {products.map((product) => (
         <ProductCard key={product.id} product={product} />
       ))}

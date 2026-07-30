@@ -9,7 +9,7 @@ export const MOCK_CART_ITEMS: CartItem[] = Array.from(
     id: `cart-item-${i + 1}`,
     productId: "8",
     name: "Cargo Trousers for Men - 6 Pocket Trousers - 6 Pocket Cargo Trousers in all Colors - Cargo Trouser",
-    imageUrl: "https://placehold.co/80x80/f8f9fa/212529?text=Trouser",
+    imageUrl: "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80",
     color: { name: "Bage", hex: "#c39267" },
     size: "34",
     price: 0,
@@ -25,3 +25,4 @@ export const MOCK_CART_TOTALS: CartTotals = {
   tax: 0,
   total: 0,
 };
+                                 

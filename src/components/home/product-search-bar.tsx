@@ -48,7 +48,7 @@ export function ProductSearchBar() {
     <form
       role="search"
       onSubmit={(e) => e.preventDefault()}
-      className="flex h-9 w-[385px] overflow-hidden rounded border border-[#E2E8F0] bg-white"
+      className="flex h-8 min-w-0 flex-1 overflow-hidden rounded border border-[#E2E8F0] bg-white"
     >
       <label htmlFor="product-search" className="sr-only">
         Search by user & order ID
@@ -60,19 +60,16 @@ export function ProductSearchBar() {
         placeholder="Search by user & order ID"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        className="flex-1 border-0 bg-transparent px-4 text-base text-ink placeholder:text-[#9BA2C1] focus:outline-none"
+        className="flex-1 border-0 bg-transparent px-3 text-sm text-ink placeholder:text-[#9BA2C1] focus:outline-none"
       />
 
       <Button
-  type="submit"
-  aria-label="Search"
-  className="flex w-10 items-center justify-center rounded-none border-0 border-l border-[#E2E8F0] bg-[#F5F5F5] p-0 hover:bg-[#F5F5F5]"
->
-  <Search
-    className="h-5 w-5 pb-1  text-[#003B5C]"
-    strokeWidth={2.5}
-  />
-</Button>
+        type="submit"
+        aria-label="Search"
+        className="flex h-8 w-9 items-center justify-center rounded-none border-0 border-l border-[#E2E8F0] bg-[#F5F5F5] p-0 hover:bg-[#F5F5F5]"
+      >
+        <Search className="h-5 w-5 pb-1 text-[#003B5C]" strokeWidth={2.5} />
+      </Button>
     </form>
   );
 }

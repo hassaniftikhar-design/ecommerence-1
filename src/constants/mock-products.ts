@@ -4,7 +4,7 @@ import type { Product } from "@/types/product.types";
 // `product.service.ts -> getProducts()` reading from PostgreSQL via
 // Prisma. Kept here (not inline in the page) so swapping the data
 // source later means changing one import, not the page markup.
-export const MOCK_PRODUCTS = [
+export const MOCK_PRODUCTS:Product[] = [
   {
     id: 1,
     name: "Wireless Speaker",

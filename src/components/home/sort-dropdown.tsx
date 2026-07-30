@@ -41,7 +41,6 @@
 
 
 
-
 "use client";
 
 import { useState } from "react";
@@ -61,7 +60,7 @@ export function SortDropdown() {
       value={value}
       onChange={(e) => setValue(e.target.value)}
       aria-label="Sort products"
-      className="h-9 w-[138px] rounded border border-[#E2E8F0] bg-surface-card px-3 text-[16px] text-[#9BA2C1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      className="h-8 w-full rounded border border-[#E2E8F0] bg-surface-card px-1 text-xs text-[#9BA2C1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:px-2 sm:text-sm"
     >
       <option value="" disabled>
         Sort by:
