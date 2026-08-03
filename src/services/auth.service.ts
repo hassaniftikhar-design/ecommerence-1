@@ -1,3 +1,4 @@
+import { signIn, signOut } from "next-auth/react";
 import type {
   ForgotPasswordPayload,
   LoginPayload,
@@ -5,37 +6,75 @@ import type {
   SignupPayload,
 } from "@/types/auth.types";
 
-// Every function here is intentionally unimplemented. This file exists
-// so LoginForm/SignupForm/etc. can already `import { login } from
-// "@/services/auth.service"` and call it from their placeholder submit
-// handlers -- when Phase "Backend Integration" lands, only the body of
-// these functions changes (to a fetch() against a Route Handler that
-// calls NextAuth), never the calling components.
+async function parseErrorResponse(response: Response): Promise<string> {
+  const data = (await response.json().catch(() => null)) as {
+    message?: string;
+    error?: string;
+    errors?: string[];
+  } | null;
 
-export async function login(_payload: LoginPayload): Promise<void> {
-  // TODO(backend-integration): POST to /api/auth/login (NextAuth
-  // credentials provider) once Route Handlers + Prisma are in place.
-  throw new Error("Not implemented");
+  if (data?.errors && data.errors.length > 0) {
+    return data.errors.join(", ");
+  }
+
+  return data?.message || data?.error || response.statusText || "Request failed";
 }
 
-export async function signup(_payload: SignupPayload): Promise<void> {
-  // TODO(backend-integration): POST to /api/auth/signup, validate with
-  // a Zod schema shared between client and server, persist via Prisma.
-  throw new Error("Not implemented");
+export async function login(payload: LoginPayload): Promise<void> {
+  const result = await signIn("credentials", {
+    redirect: false,
+    email: payload.email,
+    password: payload.password,
+  });
+
+  if (!result || result.error) {
+    throw new Error(result?.error ?? "Invalid email or password");
+  }
+}
+
+export async function logout(): Promise<void> {
+  await signOut({ callbackUrl: "/login" });
+}
+
+export async function signup(payload: SignupPayload): Promise<void> {
+  const response = await fetch("/api/auth/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorMessage = await parseErrorResponse(response);
+    throw new Error(errorMessage);
+  }
 }
 
 export async function forgotPassword(
-  _payload: ForgotPasswordPayload,
+  payload: ForgotPasswordPayload
 ): Promise<void> {
-  // TODO(backend-integration): POST to /api/auth/forgot-password to
-  // generate + email a reset token.
-  throw new Error("Not implemented");
+  const response = await fetch("/api/auth/forgot-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorMessage = await parseErrorResponse(response);
+    throw new Error(errorMessage);
+  }
 }
 
 export async function resetPassword(
-  _payload: ResetPasswordPayload,
+  payload: ResetPasswordPayload
 ): Promise<void> {
-  // TODO(backend-integration): POST to /api/auth/reset-password with
-  // the token from the URL query string.
-  throw new Error("Not implemented");
+  const response = await fetch("/api/auth/reset-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorMessage = await parseErrorResponse(response);
+    throw new Error(errorMessage);
+  }
 }

@@ -1,9 +1,5 @@
 "use client";
 
-// Client Component: this form owns controlled-input state (email,
-// password, rememberMe) via useState and reacts to onChange/onSubmit,
-// none of which can run on the server. Everything above it in the tree
-// (the page, the layout, AuthCard) stays a Server Component.
 import { useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -13,31 +9,47 @@ import { RememberMe } from "@/components/auth/remember-me";
 import { ROUTES } from "@/constants/routes";
 import { isValidEmail } from "@/utils/validation";
 import type { LoginPayload } from "@/types/auth.types";
+import { login } from "@/services/auth.service";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const emailError =
     emailTouched && !isValidEmail(email)
       ? "Enter a valid email address"
       : undefined;
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setEmailTouched(true);
+    setError(null);
 
-    // TODO(backend-integration): call auth.service.ts#login(payload)
-    // here once NextAuth's credentials flow exists. For now this is a
-    // static placeholder handler, per the brief -- submit does nothing.
     const payload: LoginPayload = { email, password, rememberMe };
-    void payload;
+
+    try {
+      setLoading(true);
+      await login(payload);
+      window.location.href = "/";
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <form onSubmit={handleSubmit} noValidate>
+      {error && (
+        <div className="mb-4 text-sm text-red-600 font-medium text-center">
+          {error}
+        </div>
+      )}
+
       <FormField
         label="Enter email address"
         name="email"
@@ -63,8 +75,8 @@ export function LoginForm() {
 
       <RememberMe checked={rememberMe} onCheckedChange={setRememberMe} />
 
-      <Button type="submit" className="mb-6 w-full">
-        Login
+      <Button type="submit" className="mb-6 w-full" disabled={loading}>
+        {loading ? "Logging in..." : "Login"}
       </Button>
 
       <div className="space-y-2">

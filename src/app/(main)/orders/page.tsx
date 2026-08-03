@@ -23,12 +23,13 @@ export const metadata: Metadata = {
 // TODO(backend-integration): pass the parsed page number to
 // order.service.ts#getOrders(page) once it reads from a real,
 // paginated "orders" table.
-export default function OrdersPage({
+export default async function OrdersPage({
   searchParams,
 }: {
-  searchParams: { page?: string };
+  searchParams: Promise<{ page?: string }>;
 }) {
-  const currentPage = Math.max(1, Number(searchParams.page) || 1);
+  const resolvedParams = await searchParams;
+  const currentPage = Math.max(1, Number(resolvedParams?.page) || 1);
   const totalPages = Math.ceil(
     MOCK_ORDERS_TOTAL_COUNT / MOCK_ORDERS_PAGE_SIZE,
   );

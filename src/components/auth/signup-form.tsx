@@ -7,6 +7,7 @@ import { AuthFooterLink } from "@/components/auth/auth-footer-link";
 import { FormField } from "@/components/forms/form-field";
 import { ROUTES } from "@/constants/routes";
 import type { SignupPayload } from "@/types/auth.types";
+import { signup } from "@/services/auth.service";
 
 export function SignupForm() {
   const [formData, setFormData] = useState<SignupPayload>({
@@ -16,23 +17,37 @@ export function SignupForm() {
     password: "",
     confirmPassword: "",
   });
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  // A single object + one change handler (keyed by `name`) instead of
-  // five separate useState calls -- five fields that always submit
-  // together belong in one piece of state, not five independent ones.
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = event.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // TODO(backend-integration): call auth.service.ts#signup(formData)
-    // once Route Handlers + Zod validation exist.
+    setError(null);
+
+    try {
+      setLoading(true);
+      await signup(formData);
+      window.location.href = "/login";
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <form onSubmit={handleSubmit} noValidate>
+      {error && (
+        <div className="mb-4 text-sm text-red-600 font-medium text-center">
+          {error}
+        </div>
+      )}
+
       <FormField
         label="Fullname"
         name="fullName"
@@ -83,8 +98,8 @@ export function SignupForm() {
         required
       />
 
-      <Button type="submit" className="mb-6 mt-2 w-full">
-        SignUp
+      <Button type="submit" className="mb-6 mt-2 w-full" disabled={loading}>
+        {loading ? "Creating Account..." : "SignUp"}
       </Button>
 
       <AuthFooterLink
