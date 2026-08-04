@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
+import { useState, useRef, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Upload as UploadIcon, FileText, Trash2, Check } from "lucide-react";
@@ -12,11 +12,16 @@ import { ROUTES } from "@/constants/routes";
 export default function AddMultipleProductsPage() {
   const router = useRouter();
   const { data: session } = useSession();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const handleTriggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -64,7 +69,7 @@ export default function AddMultipleProductsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 w-full">
       {/* Top Heading */}
       <div className="flex items-center gap-3">
         <Link
@@ -118,21 +123,23 @@ export default function AddMultipleProductsPage() {
               Download Sample File
             </button>
 
-            <label className="mt-6">
+            <div className="mt-6">
               <Button
                 type="button"
                 variant="outline"
+                onClick={handleTriggerFileInput}
                 className="border-[#007BFF] text-[#007BFF] hover:bg-blue-50 font-semibold px-8 py-2 text-sm"
               >
                 Browse
               </Button>
               <input
+                ref={fileInputRef}
                 type="file"
                 accept=".csv,.json"
                 className="hidden"
                 onChange={handleFileChange}
               />
-            </label>
+            </div>
           </div>
 
           {/* Uploaded Files Section */}

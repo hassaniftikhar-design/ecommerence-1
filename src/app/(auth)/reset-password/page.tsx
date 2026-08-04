@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 
 import { AuthCard } from "@/components/auth/auth-card";
@@ -15,7 +16,9 @@ export default function ResetPasswordPage() {
     <>
       <AuthTitle>Reset Password</AuthTitle>
       <AuthCard>
-        <ResetPasswordForm />
+        <Suspense fallback={<div className="p-4 text-center text-sm text-slate-500">Loading form...</div>}>
+          <ResetPasswordForm />
+        </Suspense>
       </AuthCard>
     </>
   );

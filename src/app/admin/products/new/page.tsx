@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type FormEvent, type ChangeEvent } from "react";
+import { useState, useRef, type FormEvent, type ChangeEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Upload as UploadIcon, Check } from "lucide-react";
+import { ArrowLeft, Upload as UploadIcon, Check, RefreshCw } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { createProduct, uploadImage } from "@/services/product.service";
 export default function AddSingleProductPage() {
   const router = useRouter();
   const { data: session } = useSession();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
@@ -24,6 +25,10 @@ export default function AddSingleProductPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const handleTriggerFileInput = () => {
+    fileInputRef.current?.click();
+  };
 
   const handleFileSelect = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -38,6 +43,10 @@ export default function AddSingleProductPage() {
       setError((err as Error).message);
     } finally {
       setUploading(false);
+      // Reset input value so re-selecting the same file fires onChange
+      if (e.target) {
+        e.target.value = "";
+      }
     }
   };
 
@@ -84,7 +93,7 @@ export default function AddSingleProductPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 w-full">
       {/* Heading with Arrow */}
       <div className="flex items-center gap-3">
         <Link
@@ -115,38 +124,48 @@ export default function AddSingleProductPage() {
           {/* Left Upload Dotted Box */}
           <div className="w-full md:w-56 shrink-0 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 p-6 text-center bg-slate-50/50 min-h-[220px]">
             {imageUrl ? (
-              <div className="space-y-3 w-full">
+              <div className="space-y-3 w-full text-center">
                 <img
                   src={imageUrl}
                   alt="Product preview"
                   className="h-28 w-28 mx-auto rounded-lg object-cover border border-slate-200"
                 />
                 <p className="text-xs text-emerald-600 font-semibold truncate max-w-full">
-                  Image Ready
+                  Image Uploaded
                 </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleTriggerFileInput}
+                  disabled={uploading}
+                  className="w-full text-xs font-semibold border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-1.5"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Change Image
+                </Button>
               </div>
             ) : (
-              <div className="space-y-4 flex flex-col items-center">
+              <div className="space-y-4 flex flex-col items-center w-full">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-[#007BFF]">
                   <UploadIcon className="h-6 w-6" />
                 </div>
-                <label className="w-full cursor-pointer">
-                  <Button
-                    type="button"
-                    className="w-full bg-[#007BFF] hover:bg-blue-600 text-white font-medium px-6 py-2 text-sm"
-                    disabled={uploading}
-                  >
-                    {uploading ? "Uploading..." : "Upload"}
-                  </Button>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleFileSelect}
-                  />
-                </label>
+                <Button
+                  type="button"
+                  onClick={handleTriggerFileInput}
+                  disabled={uploading}
+                  className="w-full bg-[#007BFF] hover:bg-blue-600 text-white font-medium px-6 py-2 text-sm shadow-sm"
+                >
+                  {uploading ? "Uploading..." : "Upload"}
+                </Button>
               </div>
             )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
           </div>
 
           {/* Right Inputs Column */}

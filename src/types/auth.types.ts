@@ -21,6 +21,10 @@ export interface ForgotPasswordPayload {
   email: string;
 }
 
+export interface ForgotEmailPayload {
+  phone: string;
+}
+
 export interface ResetPasswordPayload {
   password: string;
   confirmPassword: string;

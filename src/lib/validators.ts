@@ -10,7 +10,7 @@ const password = z
 
 const phone = z
   .string()
-  .min(7, "Phone number must be at least 7 digits")
+  .min(10, "Phone number must be at least 10 digits")
   .regex(/^[+0-9\s-]+$/, "Enter a valid phone number");
 
 export const signupSchema = z
@@ -39,6 +39,10 @@ export const loginSchema = z.object({
 
 export const forgotPasswordSchema = z.object({
   email: z.string().email("Enter a valid email address"),
+});
+
+export const forgotEmailSchema = z.object({
+  phone: phone,
 });
 
 export const resetPasswordSchema = z
