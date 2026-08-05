@@ -78,3 +78,14 @@ export async function resetPassword(
     throw new Error(errorMessage);
   }
 }
+
+export async function verifyResetToken(token: string): Promise<void> {
+  const response = await fetch(
+    `/api/auth/reset-password?token=${encodeURIComponent(token)}`
+  );
+
+  if (!response.ok) {
+    const errorMessage = await parseErrorResponse(response);
+    throw new Error(errorMessage);
+  }
+}

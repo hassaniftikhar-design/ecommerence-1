@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, type FormEvent, type ChangeEvent } from "react";
+import { useState, useEffect, useRef, use, type FormEvent, type ChangeEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -16,26 +16,38 @@ import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/forms/form-field";
 import { ROUTES } from "@/constants/routes";
-import { createProduct, uploadImage } from "@/services/product.service";
+import {
+  getProductById,
+  updateProduct,
+  uploadImage,
+} from "@/services/product.service";
 
 interface FormOption {
   name: string;
-  valuesInput: string; // Comma separated, e.g. "Black, White"
+  valuesInput: string;
 }
 
 interface FormVariant {
+  id?: string;
+  sku?: string;
   price: string;
   stock: string;
   images: string[];
   attributes: Record<string, string>;
 }
 
-export default function AddSingleProductPage() {
+export default function EditProductPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = use(params);
   const router = useRouter();
   const { data: session } = useSession();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const variantFileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
+  const [loadingProduct, setLoadingProduct] = useState(true);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [basePrice, setBasePrice] = useState("");
@@ -45,13 +57,57 @@ export default function AddSingleProductPage() {
   const [uploading, setUploading] = useState(false);
   const [variantUploadingIndex, setVariantUploadingIndex] = useState<number | null>(null);
 
-  // Dynamic Options & Variants State
   const [options, setOptions] = useState<FormOption[]>([]);
   const [variants, setVariants] = useState<FormVariant[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoadingProduct(true);
+        const prod = await getProductById(id);
+        setName(prod.name);
+        setDescription(prod.description || "");
+        setCategoryName(prod.category.name);
+
+        const primaryImg =
+          prod.imageUrl || prod.variants?.[0]?.images?.[0] || "";
+        setMainImageUrl(primaryImg);
+        setBasePrice(String(prod.lowestPrice ?? prod.price ?? 0));
+        setBaseStock(String(prod.totalStock ?? prod.stock ?? 0));
+
+        if (prod.options && prod.options.length > 0) {
+          setOptions(
+            prod.options.map((opt) => ({
+              name: opt.name,
+              valuesInput: opt.values.map((v) => v.value).join(", "),
+            }))
+          );
+        }
+
+        if (prod.variants && prod.variants.length > 0) {
+          setVariants(
+            prod.variants.map((v) => ({
+              id: v.id,
+              sku: v.sku,
+              price: String(v.price),
+              stock: String(v.stock),
+              images: v.images || [],
+              attributes: v.attributes || {},
+            }))
+          );
+        }
+      } catch (err) {
+        setError((err as Error).message);
+      } finally {
+        setLoadingProduct(false);
+      }
+    }
+    loadData();
+  }, [id]);
 
   const handleTriggerFileInput = () => {
     fileInputRef.current?.click();
@@ -74,7 +130,6 @@ export default function AddSingleProductPage() {
     }
   };
 
-  // Option Handlers
   const handleAddOption = () => {
     setOptions((prev) => [...prev, { name: "", valuesInput: "" }]);
   };
@@ -83,7 +138,6 @@ export default function AddSingleProductPage() {
     const optToRemove = options[index];
     setOptions((prev) => prev.filter((_, i) => i !== index));
     if (optToRemove?.name) {
-      // Remove option attribute from existing variants
       setVariants((prev) =>
         prev.map((v) => {
           const newAttr = { ...v.attributes };
@@ -104,7 +158,6 @@ export default function AddSingleProductPage() {
     );
   };
 
-  // Variant Handlers
   const handleAddVariant = () => {
     const defaultAttr: Record<string, string> = {};
     options.forEach((opt) => {
@@ -202,7 +255,6 @@ export default function AddSingleProductPage() {
       return;
     }
 
-    // Format options payload
     const formattedOptions = options
       .map((opt) => ({
         name: opt.name.trim(),
@@ -213,8 +265,9 @@ export default function AddSingleProductPage() {
       }))
       .filter((opt) => opt.name && opt.values.length > 0);
 
-    // Format variants payload
     let formattedVariants: Array<{
+      id?: string;
+      sku?: string;
       price: number;
       stock: number;
       images: string[];
@@ -222,7 +275,6 @@ export default function AddSingleProductPage() {
     }> = [];
 
     if (variants.length > 0) {
-      // Validate duplicate variant combinations
       const seenCombos = new Set<string>();
 
       for (const [i, v] of variants.entries()) {
@@ -238,7 +290,6 @@ export default function AddSingleProductPage() {
           return;
         }
 
-        // Create combo signature
         const comboKey = Object.entries(v.attributes)
           .sort(([k1], [k2]) => k1.localeCompare(k2))
           .map(([k, val]) => `${k}:${val}`)
@@ -255,26 +306,19 @@ export default function AddSingleProductPage() {
         if (comboKey) seenCombos.add(comboKey);
 
         formattedVariants.push({
+          id: v.id,
+          sku: v.sku,
           price: priceNum,
           stock: stockNum,
           images: v.images.length > 0 ? v.images : mainImageUrl ? [mainImageUrl] : [],
           attributes: v.attributes,
         });
       }
-    } else {
-      // Fallback single product validation
-      const priceNum = parseFloat(basePrice);
-      const stockNum = parseInt(baseStock, 10);
-
-      if (isNaN(priceNum) || priceNum <= 0 || isNaN(stockNum) || stockNum < 0) {
-        setError("Please enter a valid price and quantity.");
-        return;
-      }
     }
 
     try {
       setSubmitting(true);
-      await createProduct({
+      await updateProduct(id, {
         name: name.trim(),
         description: description.trim() || undefined,
         categoryName: categoryName.trim() || "General",
@@ -285,7 +329,7 @@ export default function AddSingleProductPage() {
         imageUrl: mainImageUrl.trim() || undefined,
       });
 
-      setSuccessMsg("Product created successfully with variants!");
+      setSuccessMsg("Product updated successfully!");
       setTimeout(() => {
         router.push(ROUTES.adminProducts);
       }, 1000);
@@ -304,6 +348,14 @@ export default function AddSingleProductPage() {
     );
   }
 
+  if (loadingProduct) {
+    return (
+      <div className="py-12 text-center text-slate-500 font-medium">
+        Loading product details...
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 w-full max-w-5xl mx-auto pb-12">
       {/* Heading with Arrow */}
@@ -314,7 +366,7 @@ export default function AddSingleProductPage() {
         >
           <ArrowLeft className="h-6 w-6" />
         </Link>
-        <h1 className="text-2xl font-bold text-[#0B192C]">Add a Single Product</h1>
+        <h1 className="text-2xl font-bold text-[#0B192C]">Edit Product</h1>
       </div>
 
       <hr className="border-slate-200" />
@@ -332,14 +384,13 @@ export default function AddSingleProductPage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-8 pt-2">
-        {/* Main Product Info & Image Card */}
+        {/* Basic Info Card */}
         <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
           <h2 className="text-lg font-semibold text-slate-800 border-b border-slate-100 pb-3">
             1. Basic Information
           </h2>
 
           <div className="flex flex-col md:flex-row items-start gap-8">
-            {/* Left Upload Dotted Box */}
             <div className="w-full md:w-56 shrink-0 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 p-6 text-center bg-slate-50/50 min-h-[220px]">
               {mainImageUrl ? (
                 <div className="space-y-3 w-full text-center">
@@ -386,12 +437,10 @@ export default function AddSingleProductPage() {
               />
             </div>
 
-            {/* Right Inputs Column */}
             <div className="flex-1 w-full space-y-4">
               <FormField
                 label="Product Name"
                 name="name"
-                placeholder="e.g. Cargo Trousers, Running Shoes, Wireless Earbuds"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -403,19 +452,15 @@ export default function AddSingleProductPage() {
                   name="basePrice"
                   type="number"
                   step="0.01"
-                  placeholder="00.00"
                   value={basePrice}
                   onChange={(e) => setBasePrice(e.target.value)}
-                  required={variants.length === 0}
                 />
                 <FormField
-                  label="Base Quantity / Stock"
+                  label="Base Stock"
                   name="baseStock"
                   type="number"
-                  placeholder="100"
                   value={baseStock}
                   onChange={(e) => setBaseStock(e.target.value)}
-                  required={variants.length === 0}
                 />
               </div>
 
@@ -423,7 +468,6 @@ export default function AddSingleProductPage() {
                 <FormField
                   label="Category Name"
                   name="categoryName"
-                  placeholder="e.g. Apparel, Electronics, Footwear"
                   value={categoryName}
                   onChange={(e) => setCategoryName(e.target.value)}
                 />
@@ -432,7 +476,7 @@ export default function AddSingleProductPage() {
           </div>
         </div>
 
-        {/* Dynamic Product Options Section */}
+        {/* Options Section */}
         <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
@@ -455,7 +499,7 @@ export default function AddSingleProductPage() {
 
           {options.length === 0 ? (
             <div className="p-4 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-lg">
-              No product options added yet. Click "+ Add Option" to add attributes like Color or Size.
+              No product options defined yet. Click "+ Add Option" to add attributes like Color or Size.
             </div>
           ) : (
             <div className="space-y-4">
@@ -468,7 +512,6 @@ export default function AddSingleProductPage() {
                     <FormField
                       label={`Option Name #${i + 1}`}
                       name={`opt_name_${i}`}
-                      placeholder="e.g. Color, Size, Material"
                       value={opt.name}
                       onChange={(e) => handleOptionChange(i, "name", e.target.value)}
                     />
@@ -477,7 +520,6 @@ export default function AddSingleProductPage() {
                     <FormField
                       label="Values (comma separated)"
                       name={`opt_values_${i}`}
-                      placeholder="e.g. Black, White, Blue or S, M, L"
                       value={opt.valuesInput}
                       onChange={(e) => handleOptionChange(i, "valuesInput", e.target.value)}
                     />
@@ -496,7 +538,7 @@ export default function AddSingleProductPage() {
           )}
         </div>
 
-        {/* Dynamic Product Variants Section */}
+        {/* Variants Section */}
         <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
@@ -504,7 +546,7 @@ export default function AddSingleProductPage() {
                 3. Product Variants
               </h2>
               <p className="text-xs text-slate-500">
-                Create unlimited variant combinations with individual prices, stock, and images.
+                Manage variant prices, stock, images, and attributes.
               </p>
             </div>
             <Button
@@ -518,7 +560,7 @@ export default function AddSingleProductPage() {
 
           {variants.length === 0 ? (
             <div className="p-4 text-center text-xs text-slate-400 border border-dashed border-slate-200 rounded-lg">
-              No custom variants added. A single default variant will be created using the basic info above. Click "+ Add Variant" to add specific variants.
+              No variants defined. Click "+ Add Variant" to create variants.
             </div>
           ) : (
             <div className="space-y-6">
@@ -528,9 +570,16 @@ export default function AddSingleProductPage() {
                   className="p-5 rounded-xl bg-slate-50/80 border border-slate-200 space-y-4"
                 >
                   <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                    <span className="text-sm font-bold text-slate-700">
-                      Variant #{vIdx + 1}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold text-slate-700">
+                        Variant #{vIdx + 1}
+                      </span>
+                      {variant.sku && (
+                        <span className="text-xs font-mono text-slate-500 bg-slate-200 px-2 py-0.5 rounded">
+                          SKU: {variant.sku}
+                        </span>
+                      )}
+                    </div>
                     <button
                       type="button"
                       onClick={() => handleRemoveVariant(vIdx)}
@@ -540,7 +589,6 @@ export default function AddSingleProductPage() {
                     </button>
                   </div>
 
-                  {/* Attribute Selectors for defined Options */}
                   {options.filter((o) => o.name.trim()).length > 0 && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 bg-white p-3 rounded-lg border border-slate-200">
                       {options
@@ -580,14 +628,12 @@ export default function AddSingleProductPage() {
                     </div>
                   )}
 
-                  {/* Price & Stock */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       label="Variant Price ($)"
                       name={`v_price_${vIdx}`}
                       type="number"
                       step="0.01"
-                      placeholder="00.00"
                       value={variant.price}
                       onChange={(e) =>
                         handleVariantChange(vIdx, "price", e.target.value)
@@ -598,7 +644,6 @@ export default function AddSingleProductPage() {
                       label="Variant Stock"
                       name={`v_stock_${vIdx}`}
                       type="number"
-                      placeholder="10"
                       value={variant.stock}
                       onChange={(e) =>
                         handleVariantChange(vIdx, "stock", e.target.value)
@@ -607,7 +652,6 @@ export default function AddSingleProductPage() {
                     />
                   </div>
 
-                  {/* Variant Images Upload */}
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-slate-600">
                       Variant Images
@@ -663,14 +707,13 @@ export default function AddSingleProductPage() {
           )}
         </div>
 
-        {/* Submit Action */}
         <div className="flex justify-end pt-2">
           <Button
             type="submit"
             disabled={submitting || uploading}
             className="bg-[#007BFF] hover:bg-blue-600 text-white font-semibold px-10 py-3 text-base rounded-xl shadow-sm"
           >
-            {submitting ? "Saving Product..." : "Save Product"}
+            {submitting ? "Updating Product..." : "Update Product"}
           </Button>
         </div>
       </form>

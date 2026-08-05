@@ -1,22 +1,31 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { AuthFooterLink } from "@/components/auth/auth-footer-link";
 import { FormField } from "@/components/forms/form-field";
 import { RememberMe } from "@/components/auth/remember-me";
+import { GoogleAuthButton } from "@/components/auth/google-auth-button";
 import { ROUTES } from "@/constants/routes";
 import { isValidEmail } from "@/utils/validation";
 import type { LoginPayload } from "@/types/auth.types";
 import { login } from "@/services/auth.service";
 
 export function LoginForm() {
+  const searchParams = useSearchParams();
+  const oauthErrorParam = searchParams.get("error");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    oauthErrorParam === "OAuthSignin" || oauthErrorParam === "Configuration"
+      ? "Google OAuth requires valid GOOGLE_CLIENT_ID & GOOGLE_CLIENT_SECRET in .env"
+      : null
+  );
   const [loading, setLoading] = useState(false);
 
   const emailError =
@@ -75,9 +84,22 @@ export function LoginForm() {
 
       <RememberMe checked={rememberMe} onCheckedChange={setRememberMe} />
 
-      <Button type="submit" className="mb-6 w-full" disabled={loading}>
+      <Button type="submit" className="mb-4 w-full" disabled={loading}>
         {loading ? "Logging in..." : "Login"}
       </Button>
+
+      <div className="relative my-5">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-slate-200" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-surface-card px-2 text-slate-500 font-medium">Or continue with</span>
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <GoogleAuthButton label="Sign in with Google" />
+      </div>
 
       <div className="space-y-2">
         <AuthFooterLink

@@ -3,6 +3,42 @@ import { prisma } from "@/lib/prisma";
 import { resetPasswordSchema } from "@/lib/validators";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const token = searchParams.get("token");
+
+    if (!token) {
+      return apiError("Missing reset token", [], 400);
+    }
+
+    const resetToken = await prisma.passwordResetToken.findUnique({
+      where: { token },
+      include: { user: true },
+    });
+
+    if (!resetToken) {
+      return apiError("This password reset link is invalid.", [], 400);
+    }
+
+    if (resetToken.used) {
+      return apiError("This password reset link has already been used.", [], 400);
+    }
+
+    if (resetToken.expiresAt.getTime() < Date.now()) {
+      return apiError("This password reset link has expired.", [], 400);
+    }
+
+    if (!resetToken.user.isActive) {
+      return apiError("User account is inactive.", [], 400);
+    }
+
+    return apiSuccess("Reset token is valid", { valid: true });
+  } catch (error) {
+    return apiError("An internal server error occurred", [(error as Error).message], 500);
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();

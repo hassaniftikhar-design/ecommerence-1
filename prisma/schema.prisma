@@ -13,56 +13,168 @@ enum Role {
 }
 
 model User {
-  id            String               @id @default(cuid())
+  id            String    @id @default(cuid())
   name          String
-  email         String               @unique
+  email         String    @unique
   phone         String
   password      String
-  role          Role                 @default(USER)
+  role          Role      @default(USER)
   emailVerified DateTime?
-  isActive      Boolean              @default(true)
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-  products      Product[]
-  resetTokens   PasswordResetToken[]
+  isActive      Boolean   @default(true)
+
+  products Product[]
+  cart     Cart?
+
+  resetTokens PasswordResetToken[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Category {
-  id       String    @id @default(cuid())
-  name     String    @unique
+  id   String @id @default(cuid())
+  name String @unique
+
   products Product[]
 }
 
 model Product {
   id          String   @id @default(cuid())
   name        String
-  price       Decimal
-  stock       Int
-  imageUrl    String
-  category    Category @relation(fields: [categoryId], references: [id])
-  categoryId  String
-  createdBy   User     @relation(fields: [createdById], references: [id])
+  description String?
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
   createdById String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdBy   User     @relation(fields: [createdById], references: [id])
+
+  options   ProductOption[]
+  variants  ProductVariant[]
+  cartItems CartItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProductOption {
+  id String @id @default(cuid())
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  name String
+
+  values ProductOptionValue[]
+
+  @@unique([productId, name])
+}
+
+model ProductOptionValue {
+  id String @id @default(cuid())
+
+  optionId String
+  option   ProductOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  value String
+
+  variantOptions VariantOption[]
+
+  @@unique([optionId, value])
+}
+
+model ProductVariant {
+  id String @id @default(cuid())
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  sku String @unique
+
+  price Decimal @db.Decimal(10, 2)
+
+  stock Int
+
+  images String[]
+
+  variantOptions VariantOption[]
+  cartItems      CartItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VariantOption {
+  id String @id @default(cuid())
+
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  optionValueId String
+  optionValue   ProductOptionValue @relation(fields: [optionValueId], references: [id], onDelete: Cascade)
+
+  @@unique([variantId, optionValueId])
+}
+
+model Cart {
+  id String @id @default(cuid())
+
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  sessionId String? @unique
+
+  items CartItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CartItem {
+  id String @id @default(cuid())
+
+  cartId String
+  cart   Cart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  quantity Int @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, productId, variantId])
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
-  token     String   @unique
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
+  id String @id @default(cuid())
+
+  token String @unique
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   expiresAt DateTime
-  used      Boolean  @default(false)
+
+  used Boolean @default(false)
+
   createdAt DateTime @default(now())
 }
 
 model VerificationToken {
-  id         String   @id @default(cuid())
+  id String @id @default(cuid())
+
   identifier String
-  token      String   @unique
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
+
+  token String @unique
+
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
 
   @@unique([identifier, token])
 }

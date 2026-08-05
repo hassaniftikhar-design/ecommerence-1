@@ -1,16 +1,18 @@
 import type { ReactNode } from "react";
+import { redirect } from "next/navigation";
+import { getServerAuthSession } from "@/lib/auth";
 
-// Shared by all four auth screens: centers a single child column on a
-// full-height, light-gray page background -- exactly the Figma frame
-// for Login/SignUp/Forgot Password/Reset Password. A route-group
-// layout (the "(auth)" folder) is the right Next.js tool here because
-// it applies shared UI to a set of routes without adding "/auth" to
-// any of their URLs.
-export default function AuthLayout({
+export default async function AuthLayout({
   children,
 }: {
   children: ReactNode;
 }) {
+  const session = await getServerAuthSession();
+
+  if (session) {
+    redirect("/");
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface-page px-4 py-12">
       <div className="w-full max-w-[576px]">{children}</div>

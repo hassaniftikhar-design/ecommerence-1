@@ -6,6 +6,11 @@ export default withAuth(
     const token = req.nextauth.token;
     const pathname = req.nextUrl.pathname;
 
+    // Prevent authenticated users from visiting login or signup pages
+    if (token && (pathname === "/login" || pathname === "/signup")) {
+      return NextResponse.redirect(new URL("/", req.url));
+    }
+
     // Admin routes protection
     if (pathname.startsWith("/admin")) {
       if (token?.role !== "ADMIN") {
@@ -33,5 +38,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ["/admin/:path*", "/orders/:path*", "/profile/:path*"],
+  matcher: ["/admin/:path*", "/orders/:path*", "/profile/:path*", "/login", "/signup"],
 };

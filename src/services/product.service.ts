@@ -7,6 +7,9 @@ interface ApiResponse<T = unknown> {
   errors?: string[];
 }
 
+const DEFAULT_PRODUCT_IMAGE =
+  "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80";
+
 async function parseApiResponse<T>(response: Response): Promise<T> {
   const json: ApiResponse<T> = await response.json();
   if (!response.ok || !json.success) {
@@ -36,26 +39,86 @@ export async function getProducts(): Promise<Product[]> {
   if (typeof window === "undefined") {
     const { prisma } = await import("@/lib/prisma");
     const products = await prisma.product.findMany({
-      select: {
-        id: true,
-        name: true,
-        price: true,
-        stock: true,
-        imageUrl: true,
+      include: {
         category: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
-        createdAt: true,
-        updatedAt: true,
+        options: {
+          include: { values: true },
+        },
+        variants: {
+          include: {
+            variantOptions: {
+              include: {
+                optionValue: {
+                  include: {
+                    option: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
       orderBy: { createdAt: "desc" },
     });
 
-    return products.map((product) => ({
-      ...product,
-      price: Number(product.price),
-      createdAt: product.createdAt.toISOString(),
-      updatedAt: product.updatedAt.toISOString(),
-    }));
+    return products.map((product) => {
+      const variantsFormatted = product.variants.map((v) => {
+        const attributes: Record<string, string> = {};
+        const variantOptionsInfo = v.variantOptions.map((vo) => {
+          const optionName = vo.optionValue.option.name;
+          const value = vo.optionValue.value;
+          attributes[optionName] = value;
+          return { optionName, value };
+        });
+
+        return {
+          id: v.id,
+          productId: v.productId,
+          sku: v.sku,
+          price: Number(v.price),
+          stock: v.stock,
+          images: v.images,
+          attributes,
+          variantOptions: variantOptionsInfo,
+          createdAt: v.createdAt.toISOString(),
+          updatedAt: v.updatedAt.toISOString(),
+        };
+      });
+
+      const prices = variantsFormatted.map((v) => v.price);
+      const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
+      const totalStock = variantsFormatted.reduce((acc, v) => acc + v.stock, 0);
+      const primaryImage =
+        variantsFormatted[0]?.images?.[0] || DEFAULT_PRODUCT_IMAGE;
+
+      return {
+        id: product.id,
+        name: product.name,
+        description: product.description,
+        category: product.category,
+        createdBy: product.createdBy,
+        options: product.options.map((opt) => ({
+          id: opt.id,
+          productId: opt.productId,
+          name: opt.name,
+          values: opt.values.map((val) => ({
+            id: val.id,
+            optionId: val.optionId,
+            value: val.value,
+          })),
+        })),
+        variants: variantsFormatted,
+        price: lowestPrice,
+        stock: totalStock,
+        imageUrl: primaryImage,
+        lowestPrice,
+        totalStock,
+        variantCount: variantsFormatted.length,
+        createdAt: product.createdAt.toISOString(),
+        updatedAt: product.updatedAt.toISOString(),
+      };
+    });
   }
 
   const response = await fetch("/api/products", {
@@ -70,16 +133,25 @@ export async function getProductById(id: string): Promise<Product> {
     const { prisma } = await import("@/lib/prisma");
     const product = await prisma.product.findUnique({
       where: { id },
-      select: {
-        id: true,
-        name: true,
-        price: true,
-        stock: true,
-        imageUrl: true,
+      include: {
         category: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
-        createdAt: true,
-        updatedAt: true,
+        options: {
+          include: { values: true },
+        },
+        variants: {
+          include: {
+            variantOptions: {
+              include: {
+                optionValue: {
+                  include: {
+                    option: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -87,9 +159,58 @@ export async function getProductById(id: string): Promise<Product> {
       throw new Error("Product not found");
     }
 
+    const variantsFormatted = product.variants.map((v) => {
+      const attributes: Record<string, string> = {};
+      const variantOptionsInfo = v.variantOptions.map((vo) => {
+        const optionName = vo.optionValue.option.name;
+        const value = vo.optionValue.value;
+        attributes[optionName] = value;
+        return { optionName, value };
+      });
+
+      return {
+        id: v.id,
+        productId: v.productId,
+        sku: v.sku,
+        price: Number(v.price),
+        stock: v.stock,
+        images: v.images,
+        attributes,
+        variantOptions: variantOptionsInfo,
+        createdAt: v.createdAt.toISOString(),
+        updatedAt: v.updatedAt.toISOString(),
+      };
+    });
+
+    const prices = variantsFormatted.map((v) => v.price);
+    const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
+    const totalStock = variantsFormatted.reduce((acc, v) => acc + v.stock, 0);
+    const primaryImage =
+      variantsFormatted[0]?.images?.[0] || DEFAULT_PRODUCT_IMAGE;
+
     return {
-      ...product,
-      price: Number(product.price),
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      category: product.category,
+      createdBy: product.createdBy,
+      options: product.options.map((opt) => ({
+        id: opt.id,
+        productId: opt.productId,
+        name: opt.name,
+        values: opt.values.map((val) => ({
+          id: val.id,
+          optionId: val.optionId,
+          value: val.value,
+        })),
+      })),
+      variants: variantsFormatted,
+      price: lowestPrice,
+      stock: totalStock,
+      imageUrl: primaryImage,
+      lowestPrice,
+      totalStock,
+      variantCount: variantsFormatted.length,
       createdAt: product.createdAt.toISOString(),
       updatedAt: product.updatedAt.toISOString(),
     };
@@ -102,13 +223,31 @@ export async function getProductById(id: string): Promise<Product> {
   return data.product;
 }
 
-export interface CreateProductInput {
+export interface CreateProductOptionInput {
   name: string;
+  values: string[];
+}
+
+export interface CreateProductVariantInput {
+  id?: string;
+  sku?: string;
   price: number;
   stock: number;
-  imageUrl?: string;
+  images?: string[];
+  attributes?: Record<string, string>;
+}
+
+export interface CreateProductInput {
+  name: string;
+  description?: string;
   categoryId?: string;
   categoryName?: string;
+  options?: CreateProductOptionInput[];
+  variants?: CreateProductVariantInput[];
+  // Single variant fallback fields
+  price?: number;
+  stock?: number;
+  imageUrl?: string;
 }
 
 export async function createProduct(payload: CreateProductInput): Promise<Product> {
@@ -126,7 +265,7 @@ export async function updateProduct(
   payload: Partial<CreateProductInput>
 ): Promise<Product> {
   const response = await fetch(`/api/products/${id}`, {
-    method: "PATCH",
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });

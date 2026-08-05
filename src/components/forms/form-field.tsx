@@ -1,4 +1,5 @@
 import * as React from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,27 +10,42 @@ interface FormFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   error?: string;
 }
 
-// Every text input across Login/Signup/Forgot/Reset follows the exact
-// same visual pattern: label above, input below, optional red helper
-// text under that. Composing Label+Input+error text once here means
-// each *Form.tsx only writes the field-specific bits (label text,
-// name, value, onChange) and gets the shared layout, spacing, and
-// aria-wiring for free.
 export const FormField = React.forwardRef<HTMLInputElement, FormFieldProps>(
-  ({ label, error, id, className, ...props }, ref) => {
+  ({ label, error, id, className, type = "text", ...props }, ref) => {
+    const [showPassword, setShowPassword] = React.useState(false);
     const inputId = id ?? props.name;
     const errorId = error ? `${inputId}-error` : undefined;
+    const isPasswordType = type === "password";
 
     return (
       <div className={cn("mb-5", className)}>
         <Label htmlFor={inputId}>{label}</Label>
-        <Input
-          id={inputId}
-          ref={ref}
-          aria-invalid={!!error}
-          aria-describedby={errorId}
-          {...props}
-        />
+        <div className="relative">
+          <Input
+            id={inputId}
+            ref={ref}
+            type={isPasswordType ? (showPassword ? "text" : "password") : type}
+            aria-invalid={!!error}
+            aria-describedby={errorId}
+            className={cn(isPasswordType && "pr-10", className)}
+            {...props}
+          />
+          {isPasswordType && (
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              tabIndex={-1}
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          )}
+        </div>
         {error && (
           <p id={errorId} role="alert" className="mt-1.5 text-sm text-danger">
             {error}

@@ -1,7 +1,15 @@
+import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, isAdmin } from "@/lib/server-auth";
 import { updateProductSchema } from "@/lib/validators";
 import { apiSuccess, apiError } from "@/lib/api-response";
+
+const DEFAULT_PRODUCT_IMAGE =
+  "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80";
+
+function generateSku(): string {
+  return `SKU-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`;
+}
 
 export async function GET(
   request: Request,
@@ -12,16 +20,27 @@ export async function GET(
 
     const product = await prisma.product.findUnique({
       where: { id },
-      select: {
-        id: true,
-        name: true,
-        price: true,
-        stock: true,
-        imageUrl: true,
+      include: {
         category: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
-        createdAt: true,
-        updatedAt: true,
+        options: {
+          include: {
+            values: true,
+          },
+        },
+        variants: {
+          include: {
+            variantOptions: {
+              include: {
+                optionValue: {
+                  include: {
+                    option: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -29,23 +48,85 @@ export async function GET(
       return apiError("Product not found", [], 404);
     }
 
+    const variantsFormatted = product.variants.map((v) => {
+      const attributes: Record<string, string> = {};
+      const variantOptionsInfo = v.variantOptions.map((vo) => {
+        const optionName = vo.optionValue.option.name;
+        const value = vo.optionValue.value;
+        attributes[optionName] = value;
+        return { optionName, value };
+      });
+
+      return {
+        id: v.id,
+        productId: v.productId,
+        sku: v.sku,
+        price: Number(v.price),
+        stock: v.stock,
+        images: v.images,
+        attributes,
+        variantOptions: variantOptionsInfo,
+        createdAt: v.createdAt.toISOString(),
+        updatedAt: v.updatedAt.toISOString(),
+      };
+    });
+
+    const prices = variantsFormatted.map((v) => v.price);
+    const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
+    const totalStock = variantsFormatted.reduce((acc, v) => acc + v.stock, 0);
+    const primaryImage =
+      variantsFormatted[0]?.images?.[0] || DEFAULT_PRODUCT_IMAGE;
+
     const formattedProduct = {
-      ...product,
-      price: Number(product.price),
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      category: product.category,
+      createdBy: product.createdBy,
+      options: product.options.map((opt) => ({
+        id: opt.id,
+        productId: opt.productId,
+        name: opt.name,
+        values: opt.values.map((val) => ({
+          id: val.id,
+          optionId: val.optionId,
+          value: val.value,
+        })),
+      })),
+      variants: variantsFormatted,
+      price: lowestPrice,
+      stock: totalStock,
+      imageUrl: primaryImage,
+      lowestPrice,
+      totalStock,
+      variantCount: variantsFormatted.length,
       createdAt: product.createdAt.toISOString(),
       updatedAt: product.updatedAt.toISOString(),
     };
 
-    return apiSuccess("Product retrieved successfully", { product: formattedProduct });
+    return apiSuccess("Product retrieved successfully", {
+      product: formattedProduct,
+    });
   } catch (error) {
     return apiError("Failed to fetch product", [(error as Error).message], 500);
   }
+}
+
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return handleUpdate(request, await params);
 }
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  return handleUpdate(request, await params);
+}
+
+async function handleUpdate(request: Request, { id }: { id: string }) {
   try {
     const user = await getCurrentUser(request);
 
@@ -53,16 +134,15 @@ export async function PATCH(
       return apiError("Forbidden: Only ADMIN users can update products", [], 403);
     }
 
-    const { id } = await params;
     const body = await request.json();
 
-    // Do not allow overriding createdById
     if (body.createdById) {
       delete body.createdById;
     }
 
     const existingProduct = await prisma.product.findUnique({
       where: { id },
+      include: { options: true, variants: true },
     });
 
     if (!existingProduct) {
@@ -78,7 +158,17 @@ export async function PATCH(
       return apiError("Validation failed", issueErrors, 400);
     }
 
-    const { name, price, stock, imageUrl, categoryId, categoryName } = parsed.data;
+    const {
+      name,
+      description,
+      categoryId,
+      categoryName,
+      options,
+      variants,
+      price,
+      stock,
+      imageUrl,
+    } = parsed.data;
 
     let targetCategoryId = categoryId;
 
@@ -91,29 +181,182 @@ export async function PATCH(
       targetCategoryId = category.id;
     }
 
-    const updatedProduct = await prisma.product.update({
+    await prisma.$transaction(async (tx) => {
+      // 1. Update Base Product Info
+      await tx.product.update({
+        where: { id },
+        data: {
+          ...(name !== undefined ? { name: name.trim() } : {}),
+          ...(description !== undefined ? { description: description ? description.trim() : null } : {}),
+          ...(targetCategoryId ? { categoryId: targetCategoryId } : {}),
+        },
+      });
+
+      // 2. If options are explicitly provided, replace options & optionValues
+      if (options !== undefined) {
+        await tx.productOption.deleteMany({
+          where: { productId: id },
+        });
+
+        const optionValueMap: Record<string, string> = {};
+
+        for (const opt of options) {
+          const createdOpt = await tx.productOption.create({
+            data: {
+              productId: id,
+              name: opt.name.trim(),
+            },
+          });
+
+          for (const valStr of opt.values) {
+            const valTrimmed = valStr.trim();
+            const createdVal = await tx.productOptionValue.create({
+              data: {
+                optionId: createdOpt.id,
+                value: valTrimmed,
+              },
+            });
+            optionValueMap[`${opt.name.trim()}:${valTrimmed}`] = createdVal.id;
+          }
+        }
+
+        // Replace Variants if provided
+        if (variants !== undefined && variants.length > 0) {
+          await tx.productVariant.deleteMany({
+            where: { productId: id },
+          });
+
+          for (const v of variants) {
+            const variantSku = v.sku || generateSku();
+            const createdVariant = await tx.productVariant.create({
+              data: {
+                productId: id,
+                sku: variantSku,
+                price: v.price,
+                stock: v.stock,
+                images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE],
+              },
+            });
+
+            if (v.attributes) {
+              for (const [attrName, attrValue] of Object.entries(v.attributes)) {
+                const valId = optionValueMap[`${attrName.trim()}:${attrValue.trim()}`];
+                if (valId) {
+                  await tx.variantOption.create({
+                    data: {
+                      variantId: createdVariant.id,
+                      optionValueId: valId,
+                    },
+                  });
+                }
+              }
+            }
+          }
+        }
+      } else if (variants !== undefined && variants.length > 0) {
+        // Options not provided, but variants provided
+        await tx.productVariant.deleteMany({
+          where: { productId: id },
+        });
+
+        for (const v of variants) {
+          const variantSku = v.sku || generateSku();
+          await tx.productVariant.create({
+            data: {
+              productId: id,
+              sku: variantSku,
+              price: v.price,
+              stock: v.stock,
+              images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE],
+            },
+          });
+        }
+      } else if (price !== undefined || stock !== undefined || imageUrl !== undefined) {
+        // Update first variant for single product updates
+        const firstVariant = existingProduct.variants[0];
+        if (firstVariant) {
+          await tx.productVariant.update({
+            where: { id: firstVariant.id },
+            data: {
+              ...(price !== undefined ? { price } : {}),
+              ...(stock !== undefined ? { stock } : {}),
+              ...(imageUrl !== undefined ? { images: [imageUrl || DEFAULT_PRODUCT_IMAGE] } : {}),
+            },
+          });
+        }
+      }
+    });
+
+    // Re-fetch updated full product
+    const fullProduct = await prisma.product.findUnique({
       where: { id },
-      data: {
-        ...(name !== undefined ? { name } : {}),
-        ...(price !== undefined ? { price } : {}),
-        ...(stock !== undefined ? { stock } : {}),
-        ...(imageUrl !== undefined ? { imageUrl } : {}),
-        ...(targetCategoryId ? { categoryId: targetCategoryId } : {}),
-      },
       include: {
         category: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
+        options: { include: { values: true } },
+        variants: {
+          include: {
+            variantOptions: {
+              include: { optionValue: { include: { option: true } } },
+            },
+          },
+        },
       },
     });
 
+    if (!fullProduct) {
+      return apiError("Product updated but could not be retrieved", [], 500);
+    }
+
+    const variantsFormatted = fullProduct.variants.map((v) => {
+      const attributes: Record<string, string> = {};
+      const variantOptionsInfo = v.variantOptions.map((vo) => {
+        const optionName = vo.optionValue.option.name;
+        const value = vo.optionValue.value;
+        attributes[optionName] = value;
+        return { optionName, value };
+      });
+      return {
+        id: v.id,
+        productId: v.productId,
+        sku: v.sku,
+        price: Number(v.price),
+        stock: v.stock,
+        images: v.images,
+        attributes,
+        variantOptions: variantOptionsInfo,
+        createdAt: v.createdAt.toISOString(),
+        updatedAt: v.updatedAt.toISOString(),
+      };
+    });
+
+    const prices = variantsFormatted.map((v) => v.price);
+    const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
+    const totalStock = variantsFormatted.reduce((acc, v) => acc + v.stock, 0);
+    const primaryImage =
+      variantsFormatted[0]?.images?.[0] || DEFAULT_PRODUCT_IMAGE;
+
     const formattedProduct = {
-      ...updatedProduct,
-      price: Number(updatedProduct.price),
-      createdAt: updatedProduct.createdAt.toISOString(),
-      updatedAt: updatedProduct.updatedAt.toISOString(),
+      id: fullProduct.id,
+      name: fullProduct.name,
+      description: fullProduct.description,
+      category: fullProduct.category,
+      createdBy: fullProduct.createdBy,
+      options: fullProduct.options,
+      variants: variantsFormatted,
+      price: lowestPrice,
+      stock: totalStock,
+      imageUrl: primaryImage,
+      lowestPrice,
+      totalStock,
+      variantCount: variantsFormatted.length,
+      createdAt: fullProduct.createdAt.toISOString(),
+      updatedAt: fullProduct.updatedAt.toISOString(),
     };
 
-    return apiSuccess("Product updated successfully", { product: formattedProduct });
+    return apiSuccess("Product updated successfully", {
+      product: formattedProduct,
+    });
   } catch (error) {
     return apiError("Failed to update product", [(error as Error).message], 500);
   }

@@ -1,19 +1,19 @@
 export interface CartItemColor {
   name: string;
-  /** Swatch dot color -- product data, not a design token, so it's a
-   * raw hex per item rather than a Tailwind class. */
-  hex: string;
+  hex?: string;
 }
 
 export interface CartItem {
   id: string;
   productId: string;
+  variantId?: string | null;
   name: string;
   imageUrl: string;
-  color: CartItemColor;
-  size: string;
+  color?: CartItemColor | string;
+  size?: string;
   price: number;
   quantity: number;
+  totalPrice: number;
 }
 
 export interface CartTotals {

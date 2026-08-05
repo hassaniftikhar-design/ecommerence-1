@@ -14,6 +14,7 @@ export const MOCK_CART_ITEMS: CartItem[] = Array.from(
     size: "34",
     price: 0,
     quantity: 2,
+    totalPrice: 0,
   }),
 );
 

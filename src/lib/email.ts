@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { PASSWORD_RESET_EXPIRATION_MINUTES } from "@/constants";
 
 const smtpHost = process.env.SMTP_HOST;
 const smtpPort = process.env.SMTP_PORT;
@@ -65,11 +66,12 @@ export async function sendResetPasswordEmail(
   const origin = nextAuthUrl ?? "http://localhost:3000";
   const resetUrl = `${origin}/reset-password?token=${encodeURIComponent(token)}`;
   const subject = "Reset your E-commerce password";
-  const text = `You requested a password reset. Click the link below to choose a new password:\n\n${resetUrl}\n\nIf you did not request this, ignore this message.`;
-  const html = `<p>You requested a password reset.</p><p><a href="${resetUrl}">Click here to reset your password</a></p><p>If you did not request this, ignore this email.</p>`;
+  const text = `You requested a password reset. Click here to reset your password: ${resetUrl}\n\nThis link will expire in ${PASSWORD_RESET_EXPIRATION_MINUTES} minutes.\n\nIf you did not request this, ignore this message.`;
+  const html = `<p>You requested a password reset. Click <a href="${resetUrl}" style="text-decoration: underline;">here</a> to reset your password.</p><p>This link will expire in ${PASSWORD_RESET_EXPIRATION_MINUTES} minutes.</p><p>If you did not request this, ignore this email.</p>`;
 
   console.log(`\n🔑 PASSWORD RESET LINK FOR ${to}:`);
-  console.log(`👉 ${resetUrl}\n`);
+  console.log(`👉 ${resetUrl}`);
+  console.log(`⏱️ Expiry: ${PASSWORD_RESET_EXPIRATION_MINUTES} minutes\n`);
 
   await sendEmail({ to, subject, text, html });
 }

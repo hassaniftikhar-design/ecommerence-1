@@ -118,13 +118,13 @@ export default function AdminOrderDetailPage({
                     </div>
                   </TableCell>
                   <TableCell className="text-xs sm:text-sm text-slate-700 font-medium">
-                    ${item.price.toFixed(2)}
+                    ${Number(item.price || 0).toFixed(2)}
                   </TableCell>
                   <TableCell className="text-xs sm:text-sm text-slate-700 font-medium">
                     12
                   </TableCell>
                   <TableCell className="text-xs sm:text-sm text-slate-700 font-medium">
-                    {item.stock}
+                    {item.stock || 0}
                   </TableCell>
                 </TableRow>
               ))}

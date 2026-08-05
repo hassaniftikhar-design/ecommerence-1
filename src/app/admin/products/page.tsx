@@ -98,66 +98,79 @@ export default function AdminProductsPage() {
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50/70 border-b border-slate-200">
-              <TableHead className="w-[50%] font-semibold text-slate-600">Title</TableHead>
-              <TableHead className="font-semibold text-slate-600">Price</TableHead>
-              <TableHead className="font-semibold text-slate-600">Stock</TableHead>
+              <TableHead className="w-[45%] font-semibold text-slate-600">Title</TableHead>
+              <TableHead className="font-semibold text-slate-600">Lowest Price</TableHead>
+              <TableHead className="font-semibold text-slate-600">Total Stock</TableHead>
+              <TableHead className="font-semibold text-slate-600">Variants</TableHead>
               <TableHead className="text-right font-semibold text-slate-600">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedProducts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="h-32 text-center text-slate-400">
+                <TableCell colSpan={5} className="h-32 text-center text-slate-400">
                   No products found. Click "+ Add a Single Product" to create one.
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedProducts.map((product) => (
-                <TableRow key={product.id} className="hover:bg-slate-50/50 border-b border-slate-100">
-                  <TableCell className="py-3">
-                    <div className="flex items-start gap-3">
-                      <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        className="h-10 w-10 shrink-0 rounded object-cover border border-slate-200"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80";
-                        }}
-                      />
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-medium text-slate-700 line-clamp-2">
-                          {product.name}
-                        </p>
+              paginatedProducts.map((product) => {
+                const displayPrice = product.lowestPrice ?? product.price ?? 0;
+                const displayStock = product.totalStock ?? product.stock ?? 0;
+                const displayVariantCount = product.variantCount ?? product.variants?.length ?? 1;
+                const displayImage = product.imageUrl || product.variants?.[0]?.images?.[0];
+
+                return (
+                  <TableRow key={product.id} className="hover:bg-slate-50/50 border-b border-slate-100">
+                    <TableCell className="py-3">
+                      <div className="flex items-start gap-3">
+                        <img
+                          src={displayImage}
+                          alt={product.name}
+                          className="h-10 w-10 shrink-0 rounded object-cover border border-slate-200"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80";
+                          }}
+                        />
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-medium text-slate-700 line-clamp-2">
+                            {product.name}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-xs sm:text-sm text-slate-700 font-medium">
-                    ${Number(product.price).toFixed(2)}
-                  </TableCell>
-                  <TableCell className="text-xs sm:text-sm text-slate-700 font-medium">
-                    {product.stock}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-3">
-                      <Link
-                        href={`/admin/products/edit/${product.id}`}
-                        className="text-blue-500 hover:text-blue-700 p-1"
-                        title="Edit Product"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Link>
-                      <button
-                        onClick={() => handleDelete(product.id)}
-                        className="text-red-500 hover:text-red-700 p-1"
-                        title="Delete Product"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                    </TableCell>
+                    <TableCell className="text-xs sm:text-sm text-slate-700 font-medium">
+                      ${Number(displayPrice).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-xs sm:text-sm text-slate-700 font-medium">
+                      {displayStock}
+                    </TableCell>
+                    <TableCell className="text-xs sm:text-sm text-slate-600 font-medium">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-50 text-[#007BFF]">
+                        {displayVariantCount} {displayVariantCount === 1 ? "variant" : "variants"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-3">
+                        <Link
+                          href={`/admin/products/edit/${product.id}`}
+                          className="text-blue-500 hover:text-blue-700 p-1"
+                          title="Edit Product"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Link>
+                        <button
+                          onClick={() => handleDelete(product.id)}
+                          className="text-red-500 hover:text-red-700 p-1"
+                          title="Delete Product"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

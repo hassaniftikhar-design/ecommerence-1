@@ -82,41 +82,50 @@ export const changePasswordSchema = z
     }
   });
 
+export const productOptionSchema = z.object({
+  name: z.string().min(1, "Option name is required"),
+  values: z.array(z.string().min(1, "Option value cannot be empty")).min(1, "At least one value is required"),
+});
+
+export const productVariantSchema = z.object({
+  id: z.string().optional(),
+  sku: z.string().optional(),
+  price: z.number().positive("Price must be greater than zero"),
+  stock: z.number().int().nonnegative("Stock must be zero or greater"),
+  images: z.array(z.string()).default([]),
+  attributes: z.record(z.string()).default({}),
+});
+
 export const createProductSchema = z
   .object({
     name: z.string().min(1, "Product name is required"),
-    price: z.number().positive("Price must be greater than zero"),
-    stock: z.number().int().nonnegative("Stock must be zero or greater"),
-    imageUrl: z.string().optional().or(z.literal("")),
+    description: z.string().optional().nullable(),
     categoryId: z.string().optional(),
-    categoryName: z.string().min(1, "Category name is required").optional(),
+    categoryName: z.string().optional(),
+    options: z.array(productOptionSchema).default([]),
+    variants: z.array(productVariantSchema).default([]),
+    // Backward-compatibility single variant fields
+    price: z.number().positive().optional(),
+    stock: z.number().int().nonnegative().optional(),
+    imageUrl: z.string().optional().or(z.literal("")),
   })
   .refine(
     (data) => Boolean(data.categoryId) || Boolean(data.categoryName),
     {
-      message: "Category ID or name is required",
+      message: "Category is required",
       path: ["categoryName"],
-    },
+    }
   );
 
 export const updateProductSchema = z
   .object({
     name: z.string().min(1).optional(),
+    description: z.string().optional().nullable(),
+    categoryId: z.string().optional(),
+    categoryName: z.string().optional(),
+    options: z.array(productOptionSchema).optional(),
+    variants: z.array(productVariantSchema).optional(),
     price: z.number().positive().optional(),
     stock: z.number().int().nonnegative().optional(),
     imageUrl: z.string().optional().or(z.literal("")),
-    categoryId: z.string().optional(),
-    categoryName: z.string().min(1).optional(),
-  })
-  .refine(
-    (data) =>
-      Boolean(data.categoryId) || Boolean(data.categoryName) ||
-      Boolean(data.name) ||
-      data.price !== undefined ||
-      data.stock !== undefined ||
-      data.imageUrl !== undefined,
-    {
-      message: "At least one field is required for update",
-      path: ["name"],
-    },
-  );
+  });
