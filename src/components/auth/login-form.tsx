@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
+import { getSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
 import { AuthFooterLink } from "@/components/auth/auth-footer-link";
@@ -43,7 +44,12 @@ export function LoginForm() {
     try {
       setLoading(true);
       await login(payload);
-      window.location.href = "/";
+      const session = await getSession();
+      if (session?.user?.role === "ADMIN") {
+        window.location.href = ROUTES.adminProducts;
+      } else {
+        window.location.href = ROUTES.home;
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {

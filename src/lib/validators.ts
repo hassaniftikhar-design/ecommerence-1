@@ -129,3 +129,46 @@ export const updateProductSchema = z
     stock: z.number().int().nonnegative().optional(),
     imageUrl: z.string().optional().or(z.literal("")),
   });
+
+export const productVariantItemSchema = z.object({
+  id: z.string().optional(),
+  color: z.string().trim().min(1, "Color is required"),
+  size: z.string().trim().min(1, "Size is required"),
+  quantity: z
+    .number({ invalid_type_error: "Quantity must be a number" })
+    .int("Quantity must be an integer")
+    .gt(0, "Quantity must be greater than 0"),
+});
+
+export const productFormSchema = z
+  .object({
+    name: z.string().trim().min(1, "Product Name is required"),
+    description: z.string().optional(),
+    categoryName: z.string().trim().min(1, "Category is required"),
+    price: z
+      .number({ invalid_type_error: "Price must be a number" })
+      .gt(0, "Price must be greater than 0"),
+    imageUrl: z.string().optional(),
+    variants: z
+      .array(productVariantItemSchema)
+      .min(1, "At least one variant is required"),
+  })
+  .superRefine((data, ctx) => {
+    const seenCombos = new Set<string>();
+    data.variants.forEach((v, index) => {
+      if (v.color && v.size) {
+        const comboKey = `${v.color.trim().toLowerCase()}:${v.size.trim().toLowerCase()}`;
+        if (seenCombos.has(comboKey)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Duplicate Color (${v.color}) and Size (${v.size}) combination`,
+            path: ["variants", index, "color"],
+          });
+        }
+        seenCombos.add(comboKey);
+      }
+    });
+  });
+
+export type ProductFormSchemaValues = z.infer<typeof productFormSchema>;
+

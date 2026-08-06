@@ -1,51 +1,24 @@
-import type { Metadata } from "next";
+"use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { BackHeading } from "@/components/common/back-heading";
-import { OrdersTable } from "@/components/orders/orders-table";
-import { Pagination } from "@/components/ui/pagination";
-import {
-  MOCK_ORDERS,
-  MOCK_ORDERS_PAGE_SIZE,
-  MOCK_ORDERS_TOTAL_COUNT,
-} from "@/constants/mock-orders";
+import { OrdersModal } from "@/components/orders/orders-modal";
 import { ROUTES } from "@/constants/routes";
 
-export const metadata: Metadata = {
-  title: "Orders",
-  description: "View your past orders.",
-  openGraph: { title: "Orders | E-commerce" },
-};
+export default function OrdersPage() {
+  const router = useRouter();
+  const [modalOpen, setModalOpen] = useState(true);
 
-// Server Component that reads the page number straight from the URL's
-// search params -- Next.js passes `searchParams` to page components
-// for free, so pagination needs zero client-side state (see
-// components/ui/pagination.tsx for the other half of this).
-// TODO(backend-integration): pass the parsed page number to
-// order.service.ts#getOrders(page) once it reads from a real,
-// paginated "orders" table.
-export default async function OrdersPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ page?: string }>;
-}) {
-  const resolvedParams = await searchParams;
-  const currentPage = Math.max(1, Number(resolvedParams?.page) || 1);
-  const totalPages = Math.ceil(
-    MOCK_ORDERS_TOTAL_COUNT / MOCK_ORDERS_PAGE_SIZE,
-  );
+  const handleClose = () => {
+    setModalOpen(false);
+    router.push(ROUTES.home);
+  };
 
   return (
-    <>
-      <BackHeading title="Orders" href={ROUTES.home} />
-      <OrdersTable orders={MOCK_ORDERS} />
-      <div className="mt-6 flex flex-col items-center justify-between gap-4 sm:flex-row">
-        <p className="text-meta">{MOCK_ORDERS_TOTAL_COUNT} Total Count</p>
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          basePath={ROUTES.orders}
-        />
-      </div>
-    </>
+    <div className="space-y-6 max-w-6xl mx-auto pb-12">
+      <BackHeading title="My Orders" href={ROUTES.home} />
+      <OrdersModal isOpen={modalOpen} onClose={handleClose} />
+    </div>
   );
 }

@@ -110,6 +110,8 @@ async function formatCartResponse(cartId: string) {
       item.product.variants[0]?.images[0] ||
       DEFAULT_PRODUCT_IMAGE;
 
+    const itemStock = item.variant ? item.variant.stock : 50;
+
     return {
       id: item.id,
       productId: item.productId,
@@ -120,6 +122,7 @@ async function formatCartResponse(cartId: string) {
       size: sizeVal || "-",
       price: unitPrice,
       quantity: item.quantity,
+      stock: itemStock,
       totalPrice,
     };
   });

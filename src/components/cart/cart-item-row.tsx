@@ -67,6 +67,7 @@ export function CartItemRow({
       <TableCell>
         <QuantitySelector
           initialValue={item.quantity}
+          max={item.stock}
           onChange={(newQty) => onUpdateQuantity(item.id, newQty)}
         />
       </TableCell>

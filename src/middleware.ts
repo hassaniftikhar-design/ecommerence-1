@@ -6,8 +6,12 @@ export default withAuth(
     const token = req.nextauth.token;
     const pathname = req.nextUrl.pathname;
 
-    // Prevent authenticated users from visiting login or signup pages
-    if (token && (pathname === "/login" || pathname === "/signup")) {
+    // Redirect logged-in admin away from home page or auth pages to admin products
+    if (token && token.role === "ADMIN") {
+      if (pathname === "/" || pathname === "/login" || pathname === "/signup") {
+        return NextResponse.redirect(new URL("/admin/products", req.url));
+      }
+    } else if (token && (pathname === "/login" || pathname === "/signup")) {
       return NextResponse.redirect(new URL("/", req.url));
     }
 
@@ -24,7 +28,6 @@ export default withAuth(
     callbacks: {
       authorized: ({ token, req }) => {
         const pathname = req.nextUrl.pathname;
-        // Require authentication for /admin, /orders, /profile
         if (pathname.startsWith("/admin") || pathname.startsWith("/orders") || pathname.startsWith("/profile")) {
           return Boolean(token);
         }
@@ -38,5 +41,5 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ["/admin/:path*", "/orders/:path*", "/profile/:path*", "/login", "/signup"],
+  matcher: ["/", "/admin/:path*", "/orders/:path*", "/profile/:path*", "/login", "/signup"],
 };

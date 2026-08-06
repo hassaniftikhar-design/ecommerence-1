@@ -72,7 +72,9 @@ export async function clearCart(): Promise<CartResponseData> {
 }
 
 export async function placeOrder(): Promise<{ orderId: string }> {
-  // Clear cart on place order
-  await clearCart();
-  return { orderId: `ORD-${Date.now().toString(36).toUpperCase()}` };
+  const response = await fetch("/api/orders", {
+    method: "POST",
+  });
+  return parseApiResponse<{ orderId: string }>(response);
 }
+

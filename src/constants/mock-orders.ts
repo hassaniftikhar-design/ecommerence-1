@@ -1,8 +1,7 @@
-import type { OrderDetail, OrderListItem } from "@/types/order.types";
+import type { OrderDetail, OrderListItem, OrderStatusType } from "@/types/order.types";
 
-// TODO(backend-integration): stand-in for
-// order.service.ts#getOrders(page), which will paginate a real
-// "orders" table via Prisma.
+const statuses: OrderStatusType[] = ["DELIVERED", "IN_PROGRESS", "DISPATCHED", "REJECTED"];
+
 export const MOCK_ORDERS: OrderListItem[] = Array.from(
   { length: 8 },
   (_, i) => ({
@@ -10,23 +9,26 @@ export const MOCK_ORDERS: OrderListItem[] = Array.from(
     date: "22 March 2023",
     orderNumber: `${342590 + i}`,
     user: "Jackson Smith",
-    productsCount: 3,
+    productsCount: 45,
     amount: 0,
+    status: statuses[i % statuses.length] || "IN_PROGRESS",
   }),
 );
 
 export const MOCK_ORDERS_TOTAL_COUNT = 42;
 export const MOCK_ORDERS_PAGE_SIZE = 8;
 
-// TODO(backend-integration): stand-in for
-// order.service.ts#getOrderById(id).
 export const MOCK_ORDER_DETAIL: OrderDetail = {
   id: "342599",
   date: "23 March 2023",
   orderNumber: "342599",
   user: "Jackson Smith",
   productsCount: 3,
-  amount: 0,
+  amount: 28420,
+  subTotal: 29401,
+  tax: 19,
+  totalAmount: 28420,
+  status: "DELIVERED",
   products: Array.from({ length: 7 }, (_, i) => ({
     id: `order-line-${i + 1}`,
     title:

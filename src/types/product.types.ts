@@ -55,3 +55,26 @@ export interface Product {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ProductVariantItem {
+  id?: string;
+  color: string;
+  size: string;
+  quantity: number;
+}
+
+export interface ProductFormValues {
+  name: string;
+  description?: string;
+  categoryName: string;
+  price: number;
+  imageUrl?: string;
+  variants: ProductVariantItem[];
+}
+
+export interface ProductFormProps {
+  mode: "create" | "edit";
+  initialData?: Product;
+  onSubmitSuccess?: () => void;
+}
+

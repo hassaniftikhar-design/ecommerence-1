@@ -1,6 +1,7 @@
+"use client";
+
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
-
 import {
   Table,
   TableBody,
@@ -10,43 +11,106 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ROUTES } from "@/constants/routes";
-import type { OrderListItem } from "@/types/order.types";
+import type { OrderListItem, OrderStatusType } from "@/types/order.types";
+import { cn } from "@/lib/utils";
 
-// Server Component: a static list with a Link per row -- no client
-// state needed, so (unlike CartTable) this never needs "use client".
-export function OrdersTable({ orders }: { orders: OrderListItem[] }) {
+interface OrdersTableProps {
+  orders: OrderListItem[];
+  onSelectOrder?: (orderId: string) => void;
+}
+
+export function renderStatusBadge(status: OrderStatusType) {
+  let label = "In Progress";
+  let badgeStyle = "bg-[#F59E0B] text-white";
+
+  switch (status) {
+    case "DELIVERED":
+      label = "Delivered";
+      badgeStyle = "bg-[#22C55E] text-white";
+      break;
+    case "IN_PROGRESS":
+      label = "In Progress";
+      badgeStyle = "bg-[#F59E0B] text-white";
+      break;
+    case "DISPATCHED":
+      label = "Dispatched";
+      badgeStyle = "bg-[#007BFF] text-white";
+      break;
+    case "REJECTED":
+      label = "Rejected";
+      badgeStyle = "bg-[#EF4444] text-white";
+      break;
+    default:
+      label = "In Progress";
+      badgeStyle = "bg-[#F59E0B] text-white";
+  }
+
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Date</TableHead>
-          <TableHead>Order #</TableHead>
-          <TableHead>User</TableHead>
-          <TableHead>Product(s)</TableHead>
-          <TableHead>Amount</TableHead>
-          <TableHead>Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {orders.map((order) => (
-          <TableRow key={order.id}>
-            <TableCell>{order.date}</TableCell>
-            <TableCell>{order.orderNumber}</TableCell>
-            <TableCell>{order.user}</TableCell>
-            <TableCell>{order.productsCount}</TableCell>
-            <TableCell>${order.amount.toFixed(2)}</TableCell>
-            <TableCell>
-              <Link
-                href={ROUTES.orderDetail(order.id)}
-                aria-label={`View order ${order.orderNumber}`}
-                className="text-ink hover:text-primary"
-              >
-                <ArrowUpRight className="h-5 w-5" />
-              </Link>
-            </TableCell>
+    <span
+      className={cn(
+        "inline-flex items-center justify-center px-3 py-1 rounded-md text-xs font-semibold min-w-[90px] text-center shadow-xs",
+        badgeStyle
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+export function OrdersTable({ orders, onSelectOrder }: OrdersTableProps) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-slate-50/60 border-b border-slate-200">
+            <TableHead className="font-semibold text-slate-600 text-xs py-3.5">Date</TableHead>
+            <TableHead className="font-semibold text-slate-600 text-xs py-3.5">Order #</TableHead>
+            <TableHead className="font-semibold text-slate-600 text-xs py-3.5">Number of Product(s)</TableHead>
+            <TableHead className="font-semibold text-slate-600 text-xs py-3.5">Amount</TableHead>
+            <TableHead className="font-semibold text-slate-600 text-xs py-3.5">Order Status</TableHead>
+            <TableHead className="font-semibold text-slate-600 text-xs py-3.5 text-right">Actions</TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {orders.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={6} className="h-32 text-center text-slate-400 text-xs">
+                No orders found.
+              </TableCell>
+            </TableRow>
+          ) : (
+            orders.map((order) => (
+              <TableRow key={order.id} className="hover:bg-slate-50/80 border-b border-slate-100">
+                <TableCell className="text-slate-700 text-xs font-medium py-3.5">{order.date}</TableCell>
+                <TableCell className="text-slate-700 text-xs font-medium py-3.5">{order.orderNumber}</TableCell>
+                <TableCell className="text-slate-700 text-xs font-medium py-3.5">{order.productsCount}</TableCell>
+                <TableCell className="text-slate-700 text-xs font-medium py-3.5">${order.amount.toFixed(2)}</TableCell>
+                <TableCell className="py-3.5">{renderStatusBadge(order.status)}</TableCell>
+                <TableCell className="py-3.5 text-right">
+                  {onSelectOrder ? (
+                    <button
+                      type="button"
+                      onClick={() => onSelectOrder(order.id)}
+                      aria-label={`View order ${order.orderNumber}`}
+                      className="text-slate-600 hover:text-[#007BFF] transition inline-flex p-1"
+                    >
+                      <ArrowUpRight className="h-5 w-5" />
+                    </button>
+                  ) : (
+                    <Link
+                      href={ROUTES.orderDetail(order.id)}
+                      aria-label={`View order ${order.orderNumber}`}
+                      className="text-slate-600 hover:text-[#007BFF] transition inline-flex p-1"
+                    >
+                      <ArrowUpRight className="h-5 w-5" />
+                    </Link>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </div>
   );
 }

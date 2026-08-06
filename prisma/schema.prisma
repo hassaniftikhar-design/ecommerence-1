@@ -24,6 +24,7 @@ model User {
 
   products Product[]
   cart     Cart?
+  orders   Order[]
 
   resetTokens PasswordResetToken[]
 
@@ -49,9 +50,10 @@ model Product {
   createdById String
   createdBy   User     @relation(fields: [createdById], references: [id])
 
-  options   ProductOption[]
-  variants  ProductVariant[]
-  cartItems CartItem[]
+  options    ProductOption[]
+  variants   ProductVariant[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -99,6 +101,7 @@ model ProductVariant {
 
   variantOptions VariantOption[]
   cartItems      CartItem[]
+  orderItems     OrderItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -178,3 +181,45 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+enum OrderStatus {
+  IN_PROGRESS
+  DISPATCHED
+  DELIVERED
+  REJECTED
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  orderNumber String      @unique
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      OrderStatus @default(IN_PROGRESS)
+  subTotal    Decimal     @db.Decimal(10, 2)
+  tax         Decimal     @db.Decimal(10, 2)
+  totalAmount Decimal     @db.Decimal(10, 2)
+
+  items OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+
+  title     String
+  price     Decimal  @db.Decimal(10, 2)
+  quantity  Int
+  stock     Int      @default(0)
+  imageUrl  String
+
+  createdAt DateTime @default(now())
+}
+

@@ -5,11 +5,13 @@ import { Minus, Plus } from "lucide-react";
 
 interface QuantitySelectorProps {
   initialValue: number;
+  max?: number;
   onChange?: (quantity: number) => void;
 }
 
 export function QuantitySelector({
   initialValue,
+  max,
   onChange,
 }: QuantitySelectorProps) {
   const [quantity, setQuantity] = useState(initialValue);
@@ -19,6 +21,7 @@ export function QuantitySelector({
   }, [initialValue]);
 
   const handleIncrement = () => {
+    if (max !== undefined && quantity >= max) return;
     const nextVal = quantity + 1;
     setQuantity(nextVal);
     onChange?.(nextVal);
@@ -33,6 +36,7 @@ export function QuantitySelector({
   };
 
   const formattedQuantity = quantity < 10 ? `0${quantity}` : String(quantity);
+  const isMaxReached = max !== undefined && quantity >= max;
 
   return (
     <div className="flex w-auto items-center gap-0.5 max-[395px]:w-full max-[395px]:justify-between max-[395px]:gap-1 @xs:gap-1">
@@ -56,8 +60,9 @@ export function QuantitySelector({
       <button
         type="button"
         onClick={handleIncrement}
+        disabled={isMaxReached}
         aria-label="Increase quantity"
-        className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-[#E2E8F0] text-[#007BFF] transition-colors hover:bg-gray-50 max-[395px]:h-8 max-[395px]:w-8 @xs:h-8 @xs:w-8"
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-[#E2E8F0] text-[#007BFF] transition-colors hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed max-[395px]:h-8 max-[395px]:w-8 @xs:h-8 @xs:w-8"
       >
         <Plus className="h-3 w-3 max-[395px]:h-4 max-[395px]:w-4 @xs:h-4 @xs:w-4" />
       </button>

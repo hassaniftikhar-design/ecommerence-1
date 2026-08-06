@@ -1,41 +1,33 @@
-import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+"use client";
 
+import { use, useState } from "react";
+import { useRouter } from "next/navigation";
 import { BackHeading } from "@/components/common/back-heading";
-import { OrderSummaryFields } from "@/components/orders/order-summary-fields";
-import { OrderProductsTable } from "@/components/orders/order-products-table";
-import { MOCK_ORDER_DETAIL } from "@/constants/mock-orders";
+import { OrdersModal } from "@/components/orders/orders-modal";
 import { ROUTES } from "@/constants/routes";
 
-export const metadata: Metadata = {
-  title: "Order Detail",
-  description: "View the details of a single order.",
-  openGraph: { title: "Order Detail | E-commerce" },
-};
-
-// Server Component. `params.orderId` comes from the dynamic route
-// segment. TODO(backend-integration): swap MOCK_ORDER_DETAIL for
-// `await getOrderById(params.orderId)`; the notFound() call below is
-// already wired for when that lookup returns null.
 export default function OrderDetailPage({
   params,
 }: {
-  params: { orderId: string };
+  params: Promise<{ orderId: string }>;
 }) {
-  const order = params.orderId ? MOCK_ORDER_DETAIL : null;
+  const { orderId } = use(params);
+  const router = useRouter();
+  const [modalOpen, setModalOpen] = useState(true);
 
-  if (!order) {
-    notFound();
-  }
+  const handleClose = () => {
+    setModalOpen(false);
+    router.push(ROUTES.orders);
+  };
 
   return (
-    <>
-      <BackHeading title="Order Detail" href={ROUTES.orders} variant="navy" />
-      <OrderSummaryFields order={order} />
-      <h2 className="mb-4 mt-8 text-2xl font-semibold text-navy">
-        Product Information
-      </h2>
-      <OrderProductsTable products={order.products} />
-    </>
+    <div className="space-y-6 max-w-6xl mx-auto pb-12">
+      <BackHeading title="Order Detail" href={ROUTES.orders} />
+      <OrdersModal
+        isOpen={modalOpen}
+        onClose={handleClose}
+        initialOrderId={orderId}
+      />
+    </div>
   );
 }

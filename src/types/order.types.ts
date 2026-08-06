@@ -1,3 +1,5 @@
+export type OrderStatusType = "IN_PROGRESS" | "DISPATCHED" | "DELIVERED" | "REJECTED";
+
 export interface OrderListItem {
   id: string;
   date: string;
@@ -5,6 +7,7 @@ export interface OrderListItem {
   user: string;
   productsCount: number;
   amount: number;
+  status: OrderStatusType;
 }
 
 export interface OrderProductLine {
@@ -17,5 +20,8 @@ export interface OrderProductLine {
 }
 
 export interface OrderDetail extends OrderListItem {
+  subTotal: number;
+  tax: number;
+  totalAmount: number;
   products: OrderProductLine[];
 }

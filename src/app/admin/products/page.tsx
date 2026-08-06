@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Edit2, Trash2, Plus } from "lucide-react";
+import { Edit2, Trash2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
@@ -109,7 +109,7 @@ export default function AdminProductsPage() {
             {paginatedProducts.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-32 text-center text-slate-400">
-                  No products found. Click "+ Add a Single Product" to create one.
+                  No products found. Click &quot;+ Add a Single Product&quot; to create one.
                 </TableCell>
               </TableRow>
             ) : (
