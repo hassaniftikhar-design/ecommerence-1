@@ -69,6 +69,12 @@ async function formatCartResponse(cartId: string) {
       item.product.variants[0]?.images[0] ||
       DEFAULT_PRODUCT_IMAGE;
 
+    const itemStock = item.variant
+      ? item.variant.stock
+      : item.product.variants[0]
+      ? item.product.variants[0].stock
+      : 0;
+
     return {
       id: item.id,
       productId: item.productId,
@@ -79,6 +85,7 @@ async function formatCartResponse(cartId: string) {
       size: sizeVal || "-",
       price: unitPrice,
       quantity: item.quantity,
+      stock: itemStock,
       totalPrice,
     };
   });
@@ -127,15 +134,30 @@ async function handleQuantityUpdate(
 
     const cartItem = await prisma.cartItem.findUnique({
       where: { id },
+      include: {
+        product: { include: { variants: true } },
+        variant: true,
+      },
     });
 
     if (!cartItem) {
       return apiError("Cart item not found", [], 404);
     }
 
+    const availableStock = cartItem.variant
+      ? cartItem.variant.stock
+      : cartItem.product.variants[0]
+      ? cartItem.product.variants[0].stock
+      : 0;
+
+    let targetQuantity = quantity;
+    if (availableStock > 0 && targetQuantity > availableStock) {
+      targetQuantity = availableStock;
+    }
+
     await prisma.cartItem.update({
       where: { id },
-      data: { quantity },
+      data: { quantity: targetQuantity },
     });
 
     const cartData = await formatCartResponse(cartItem.cartId);

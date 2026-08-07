@@ -17,12 +17,12 @@ export default function OrderDetailPage({
 
   const handleClose = () => {
     setModalOpen(false);
-    router.push(ROUTES.orders);
+    router.push(ROUTES.home);
   };
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
-      <BackHeading title="Order Detail" href={ROUTES.orders} />
+      <BackHeading title="My Orders" href={ROUTES.home} />
       <OrdersModal
         isOpen={modalOpen}
         onClose={handleClose}

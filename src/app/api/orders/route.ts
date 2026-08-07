@@ -91,7 +91,24 @@ export async function POST(request: Request) {
       return apiError("Cannot place order with an empty cart", [], 400);
     }
 
-    const cartLines = cart.items.map((item) => {
+    let body: { itemIds?: string[] } = {};
+    try {
+      body = await request.json();
+    } catch {
+      // Optional body
+    }
+    const { itemIds } = body;
+
+    let targetItems = cart.items;
+    if (Array.isArray(itemIds) && itemIds.length > 0) {
+      targetItems = cart.items.filter((item) => itemIds.includes(item.id));
+    }
+
+    if (targetItems.length === 0) {
+      return apiError("No items selected to place order", [], 400);
+    }
+
+    const cartLines = targetItems.map((item) => {
       const unitPrice = item.variant
         ? Number(item.variant.price)
         : item.product.variants[0]
@@ -105,6 +122,7 @@ export async function POST(request: Request) {
         DEFAULT_PRODUCT_IMAGE;
 
       return {
+        cartItemId: item.id,
         productId: item.productId,
         variantId: item.variantId,
         title: item.product.name,
@@ -164,14 +182,19 @@ export async function POST(request: Request) {
         });
       }
 
+      const orderedCartItemIds = cartLines.map((l) => l.cartItemId);
       await tx.cartItem.deleteMany({
-        where: { cartId: cart.id },
+        where: { id: { in: orderedCartItemIds } },
       });
 
       return newOrder;
     });
 
-    return apiSuccess("Order placed successfully", { orderId: createdOrder.id }, 201);
+    return apiSuccess(
+      "Order placed successfully",
+      { orderId: createdOrder.id, orderNumber: createdOrder.orderNumber },
+      201
+    );
   } catch (error) {
     return apiError("Failed to place order", [(error as Error).message], 500);
   }

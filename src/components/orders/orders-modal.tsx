@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowLeft, X } from "lucide-react";
 import { OrdersTable } from "@/components/orders/orders-table";
 import { OrderSummaryFields } from "@/components/orders/order-summary-fields";
@@ -16,6 +17,7 @@ interface OrdersModalProps {
 }
 
 export function OrdersModal({ isOpen, onClose, initialOrderId }: OrdersModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [view, setView] = useState<"list" | "detail">("list");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
@@ -29,6 +31,22 @@ export function OrdersModal({ isOpen, onClose, initialOrderId }: OrdersModalProp
   const [orderDetail, setOrderDetail] = useState<OrderDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Lock body scroll when drawer is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
 
   // Fetch orders list when modal opens or page changes
   useEffect(() => {
@@ -92,24 +110,24 @@ export function OrdersModal({ isOpen, onClose, initialOrderId }: OrdersModalProp
     setOrderDetail(null);
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const pageSize = 6;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-end overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex justify-end overflow-hidden">
       {/* Backdrop Overlay */}
       <div
         className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity duration-300"
         onClick={onClose}
       />
 
-      {/* Right-Side Slider Drawer Container (1138px width, Full height 100vh) */}
+      {/* Right-Side Slider Drawer Container (1144px width, Full height 100vh) */}
       <div
         className={cn(
-          "relative z-50 flex flex-col h-full h-screen bg-[#F8FAFC] shadow-2xl border-l border-slate-200 overflow-hidden transition-all duration-300 ease-in-out animate-in slide-in-from-right",
-          "w-full max-w-[1138px]"
+          "relative z-[10000] flex flex-col h-screen h-full bg-[#F8FAFC] shadow-2xl border-l border-slate-200 overflow-hidden transition-all duration-300 ease-in-out animate-in slide-in-from-right",
+          "w-full max-w-[1144px]"
         )}
       >
         {/* Top Header Bar */}
@@ -227,6 +245,7 @@ export function OrdersModal({ isOpen, onClose, initialOrderId }: OrdersModalProp
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -12,15 +12,35 @@ import {
 import { ROUTES } from "@/constants/routes";
 import type { CartItem, CartTotals } from "@/types/cart.types";
 
+import { useRouter } from "next/navigation";
+import { OrderSuccessModal } from "@/components/orders/order-success-modal";
+import { OrdersModal } from "@/components/orders/orders-modal";
+
 export default function CartPage() {
+  const router = useRouter();
   const [items, setItems] = useState<CartItem[]>([]);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [totals, setTotals] = useState<CartTotals>({
     subTotal: 0,
     tax: 0,
     total: 0,
   });
+  const [placedOrderInfo, setPlacedOrderInfo] = useState<{
+    orderId: string;
+    orderNumber: string;
+  } | null>(null);
+  const [viewOrderDetailId, setViewOrderDetailId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const computeTotals = (itemList: CartItem[], selectedIds: string[]): CartTotals => {
+    const selectedItems = itemList.filter((item) => selectedIds.includes(item.id));
+    const subTotal = selectedItems.reduce((acc, i) => acc + i.totalPrice, 0);
+    const roundedSub = Math.round(subTotal * 100) / 100;
+    const tax = Math.round(roundedSub * 0.08 * 100) / 100;
+    const total = Math.round((roundedSub + tax) * 100) / 100;
+    return { subTotal: roundedSub, tax, total };
+  };
 
   const fetchCartData = async () => {
     try {
@@ -28,7 +48,9 @@ export default function CartPage() {
       setError(null);
       const data = await getCart();
       setItems(data.items);
-      setTotals(data.totals);
+      const allIds = data.items.map((i) => i.id);
+      setSelectedItemIds(allIds);
+      setTotals(computeTotals(data.items, allIds));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -39,6 +61,11 @@ export default function CartPage() {
   useEffect(() => {
     fetchCartData();
   }, []);
+
+  const handleSelectionChange = (newSelectedIds: string[]) => {
+    setSelectedItemIds(newSelectedIds);
+    setTotals(computeTotals(items, newSelectedIds));
+  };
 
   const handleUpdateQuantity = async (itemId: string, newQuantity: number) => {
     try {
@@ -53,18 +80,12 @@ export default function CartPage() {
           : item
       );
       setItems(updatedItems);
-
-      // Recalculate totals client-side for immediate responsiveness
-      const subTotal = updatedItems.reduce((acc, i) => acc + i.totalPrice, 0);
-      const roundedSub = Math.round(subTotal * 100) / 100;
-      const tax = Math.round(roundedSub * 0.08 * 100) / 100;
-      const total = Math.round((roundedSub + tax) * 100) / 100;
-      setTotals({ subTotal: roundedSub, tax, total });
+      setTotals(computeTotals(updatedItems, selectedItemIds));
 
       // Call API
       const response = await updateCartItemQuantity(itemId, newQuantity);
       setItems(response.items);
-      setTotals(response.totals);
+      setTotals(computeTotals(response.items, selectedItemIds));
     } catch (err) {
       // Fallback on error
       fetchCartData();
@@ -74,17 +95,16 @@ export default function CartPage() {
   const handleRemoveItem = async (itemId: string) => {
     try {
       const updatedItems = items.filter((i) => i.id !== itemId);
+      const updatedSelected = selectedItemIds.filter((id) => id !== itemId);
       setItems(updatedItems);
-
-      const subTotal = updatedItems.reduce((acc, i) => acc + i.totalPrice, 0);
-      const roundedSub = Math.round(subTotal * 100) / 100;
-      const tax = Math.round(roundedSub * 0.08 * 100) / 100;
-      const total = Math.round((roundedSub + tax) * 100) / 100;
-      setTotals({ subTotal: roundedSub, tax, total });
+      setSelectedItemIds(updatedSelected);
+      setTotals(computeTotals(updatedItems, updatedSelected));
 
       const response = await removeCartItem(itemId);
       setItems(response.items);
-      setTotals(response.totals);
+      const newSelected = updatedSelected.filter((id) => response.items.some((i) => i.id === id));
+      setSelectedItemIds(newSelected);
+      setTotals(computeTotals(response.items, newSelected));
     } catch (err) {
       fetchCartData();
     }
@@ -108,18 +128,46 @@ export default function CartPage() {
         <>
           <CartTable
             items={items}
+            selectedIds={selectedItemIds}
             onUpdateQuantity={handleUpdateQuantity}
             onRemoveItem={handleRemoveItem}
+            onSelectionChange={handleSelectionChange}
           />
           <CartSummary
             totals={totals}
             isEmpty={items.length === 0}
-            onOrderPlaced={() => {
-              setItems([]);
-              setTotals({ subTotal: 0, tax: 0, total: 0 });
+            selectedItemIds={selectedItemIds}
+            onOrderPlaced={(orderInfo) => {
+              fetchCartData();
+              setPlacedOrderInfo(orderInfo);
             }}
           />
         </>
+      )}
+
+      {placedOrderInfo && (
+        <OrderSuccessModal
+          isOpen={true}
+          orderId={placedOrderInfo.orderId}
+          orderNumber={placedOrderInfo.orderNumber}
+          onContinueShopping={() => {
+            setPlacedOrderInfo(null);
+            router.push(ROUTES.home);
+          }}
+          onViewOrderDetails={() => {
+            const targetId = placedOrderInfo.orderId;
+            setPlacedOrderInfo(null);
+            setViewOrderDetailId(targetId);
+          }}
+        />
+      )}
+
+      {viewOrderDetailId && (
+        <OrdersModal
+          isOpen={true}
+          onClose={() => setViewOrderDetailId(null)}
+          initialOrderId={viewOrderDetailId}
+        />
       )}
     </div>
   );

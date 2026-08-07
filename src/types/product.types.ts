@@ -32,7 +32,6 @@ export interface ProductVariant {
 export interface Product {
   id: string;
   name: string;
-  description?: string | null;
   price: number;
   stock: number;
   imageUrl: string;
@@ -65,7 +64,6 @@ export interface ProductVariantItem {
 
 export interface ProductFormValues {
   name: string;
-  description?: string;
   categoryName: string;
   price: number;
   imageUrl?: string;

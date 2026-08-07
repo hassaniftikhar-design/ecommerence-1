@@ -71,10 +71,12 @@ export async function clearCart(): Promise<CartResponseData> {
   return parseApiResponse<CartResponseData>(response);
 }
 
-export async function placeOrder(): Promise<{ orderId: string }> {
+export async function placeOrder(itemIds?: string[]): Promise<{ orderId: string; orderNumber: string }> {
   const response = await fetch("/api/orders", {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ itemIds }),
   });
-  return parseApiResponse<{ orderId: string }>(response);
+  return parseApiResponse<{ orderId: string; orderNumber: string }>(response);
 }
 

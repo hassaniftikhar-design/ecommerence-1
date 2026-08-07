@@ -1,5 +1,6 @@
 import type { Config } from "tailwindcss";
 import tailwindcssAnimate from "tailwindcss-animate";
+import containerQueries from "@tailwindcss/container-queries";
 
 // Design tokens below were sampled directly from the Figma screenshots
 // (see /docs or PR description) rather than guessed, so hex values here
@@ -40,8 +41,9 @@ const config: Config = {
     },
   },
   plugins: [
-    require('@tailwindcss/container-queries'),
-    tailwindcssAnimate],
+    containerQueries,
+    tailwindcssAnimate,
+  ],
 };
 
 export default config;

@@ -25,10 +25,12 @@ export function CartTable({
   items,
   onUpdateQuantity,
   onRemoveItem,
+  selectedIds = [],
+  onSelectionChange,
 }: CartTableProps) {
   const itemIds = items.map((item) => item.id);
   const { allSelected, toggleAll, toggleOne, isSelected } =
-    useCartSelection(itemIds);
+    useCartSelection(itemIds, selectedIds, onSelectionChange);
 
   if (items.length === 0) {
     return (

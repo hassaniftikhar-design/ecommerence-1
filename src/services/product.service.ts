@@ -95,7 +95,6 @@ export async function getProducts(): Promise<Product[]> {
       return {
         id: product.id,
         name: product.name,
-        description: product.description,
         category: product.category,
         createdBy: product.createdBy,
         options: product.options.map((opt) => ({
@@ -191,7 +190,6 @@ export async function getProductById(id: string): Promise<Product> {
     return {
       id: product.id,
       name: product.name,
-      description: product.description,
       category: product.category,
       createdBy: product.createdBy,
       options: product.options.map((opt) => ({
@@ -239,7 +237,6 @@ export interface CreateProductVariantInput {
 
 export interface CreateProductInput {
   name: string;
-  description?: string;
   categoryId?: string;
   categoryName?: string;
   options?: CreateProductOptionInput[];

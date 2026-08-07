@@ -110,7 +110,11 @@ async function formatCartResponse(cartId: string) {
       item.product.variants[0]?.images[0] ||
       DEFAULT_PRODUCT_IMAGE;
 
-    const itemStock = item.variant ? item.variant.stock : 50;
+    const itemStock = item.variant
+      ? item.variant.stock
+      : item.product.variants[0]
+      ? item.product.variants[0].stock
+      : 0;
 
     return {
       id: item.id,
@@ -190,6 +194,9 @@ export async function POST(request: Request) {
       targetVariantId = product.variants[0]?.id;
     }
 
+    const targetVariant = product.variants.find((v) => v.id === targetVariantId) || product.variants[0];
+    const availableStock = targetVariant ? targetVariant.stock : 0;
+
     const existingItem = await prisma.cartItem.findFirst({
       where: {
         cartId,
@@ -198,10 +205,15 @@ export async function POST(request: Request) {
       },
     });
 
+    let newQty = (existingItem ? existingItem.quantity : 0) + Math.max(1, quantity);
+    if (availableStock > 0 && newQty > availableStock) {
+      newQty = availableStock;
+    }
+
     if (existingItem) {
       await prisma.cartItem.update({
         where: { id: existingItem.id },
-        data: { quantity: existingItem.quantity + quantity },
+        data: { quantity: newQty },
       });
     } else {
       await prisma.cartItem.create({
@@ -209,7 +221,7 @@ export async function POST(request: Request) {
           cartId,
           productId,
           variantId: targetVariantId || null,
-          quantity: Math.max(1, quantity),
+          quantity: newQty,
         },
       });
     }

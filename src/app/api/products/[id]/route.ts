@@ -80,7 +80,6 @@ export async function GET(
     const formattedProduct = {
       id: product.id,
       name: product.name,
-      description: product.description,
       category: product.category,
       createdBy: product.createdBy,
       options: product.options.map((opt) => ({
@@ -160,7 +159,6 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
 
     const {
       name,
-      description,
       categoryId,
       categoryName,
       options,
@@ -187,7 +185,6 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
         where: { id },
         data: {
           ...(name !== undefined ? { name: name.trim() } : {}),
-          ...(description !== undefined ? { description: description ? description.trim() : null } : {}),
           ...(targetCategoryId ? { categoryId: targetCategoryId } : {}),
         },
       });
@@ -339,7 +336,6 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
     const formattedProduct = {
       id: fullProduct.id,
       name: fullProduct.name,
-      description: fullProduct.description,
       category: fullProduct.category,
       createdBy: fullProduct.createdBy,
       options: fullProduct.options,

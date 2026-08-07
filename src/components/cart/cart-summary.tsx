@@ -11,22 +11,28 @@ import type { CartTotals } from "@/types/cart.types";
 interface CartSummaryProps {
   totals: CartTotals;
   isEmpty?: boolean;
-  onOrderPlaced?: () => void;
+  selectedItemIds?: string[];
+  onOrderPlaced?: (order: { orderId: string; orderNumber: string }) => void;
 }
 
-export function CartSummary({ totals, isEmpty = false, onOrderPlaced }: CartSummaryProps) {
-  const router = useRouter();
+export function CartSummary({
+  totals,
+  isEmpty = false,
+  selectedItemIds = [],
+  onOrderPlaced,
+}: CartSummaryProps) {
   const { showSuccess } = useToast();
   const [loading, setLoading] = useState(false);
 
+  const hasSelectedItems = selectedItemIds.length > 0;
+
   const handlePlaceOrder = async () => {
-    if (isEmpty) return;
+    if (isEmpty || !hasSelectedItems) return;
     try {
       setLoading(true);
-      await placeOrder();
+      const res = await placeOrder(selectedItemIds);
       showSuccess("Order is successfully placed!");
-      onOrderPlaced?.();
-      router.push(ROUTES.home);
+      onOrderPlaced?.(res);
     } catch (err) {
       alert((err as Error).message);
     } finally {
@@ -54,8 +60,8 @@ export function CartSummary({ totals, isEmpty = false, onOrderPlaced }: CartSumm
 
       <Button
         onClick={handlePlaceOrder}
-        disabled={isEmpty || loading}
-        className="mt-2 w-full max-w-xs bg-[#007BFF] hover:bg-blue-600 text-white font-semibold h-11 text-base rounded-xl shadow-sm"
+        disabled={isEmpty || loading || !hasSelectedItems}
+        className="mt-2 w-full max-w-xs bg-[#007BFF] hover:bg-blue-600 text-white font-semibold h-11 text-base rounded-xl shadow-sm disabled:cursor-not-allowed disabled:bg-slate-300"
       >
         {loading ? "Placing Order..." : "Place Order"}
       </Button>

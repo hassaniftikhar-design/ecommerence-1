@@ -72,7 +72,6 @@ export async function GET() {
       return {
         id: product.id,
         name: product.name,
-        description: product.description,
         category: product.category,
         createdBy: product.createdBy,
         options: product.options.map((opt) => ({
@@ -131,7 +130,6 @@ export async function POST(request: Request) {
 
     const {
       name,
-      description,
       categoryId,
       categoryName,
       options = [],
@@ -164,7 +162,6 @@ export async function POST(request: Request) {
       const product = await tx.product.create({
         data: {
           name: name.trim(),
-          description: description ? description.trim() : null,
           categoryId: category.id,
           createdById: adminUserId,
         },
@@ -293,7 +290,6 @@ export async function POST(request: Request) {
     const formattedProduct = {
       id: fullProduct.id,
       name: fullProduct.name,
-      description: fullProduct.description,
       category: fullProduct.category,
       createdBy: fullProduct.createdBy,
       options: fullProduct.options,

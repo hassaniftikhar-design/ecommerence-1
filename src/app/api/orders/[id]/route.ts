@@ -90,13 +90,80 @@ export async function PATCH(
       return apiError("Invalid status value", [], 400);
     }
 
-    const updatedOrder = await prisma.order.update({
+    const existingOrder = await prisma.order.findUnique({
       where: { id },
-      data: { status },
-      include: {
-        user: { select: { name: true } },
-        items: true,
-      },
+      include: { items: true },
+    });
+
+    if (!existingOrder) {
+      return apiError("Order not found", [], 404);
+    }
+
+    const previousStatus = existingOrder.status;
+
+    const updatedOrder = await prisma.$transaction(async (tx) => {
+      // 1. Transitioning to REJECTED (Return items back to stock)
+      if (previousStatus !== "REJECTED" && status === "REJECTED") {
+        for (const item of existingOrder.items) {
+          let targetVariantId = item.variantId;
+          if (!targetVariantId) {
+            const firstVariant = await tx.productVariant.findFirst({
+              where: { productId: item.productId },
+            });
+            if (firstVariant) {
+              targetVariantId = firstVariant.id;
+            }
+          }
+
+          if (targetVariantId) {
+            const variant = await tx.productVariant.findUnique({
+              where: { id: targetVariantId },
+            });
+            if (variant) {
+              await tx.productVariant.update({
+                where: { id: targetVariantId },
+                data: { stock: variant.stock + item.quantity },
+              });
+            }
+          }
+        }
+      }
+
+      // 2. Transitioning from REJECTED back to active status (Deduct items from stock again)
+      if (previousStatus === "REJECTED" && status !== "REJECTED") {
+        for (const item of existingOrder.items) {
+          let targetVariantId = item.variantId;
+          if (!targetVariantId) {
+            const firstVariant = await tx.productVariant.findFirst({
+              where: { productId: item.productId },
+            });
+            if (firstVariant) {
+              targetVariantId = firstVariant.id;
+            }
+          }
+
+          if (targetVariantId) {
+            const variant = await tx.productVariant.findUnique({
+              where: { id: targetVariantId },
+            });
+            if (variant) {
+              await tx.productVariant.update({
+                where: { id: targetVariantId },
+                data: { stock: Math.max(0, variant.stock - item.quantity) },
+              });
+            }
+          }
+        }
+      }
+
+      return tx.order.update({
+        where: { id },
+        data: { status },
+        include: {
+          user: { select: { name: true } },
+          items: true,
+        },
+      });
     });
 
     return apiSuccess("Order status updated successfully", {

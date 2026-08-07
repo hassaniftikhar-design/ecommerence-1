@@ -100,7 +100,6 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
       return {
         name: initialData.name || "",
-        description: initialData.description || "",
         categoryName: initialData.category?.name || "General",
         price: initialData.lowestPrice ?? initialData.price ?? 0,
         imageUrl: initialData.imageUrl || initialData.variants?.[0]?.images?.[0] || "",
@@ -110,7 +109,6 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
     return {
       name: "",
-      description: "",
       categoryName: "General",
       price: 0,
       imageUrl: "",
@@ -208,7 +206,6 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
       const payload = {
         name: data.name.trim(),
-        description: data.description?.trim() || undefined,
         categoryName: data.categoryName.trim(),
         price: data.price,
         stock: totalStock,
@@ -267,13 +264,13 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
             )}
           </div>
 
-          {/* Right Column: Name, Price, Quantity (Total Stock), Category, Description */}
+          {/* Right Column: Name (Title), Price, Quantity (Total Stock), Category */}
           <div className="flex-1 w-full space-y-4">
-            {/* Product Name */}
+            {/* Product Title */}
             <div>
               <FormField
-                label="Product Name"
-                placeholder="Cargo Trousers for Men - 6 Pocket Trousers"
+                label="Product Title"
+                placeholder="Enter product title..."
                 error={errors.name?.message}
                 {...register("name")}
               />
@@ -334,25 +331,6 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               {errors.categoryName && (
                 <p role="alert" className="mt-1.5 text-sm text-danger font-medium">
                   {errors.categoryName.message}
-                </p>
-              )}
-            </div>
-
-            {/* Product Description */}
-            <div className="pt-1">
-              <Label htmlFor="description" className="mb-1 block text-sm font-medium">
-                Product Description
-              </Label>
-              <textarea
-                id="description"
-                rows={3}
-                placeholder="Enter detailed description of the product..."
-                className="w-full rounded border border-border bg-white p-3 text-sm text-ink placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary"
-                {...register("description")}
-              />
-              {errors.description && (
-                <p role="alert" className="mt-1.5 text-sm text-danger font-medium">
-                  {errors.description.message}
                 </p>
               )}
             </div>

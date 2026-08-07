@@ -98,8 +98,7 @@ export const productVariantSchema = z.object({
 
 export const createProductSchema = z
   .object({
-    name: z.string().min(1, "Product name is required"),
-    description: z.string().optional().nullable(),
+    name: z.string().trim().min(1, "Product Title is required").max(500, "Product Title cannot exceed 500 characters"),
     categoryId: z.string().optional(),
     categoryName: z.string().optional(),
     options: z.array(productOptionSchema).default([]),
@@ -119,8 +118,7 @@ export const createProductSchema = z
 
 export const updateProductSchema = z
   .object({
-    name: z.string().min(1).optional(),
-    description: z.string().optional().nullable(),
+    name: z.string().trim().min(1).max(500).optional(),
     categoryId: z.string().optional(),
     categoryName: z.string().optional(),
     options: z.array(productOptionSchema).optional(),
@@ -142,8 +140,7 @@ export const productVariantItemSchema = z.object({
 
 export const productFormSchema = z
   .object({
-    name: z.string().trim().min(1, "Product Name is required"),
-    description: z.string().optional(),
+    name: z.string().trim().min(1, "Product Title is required").max(500, "Product Title cannot exceed 500 characters"),
     categoryName: z.string().trim().min(1, "Category is required"),
     price: z
       .number({ invalid_type_error: "Price must be a number" })
