@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { BackHeading } from "@/components/common/back-heading";
+import { CartSkeleton } from "@/components/cart/cart-skeleton";
 import { CartTable } from "@/components/cart/cart-table";
 import { CartSummary } from "@/components/cart/cart-summary";
+import { RequireLoginModal } from "@/components/auth/require-login-modal";
 import {
   getCart,
   updateCartItemQuantity,
@@ -18,6 +21,10 @@ import { OrdersModal } from "@/components/orders/orders-modal";
 
 export default function CartPage() {
   const router = useRouter();
+  const { status } = useSession();
+  const isAuthenticated = status === "authenticated";
+  const isUnauthenticated = status === "unauthenticated";
+
   const [items, setItems] = useState<CartItem[]>([]);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [totals, setTotals] = useState<CartTotals>({
@@ -43,6 +50,7 @@ export default function CartPage() {
   };
 
   const fetchCartData = async () => {
+    if (!isAuthenticated) return;
     try {
       setLoading(true);
       setError(null);
@@ -59,8 +67,12 @@ export default function CartPage() {
   };
 
   useEffect(() => {
-    fetchCartData();
-  }, []);
+    if (status === "authenticated") {
+      fetchCartData();
+    } else if (status === "unauthenticated") {
+      setLoading(false);
+    }
+  }, [status]);
 
   const handleSelectionChange = (newSelectedIds: string[]) => {
     setSelectedItemIds(newSelectedIds);
@@ -121,9 +133,7 @@ export default function CartPage() {
       )}
 
       {loading ? (
-        <div className="py-16 text-center text-slate-400 font-medium">
-          Loading your shopping bag...
-        </div>
+        <CartSkeleton />
       ) : (
         <>
           <CartTable
@@ -133,15 +143,17 @@ export default function CartPage() {
             onRemoveItem={handleRemoveItem}
             onSelectionChange={handleSelectionChange}
           />
-          <CartSummary
-            totals={totals}
-            isEmpty={items.length === 0}
-            selectedItemIds={selectedItemIds}
-            onOrderPlaced={(orderInfo) => {
-              fetchCartData();
-              setPlacedOrderInfo(orderInfo);
-            }}
-          />
+          {items.length > 0 && (
+            <CartSummary
+              totals={totals}
+              isEmpty={items.length === 0}
+              selectedItemIds={selectedItemIds}
+              onOrderPlaced={(orderInfo) => {
+                fetchCartData();
+                setPlacedOrderInfo(orderInfo);
+              }}
+            />
+          )}
         </>
       )}
 
@@ -169,6 +181,13 @@ export default function CartPage() {
           initialOrderId={viewOrderDetailId}
         />
       )}
+
+      <RequireLoginModal
+        isOpen={isUnauthenticated}
+        onClose={() => router.push(ROUTES.home)}
+        title="Login Required"
+        description="Please log in to your account to access and view your shopping cart."
+      />
     </div>
   );
 }

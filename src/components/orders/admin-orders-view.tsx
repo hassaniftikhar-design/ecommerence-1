@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 import { renderStatusBadge } from "@/components/orders/orders-table";
 import { AdminOrderDrawer } from "@/components/orders/admin-order-drawer";
 import { getOrders } from "@/services/order.service";
@@ -39,7 +40,7 @@ export function AdminOrdersView({
   const loadOrders = async () => {
     try {
       setLoading(true);
-      const data = await getOrders(currentPage, pageSize);
+      const data = await getOrders(currentPage, pageSize, searchQuery);
       setOrders(data.orders);
       setTotalCount(data.totalCount);
     } catch (err) {
@@ -51,7 +52,7 @@ export function AdminOrdersView({
 
   useEffect(() => {
     loadOrders();
-  }, [currentPage]);
+  }, [currentPage, searchQuery]);
 
   useEffect(() => {
     if (initialOrderId) {
@@ -71,6 +72,11 @@ export function AdminOrdersView({
     onCloseDrawer?.();
   };
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1);
+  };
+
   if (session?.user?.role !== "ADMIN") {
     return (
       <div className="py-12 text-center text-slate-600 font-medium">
@@ -78,12 +84,6 @@ export function AdminOrdersView({
       </div>
     );
   }
-
-  const filteredOrders = orders.filter(
-    (order) =>
-      order.user.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
@@ -134,9 +134,9 @@ export function AdminOrdersView({
         <div className="relative w-full sm:w-80">
           <input
             type="text"
-            placeholder="Search by user & order ID"
+            placeholder="Search user, order ID, product, category..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={handleSearchChange}
             className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-10 text-xs sm:text-sm text-slate-700 placeholder-slate-400 outline-none focus:border-[#007BFF]"
           />
           <Search className="absolute right-3 top-2.5 h-4 w-4 text-slate-400" />
@@ -159,22 +159,32 @@ export function AdminOrdersView({
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="h-32 text-center text-slate-400">
-                  Loading orders...
-                </TableCell>
-              </TableRow>
-            ) : filteredOrders.length === 0 ? (
+              Array.from({ length: 5 }).map((_, idx) => (
+                <TableRow key={idx} className="border-b border-slate-100">
+                  <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-6 w-6 ml-auto" /></TableCell>
+                </TableRow>
+              ))
+            ) : orders.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-32 text-center text-slate-400">
                   No orders found.
                 </TableCell>
               </TableRow>
             ) : (
-              filteredOrders.map((order) => (
-                <TableRow key={order.id} className="hover:bg-slate-50/50 border-b border-slate-100 cursor-pointer" onClick={() => handleOpenDrawer(order.id)}>
+              orders.map((order) => (
+                <TableRow
+                  key={order.id}
+                  className="hover:bg-slate-50/60 border-b border-slate-100 cursor-pointer transition-colors"
+                  onClick={() => handleOpenDrawer(order.id)}
+                >
                   <TableCell className="text-xs sm:text-sm text-slate-600">{order.date}</TableCell>
-                  <TableCell className="text-xs sm:text-sm text-slate-600 font-medium">{order.orderNumber}</TableCell>
+                  <TableCell className="text-xs sm:text-sm text-slate-700 font-semibold">{order.orderNumber}</TableCell>
                   <TableCell className="text-xs sm:text-sm text-slate-600">{order.user}</TableCell>
                   <TableCell className="text-xs sm:text-sm text-slate-600">{order.productsCount}</TableCell>
                   <TableCell className="text-xs sm:text-sm text-slate-700 font-medium">
@@ -203,13 +213,19 @@ export function AdminOrdersView({
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex justify-end">
+        <div className="flex justify-between items-center text-xs text-slate-500">
+          <div>
+            Showing <span className="font-semibold text-slate-700">{(currentPage - 1) * pageSize + 1}</span> to{" "}
+            <span className="font-semibold text-slate-700">{Math.min(currentPage * pageSize, totalCount)}</span> of{" "}
+            <span className="font-semibold text-slate-700">{totalCount}</span> orders
+          </div>
+
           <div className="inline-flex items-center border border-slate-200 rounded-lg overflow-hidden text-xs">
             <button
               type="button"
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1.5 text-slate-600 hover:bg-slate-50 disabled:opacity-50 border-r border-slate-200"
+              className="px-3 py-1.5 text-slate-600 hover:bg-slate-50 disabled:opacity-50 border-r border-slate-200 cursor-pointer"
             >
               Previous
             </button>
@@ -218,7 +234,7 @@ export function AdminOrdersView({
                 key={page}
                 type="button"
                 onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1.5 font-medium border-r border-slate-200 last:border-r-0 ${
+                className={`px-3 py-1.5 font-medium border-r border-slate-200 last:border-r-0 cursor-pointer ${
                   currentPage === page ? "text-[#007BFF] bg-blue-50" : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
@@ -229,7 +245,7 @@ export function AdminOrdersView({
               type="button"
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="px-3 py-1.5 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              className="px-3 py-1.5 text-slate-600 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
             >
               Next
             </button>

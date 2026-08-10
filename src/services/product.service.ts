@@ -35,10 +35,29 @@ export async function uploadImage(file: File): Promise<string> {
   return data.url;
 }
 
-export async function getProducts(): Promise<Product[]> {
+export async function getProducts(
+  q?: string,
+  category?: string,
+  sort?: string
+): Promise<Product[]> {
   if (typeof window === "undefined") {
     const { prisma } = await import("@/lib/prisma");
+
+    const whereClause: Record<string, unknown> = {};
+    if (q && q.trim()) {
+      whereClause.name = { contains: q.trim(), mode: "insensitive" };
+    }
+    if (category && category.trim()) {
+      whereClause.category = { name: { equals: category.trim(), mode: "insensitive" } };
+    }
+
+    let orderByClause: Record<string, unknown> = { createdAt: "desc" };
+    if (sort === "name-asc") {
+      orderByClause = { name: "asc" };
+    }
+
     const products = await prisma.product.findMany({
+      where: whereClause,
       include: {
         category: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
@@ -59,10 +78,10 @@ export async function getProducts(): Promise<Product[]> {
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: orderByClause,
     });
 
-    return products.map((product) => {
+    const formatted = products.map((product) => {
       const variantsFormatted = product.variants.map((v) => {
         const attributes: Record<string, string> = {};
         const variantOptionsInfo = v.variantOptions.map((vo) => {
@@ -118,13 +137,45 @@ export async function getProducts(): Promise<Product[]> {
         updatedAt: product.updatedAt.toISOString(),
       };
     });
+
+    if (sort === "price-asc") {
+      formatted.sort((a, b) => a.lowestPrice - b.lowestPrice);
+    } else if (sort === "price-desc") {
+      formatted.sort((a, b) => b.lowestPrice - a.lowestPrice);
+    }
+
+    return formatted;
   }
 
-  const response = await fetch("/api/products", {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (category) params.set("category", category);
+  if (sort) params.set("sort", sort);
+
+  const queryString = params.toString() ? `?${params.toString()}` : "";
+  const response = await fetch(`/api/products${queryString}`, {
     cache: "no-store",
   });
   const data = await parseApiResponse<{ products: Product[] }>(response);
   return data.products;
+}
+
+export async function getCategories(): Promise<{ id: string; name: string }[]> {
+  if (typeof window === "undefined") {
+    const { prisma } = await import("@/lib/prisma");
+    return prisma.category.findMany({
+      orderBy: { name: "asc" },
+    });
+  }
+
+  const response = await fetch("/api/categories", {
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    return [];
+  }
+  const data = await parseApiResponse<{ categories: { id: string; name: string }[] }>(response);
+  return data.categories;
 }
 
 export async function getProductById(id: string): Promise<Product> {

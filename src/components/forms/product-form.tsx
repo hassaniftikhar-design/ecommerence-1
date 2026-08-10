@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, FolderPlus, List } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ import { FormField } from "@/components/forms/form-field";
 import { ImageUpload } from "@/components/ui/image-upload";
 import { useToast } from "@/components/ui/toast";
 import { ROUTES } from "@/constants/routes";
-import { createProduct, updateProduct } from "@/services/product.service";
+import { createProduct, updateProduct, getCategories } from "@/services/product.service";
 import { productFormSchema, type ProductFormSchemaValues } from "@/lib/validators";
 import type { ProductFormProps } from "@/types/product.types";
 
@@ -44,20 +44,24 @@ const SIZE_OPTIONS = [
   "XS",
 ];
 
-const CATEGORY_OPTIONS = [
-  "General",
-  "Apparel",
-  "Footwear",
-  "Electronics",
-  "Accessories",
-  "Home & Living",
-  "Beauty",
-];
-
 export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormProps) {
   const router = useRouter();
   const { showSuccess, showError } = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const [dbCategories, setDbCategories] = useState<{ id: string; name: string }[]>([]);
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+
+  useEffect(() => {
+    async function loadCategories() {
+      try {
+        const cats = await getCategories();
+        setDbCategories(cats);
+      } catch (err) {
+        console.error("Failed to load categories", err);
+      }
+    }
+    loadCategories();
+  }, []);
 
   // Quick variant addition state (matching header controls in design screenshot)
   const [draftColor, setDraftColor] = useState("");
@@ -142,35 +146,32 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   // Quick Add Variant handler
   const handleAddDraftVariant = () => {
     setDraftError(null);
-    if (!draftColor) {
-      setDraftError("Please select a Color");
-      return;
-    }
-    if (!draftSize) {
-      setDraftError("Please select a Size");
-      return;
-    }
     const qtyNum = parseInt(draftQty, 10);
-    if (isNaN(qtyNum) || qtyNum <= 0) {
-      setDraftError("Quantity must be greater than 0");
+    if (isNaN(qtyNum) || qtyNum < 0) {
+      setDraftError("Quantity cannot be negative");
       return;
     }
 
-    // Duplicate check
-    const isDuplicate = watchedVariants.some(
-      (v) =>
-        v.color.trim().toLowerCase() === draftColor.trim().toLowerCase() &&
-        v.size.trim().toLowerCase() === draftSize.trim().toLowerCase()
-    );
+    const colorVal = (draftColor || "").trim();
+    const sizeVal = (draftSize || "").trim();
 
-    if (isDuplicate) {
-      setDraftError(`Variant with ${draftColor} and ${draftSize} already exists`);
-      return;
+    // Duplicate check if both color and size are specified
+    if (colorVal || sizeVal) {
+      const isDuplicate = watchedVariants.some(
+        (v) =>
+          (v.color || "").trim().toLowerCase() === colorVal.toLowerCase() &&
+          (v.size || "").trim().toLowerCase() === sizeVal.toLowerCase()
+      );
+
+      if (isDuplicate) {
+        setDraftError(`Variant with specified color and size already exists`);
+        return;
+      }
     }
 
     append({
-      color: draftColor,
-      size: draftSize,
+      color: colorVal,
+      size: sizeVal,
       quantity: qtyNum,
     });
 
@@ -183,32 +184,56 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   const onSubmit = async (data: ProductFormSchemaValues) => {
     try {
       setSubmitting(true);
+      if (data.price < 0) {
+        showError("Price cannot be negative", "Error");
+        return;
+      }
 
-      // Extract unique colors and sizes for Product Options schema
-      const uniqueColors = Array.from(new Set(data.variants.map((v) => v.color.trim())));
-      const uniqueSizes = Array.from(new Set(data.variants.map((v) => v.size.trim())));
+      let formattedVariants = [];
+      const options = [];
 
-      const options = [
-        { name: "Color", values: uniqueColors },
-        { name: "Size", values: uniqueSizes },
-      ];
+      if (data.variants && data.variants.length > 0) {
+        // Extract unique colors and sizes for Product Options schema
+        const uniqueColors = Array.from(
+          new Set(data.variants.map((v) => (v.color || "").trim()).filter(Boolean))
+        );
+        const uniqueSizes = Array.from(
+          new Set(data.variants.map((v) => (v.size || "").trim()).filter(Boolean))
+        );
 
-      const formattedVariants = data.variants.map((v) => ({
-        id: v.id,
-        price: data.price,
-        stock: v.quantity,
-        images: data.imageUrl ? [data.imageUrl] : [],
-        attributes: {
-          Color: v.color.trim(),
-          Size: v.size.trim(),
-        },
-      }));
+        if (uniqueColors.length > 0) options.push({ name: "Color", values: uniqueColors });
+        if (uniqueSizes.length > 0) options.push({ name: "Size", values: uniqueSizes });
+
+        formattedVariants = data.variants.map((v) => {
+          const attributes: Record<string, string> = {};
+          if (v.color?.trim()) attributes.Color = v.color.trim();
+          if (v.size?.trim()) attributes.Size = v.size.trim();
+
+          return {
+            id: v.id,
+            price: data.price,
+            stock: v.quantity,
+            images: data.imageUrl ? [data.imageUrl] : [],
+            attributes,
+          };
+        });
+      } else {
+        // Fallback single default variant when no custom options added
+        formattedVariants = [
+          {
+            price: data.price,
+            stock: 10,
+            images: data.imageUrl ? [data.imageUrl] : [],
+            attributes: {},
+          },
+        ];
+      }
 
       const payload = {
         name: data.name.trim(),
         categoryName: data.categoryName.trim(),
         price: data.price,
-        stock: totalStock,
+        stock: totalStock || 10,
         imageUrl: data.imageUrl || undefined,
         options,
         variants: formattedVariants,
@@ -216,7 +241,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
       if (mode === "create") {
         await createProduct(payload);
-        showSuccess("Product created successfully with variants!", "Success");
+        showSuccess("Product created successfully!", "Success");
       } else {
         if (!initialData?.id) throw new Error("Missing product ID for update");
         await updateProduct(initialData.id, payload);
@@ -283,9 +308,17 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                   label="Price ($)"
                   type="number"
                   step="0.01"
+                  min="0"
                   placeholder="00.00"
                   error={errors.price?.message}
-                  {...register("price", { valueAsNumber: true })}
+                  {...register("price", {
+                    valueAsNumber: true,
+                    onChange: (e) => {
+                      if (parseFloat(e.target.value) < 0) {
+                        e.target.value = "0";
+                      }
+                    },
+                  })}
                 />
               </div>
 
@@ -305,27 +338,64 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
             {/* Category */}
             <div>
-              <Label htmlFor="categoryName" className="mb-1 block text-sm font-medium">
-                Category
-              </Label>
+              <div className="flex items-center justify-between mb-1">
+                <Label htmlFor="categoryName" className="text-sm font-medium">
+                  Category
+                </Label>
+                <button
+                  type="button"
+                  onClick={() => setIsCustomCategory((prev) => !prev)}
+                  className="text-xs text-[#007BFF] hover:underline font-semibold flex items-center gap-1"
+                >
+                  {isCustomCategory ? (
+                    <>
+                      <List className="h-3.5 w-3.5" /> Select Existing Category
+                    </>
+                  ) : (
+                    <>
+                      <FolderPlus className="h-3.5 w-3.5" /> + Add New Category
+                    </>
+                  )}
+                </button>
+              </div>
+
               <div className="relative">
                 <Controller
                   name="categoryName"
                   control={control}
-                  render={({ field }) => (
-                    <Select
-                      id="categoryName"
-                      value={field.value}
-                      onChange={field.onChange}
-                      error={!!errors.categoryName}
-                    >
-                      {CATEGORY_OPTIONS.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </Select>
-                  )}
+                  render={({ field }) =>
+                    isCustomCategory ? (
+                      <Input
+                        id="categoryName"
+                        placeholder="Type new category name..."
+                        value={field.value}
+                        onChange={field.onChange}
+                        className="bg-white"
+                      />
+                    ) : (
+                      <Select
+                        id="categoryName"
+                        value={field.value}
+                        onChange={(e) => {
+                          if (e.target.value === "__ADD_NEW__") {
+                            setIsCustomCategory(true);
+                            field.onChange("");
+                          } else {
+                            field.onChange(e.target.value);
+                          }
+                        }}
+                        error={!!errors.categoryName}
+                      >
+                        <option value="">Select Category</option>
+                        {dbCategories.map((cat) => (
+                          <option key={cat.id} value={cat.name}>
+                            {cat.name}
+                          </option>
+                        ))}
+                        <option value="__ADD_NEW__">+ Add New Category...</option>
+                      </Select>
+                    )
+                  }
                 />
               </div>
               {errors.categoryName && (

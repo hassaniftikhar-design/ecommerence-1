@@ -19,14 +19,22 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
   return json.data as T;
 }
 
-export async function getOrders(page = 1, limit = 10): Promise<{
+export async function getOrders(
+  page = 1,
+  limit = 10,
+  search?: string
+): Promise<{
   orders: OrderListItem[];
   totalCount: number;
   pageSize: number;
 }> {
-  const response = await fetch(`/api/orders?page=${page}&limit=${limit}`, {
-    cache: "no-store",
-  });
+  const searchQuery = search ? `&search=${encodeURIComponent(search)}` : "";
+  const response = await fetch(
+    `/api/orders?page=${page}&limit=${limit}${searchQuery}`,
+    {
+      cache: "no-store",
+    }
+  );
   return parseApiResponse<{
     orders: OrderListItem[];
     totalCount: number;

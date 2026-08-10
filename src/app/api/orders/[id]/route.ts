@@ -166,6 +166,26 @@ export async function PATCH(
       });
     });
 
+    const statusLabels: Record<OrderStatus, string> = {
+      IN_PROGRESS: "processing",
+      DISPATCHED: "shipped",
+      DELIVERED: "delivered",
+      REJECTED: "cancelled",
+    };
+
+    const readableStatus = statusLabels[status] || status.toLowerCase();
+
+    // Create notification for customer
+    await prisma.notification.create({
+      data: {
+        userId: existingOrder.userId,
+        title: "Order Status Updated",
+        message: `Your order #${existingOrder.orderNumber} is now ${readableStatus}.`,
+        type: "ORDER_STATUS_UPDATED",
+        orderId: updatedOrder.id,
+      },
+    });
+
     return apiSuccess("Order status updated successfully", {
       order: {
         id: updatedOrder.id,

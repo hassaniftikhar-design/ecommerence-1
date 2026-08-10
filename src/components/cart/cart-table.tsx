@@ -1,10 +1,13 @@
 "use client";
 
+import Link from "next/link";
+import { ShoppingBag } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import { ROUTES } from "@/constants/routes";
 import {
   Table,
   TableBody,
-  TableCell,
   TableHead,
   TableHeader,
   TableRow,
@@ -34,11 +37,19 @@ export function CartTable({
 
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-12 text-center text-slate-500">
-        <p className="text-base font-semibold">Your shopping bag is empty.</p>
-        <p className="text-xs text-slate-400 mt-1">
+      <div className="rounded-xl border border-slate-200 bg-white p-10 sm:p-14 text-center text-slate-500 flex flex-col items-center justify-center">
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 text-[#007BFF] border border-blue-100 shadow-xs">
+          <ShoppingBag className="h-8 w-8 stroke-[1.75]" />
+        </div>
+        <p className="text-lg font-semibold text-slate-800">Your shopping bag is empty.</p>
+        <p className="text-xs text-slate-400 mt-1 max-w-sm">
           Explore products on the homepage and add them to your cart.
         </p>
+        <Link href={ROUTES.home} className="mt-6">
+          <Button className="bg-[#007BFF] hover:bg-[#0056b3] text-white px-6 py-2.5 rounded-xl text-sm font-medium transition cursor-pointer">
+            Go to Home
+          </Button>
+        </Link>
       </div>
     );
   }

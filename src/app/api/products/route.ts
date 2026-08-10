@@ -11,9 +11,30 @@ function generateSku(): string {
   return `SKU-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const titleQuery = searchParams.get("q") || searchParams.get("search") || "";
+    const categoryQuery = searchParams.get("category") || "";
+    const sortQuery = searchParams.get("sort") || "newest";
+
+    const whereClause: Record<string, unknown> = {};
+
+    if (titleQuery.trim()) {
+      whereClause.name = { contains: titleQuery.trim(), mode: "insensitive" };
+    }
+
+    if (categoryQuery.trim()) {
+      whereClause.category = { name: { equals: categoryQuery.trim(), mode: "insensitive" } };
+    }
+
+    let orderByClause: Record<string, unknown> = { createdAt: "desc" };
+    if (sortQuery === "name-asc") {
+      orderByClause = { name: "asc" };
+    }
+
     const products = await prisma.product.findMany({
+      where: whereClause,
       include: {
         category: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
@@ -36,7 +57,7 @@ export async function GET() {
           },
         },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: orderByClause,
     });
 
     const formattedProducts = products.map((product) => {
@@ -96,6 +117,12 @@ export async function GET() {
         updatedAt: product.updatedAt.toISOString(),
       };
     });
+
+    if (sortQuery === "price-asc") {
+      formattedProducts.sort((a, b) => a.lowestPrice - b.lowestPrice);
+    } else if (sortQuery === "price-desc") {
+      formattedProducts.sort((a, b) => b.lowestPrice - a.lowestPrice);
+    }
 
     return apiSuccess("Products retrieved successfully", {
       products: formattedProducts,

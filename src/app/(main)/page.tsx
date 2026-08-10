@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 
 import { ProductSearchBar } from "@/components/home/product-search-bar";
+import { CategoryDropdown } from "@/components/home/category-dropdown";
 import { SortDropdown } from "@/components/home/sort-dropdown";
 import { ProductGrid } from "@/components/home/product-grid";
-import { getProducts } from "@/services/product.service";
+import { getProducts, getCategories } from "@/services/product.service";
 
 export const metadata: Metadata = {
   title: "Our Products",
@@ -11,21 +12,41 @@ export const metadata: Metadata = {
   openGraph: { title: "Our Products | E-commerce" },
 };
 
-export default async function HomePage() {
-  const products = await getProducts();
+interface HomePageProps {
+  searchParams?: Promise<{
+    q?: string;
+    search?: string;
+    category?: string;
+    sort?: string;
+  }>;
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const params = await searchParams;
+  const q = params?.q || params?.search || "";
+  const category = params?.category || "";
+  const sort = params?.sort || "";
+
+  const [products, categories] = await Promise.all([
+    getProducts(q, category, sort),
+    getCategories(),
+  ]);
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-2 py-6 sm:px-4 md:px-6 lg:px-8">
+    <div className="w-full px-2 sm:px-4 md:px-[56px] lg:px-[60px]">
       <div className="mb-6 flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
         <h1 className="text-3xl font-semibold text-[#007BFF]">
           Our Products
         </h1>
-        
-        <div className="flex w-full flex-row items-center gap-2 max-[395px]:flex-col max-[395px]:gap-3 md:w-auto md:gap-4">
-          <div className="flex-1 max-[395px]:w-full md:w-[320px]">
+
+        <div className="flex w-full flex-col sm:flex-row items-center gap-4.5 md:w-auto md:gap-3">
+          <div className="w-full sm:w-[260px] md:w-[280px]">
             <ProductSearchBar />
           </div>
-          <div className="w-[120px] shrink-0 max-[395px]:w-full md:w-[140px]">
+          <div className="w-full sm:w-[140px]">
+            <CategoryDropdown categories={categories} />
+          </div>
+          <div className="w-full sm:w-[140px]">
             <SortDropdown />
           </div>
         </div>
@@ -35,4 +56,3 @@ export default async function HomePage() {
     </div>
   );
 }
-   

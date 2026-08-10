@@ -130,12 +130,12 @@ export const updateProductSchema = z
 
 export const productVariantItemSchema = z.object({
   id: z.string().optional(),
-  color: z.string().trim().min(1, "Color is required"),
-  size: z.string().trim().min(1, "Size is required"),
+  color: z.string().optional().or(z.literal("")),
+  size: z.string().optional().or(z.literal("")),
   quantity: z
     .number({ invalid_type_error: "Quantity must be a number" })
     .int("Quantity must be an integer")
-    .gt(0, "Quantity must be greater than 0"),
+    .min(0, "Quantity cannot be negative"),
 });
 
 export const productFormSchema = z
@@ -144,21 +144,21 @@ export const productFormSchema = z
     categoryName: z.string().trim().min(1, "Category is required"),
     price: z
       .number({ invalid_type_error: "Price must be a number" })
-      .gt(0, "Price must be greater than 0"),
+      .min(0, "Price cannot be negative"),
     imageUrl: z.string().optional(),
-    variants: z
-      .array(productVariantItemSchema)
-      .min(1, "At least one variant is required"),
+    variants: z.array(productVariantItemSchema),
   })
   .superRefine((data, ctx) => {
     const seenCombos = new Set<string>();
     data.variants.forEach((v, index) => {
-      if (v.color && v.size) {
-        const comboKey = `${v.color.trim().toLowerCase()}:${v.size.trim().toLowerCase()}`;
+      const colorVal = (v.color || "").trim().toLowerCase();
+      const sizeVal = (v.size || "").trim().toLowerCase();
+      if (colorVal || sizeVal) {
+        const comboKey = `${colorVal}:${sizeVal}`;
         if (seenCombos.has(comboKey)) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: `Duplicate Color (${v.color}) and Size (${v.size}) combination`,
+            message: `Duplicate variant combination`,
             path: ["variants", index, "color"],
           });
         }

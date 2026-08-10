@@ -27,16 +27,47 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
     const limit = Math.max(1, parseInt(searchParams.get("limit") || "10", 10));
+    const query = searchParams.get("query") || searchParams.get("search") || searchParams.get("q") || "";
     const skip = (page - 1) * limit;
 
-    const whereClause = user?.role === "ADMIN" ? {} : userId ? { userId } : { userId: "guest-or-none" };
+    const baseUserFilter = user?.role === "ADMIN" ? {} : userId ? { userId } : { userId: "guest-or-none" };
+    const searchFilter = query.trim()
+      ? {
+          OR: [
+            { orderNumber: { contains: query.trim(), mode: "insensitive" as const } },
+            { id: { contains: query.trim(), mode: "insensitive" as const } },
+            { user: { name: { contains: query.trim(), mode: "insensitive" as const } } },
+            { user: { email: { contains: query.trim(), mode: "insensitive" as const } } },
+            { items: { some: { title: { contains: query.trim(), mode: "insensitive" as const } } } },
+            {
+              items: {
+                some: {
+                  product: {
+                    category: { name: { contains: query.trim(), mode: "insensitive" as const } },
+                  },
+                },
+              },
+            },
+          ],
+        }
+      : {};
+
+    const whereClause = { ...baseUserFilter, ...searchFilter };
 
     const [orders, totalCount] = await Promise.all([
       prisma.order.findMany({
         where: whereClause,
         include: {
-          user: { select: { name: true } },
-          items: true,
+          user: { select: { name: true, email: true } },
+          items: {
+            include: {
+              product: {
+                include: {
+                  category: { select: { id: true, name: true } },
+                },
+              },
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
         skip,
@@ -188,6 +219,17 @@ export async function POST(request: Request) {
       });
 
       return newOrder;
+    });
+
+    // Create Notification for the user
+    await prisma.notification.create({
+      data: {
+        userId,
+        title: "Order Placed Successfully",
+        message: `Your order #${createdOrder.orderNumber} has been placed.`,
+        type: "ORDER_PLACED",
+        orderId: createdOrder.id,
+      },
     });
 
     return apiSuccess(

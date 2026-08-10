@@ -22,14 +22,51 @@ model User {
   emailVerified DateTime?
   isActive      Boolean   @default(true)
 
+  accounts Account[]
   products Product[]
   cart     Cart?
   orders   Order[]
 
-  resetTokens PasswordResetToken[]
+  resetTokens   PasswordResetToken[]
+  notifications Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String
+  orderId   String?
+  isRead    Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  id_token          String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  session_state     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([provider, providerAccountId])
 }
 
 model Category {

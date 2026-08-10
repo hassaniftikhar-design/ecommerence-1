@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Edit2, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Edit2, Trash2, ChevronDown, ChevronUp, Search } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -35,6 +36,7 @@ export function AdminProductsView({
   const { data: session, status } = useSession();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [addDrawerOpen, setAddDrawerOpen] = useState<boolean>(initialOpenAddDrawer);
   const [editProductId, setEditProductId] = useState<string | null>(initialEditProductId);
@@ -82,6 +84,11 @@ export function AdminProductsView({
     onCloseAddDrawer?.();
   };
 
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1);
+  };
+
   const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm("Are you sure you want to delete this product?")) return;
@@ -93,11 +100,7 @@ export function AdminProductsView({
     }
   };
 
-  if (status === "loading" || loading) {
-    return <div className="p-8 text-center text-slate-500 font-medium">Loading products catalog...</div>;
-  }
-
-  if (!session || session.user?.role !== "ADMIN") {
+  if (status !== "loading" && (!session || session.user?.role !== "ADMIN")) {
     return (
       <div className="mx-auto max-w-lg py-16 text-center">
         <h1 className="text-2xl font-bold text-red-600">Access Denied</h1>
@@ -109,15 +112,32 @@ export function AdminProductsView({
     );
   }
 
-  const totalPages = Math.max(1, Math.ceil(products.length / pageSize));
-  const paginatedProducts = products.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const filteredProducts = products.filter(
+    (product) =>
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (product.category?.name && product.category.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
+  const paginatedProducts = filteredProducts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-6">
-      {/* Top Header & Action Buttons */}
+      {/* Top Header & Search / Action Row */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-[#007BFF]">Products</h1>
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+          <div className="relative w-full sm:w-64">
+            <input
+              type="text"
+              placeholder="Search product title or category..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-9 text-xs sm:text-sm text-slate-700 placeholder-slate-400 outline-none focus:border-[#007BFF]"
+            />
+            <Search className="absolute right-3 top-2.5 h-4 w-4 text-slate-400" />
+          </div>
+
           <Button
             type="button"
             onClick={() => setAddDrawerOpen(true)}
@@ -148,7 +168,22 @@ export function AdminProductsView({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedProducts.length === 0 ? (
+            {loading ? (
+              Array.from({ length: 5 }).map((_, idx) => (
+                <TableRow key={idx} className="border-b border-slate-100">
+                  <TableCell className="py-3">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-10 w-10 rounded" />
+                      <Skeleton className="h-4 w-48" />
+                    </div>
+                  </TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-20 rounded" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-6 w-16 ml-auto" /></TableCell>
+                </TableRow>
+              ))
+            ) : paginatedProducts.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-32 text-center text-slate-400">
                   No products found. Click &quot;+ Add a Single Product&quot; to create one.

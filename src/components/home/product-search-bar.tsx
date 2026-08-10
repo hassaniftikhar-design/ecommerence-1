@@ -1,76 +1,58 @@
-// "use client";
-
-// import { Search } from "lucide-react";
-// import { useState } from "react";
-
-// import { Input } from "@/components/ui/input";
-// import { Button } from "@/components/ui/button";
-
-// // Client Component only because it holds the input's controlled
-// // value. It doesn't do anything with that value yet (no backend search
-// // endpoint), but the brief wants working local inputs even for
-// // UI-only screens.
-// export function ProductSearchBar() {
-//   const [query, setQuery] = useState("");
-
-//   return (
-//     <form
-//       role="search"
-//       className="flex w-full max-w-md"
-//       onSubmit={(e) => e.preventDefault()}
-//     >
-//       <label htmlFor="product-search" className="sr-only">
-//         Search by user &amp; order ID
-//       </label>
-//       <Input
-//         id="product-search"
-//         placeholder="Search by user & order ID"
-//         value={query}
-//         onChange={(e) => setQuery(e.target.value)}
-//         className="rounded-r-none"
-//       />
-//       <Button type="submit" className="rounded-l-none" aria-label="Search">
-//         <Search className="h-4 w-4" />
-//       </Button>
-//     </form>
-//   );
-// }
-
-
-
 "use client";
 
 import { Search } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+
 export function ProductSearchBar() {
-  const [query, setQuery] = useState("");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get("q") || searchParams.get("search") || "";
+  const [query, setQuery] = useState(initialQuery);
+
+  useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams(searchParams.toString());
+    if (query.trim()) {
+      params.set("q", query.trim());
+    } else {
+      params.delete("q");
+      params.delete("search");
+    }
+    router.push(`${pathname}?${params.toString()}`);
+  };
 
   return (
     <form
       role="search"
-      onSubmit={(e) => e.preventDefault()}
+      onSubmit={handleSearch}
       className="flex h-8 min-w-0 flex-1 overflow-hidden rounded border border-[#E2E8F0] bg-white"
     >
       <label htmlFor="product-search" className="sr-only">
-        Search by user & order ID
+        Search products by title
       </label>
 
       <input
         id="product-search"
         type="text"
-        placeholder="Search by user & order ID"
+        placeholder="Search products by title..."
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        className="flex-1 border-0 bg-transparent px-3 text-sm text-ink placeholder:text-[#9BA2C1] focus:outline-none"
+        className="flex-1 border-0 bg-transparent px-3 text-sm text-slate-800 placeholder:text-[#9BA2C1] focus:outline-none"
       />
 
       <Button
         type="submit"
         aria-label="Search"
-        className="flex h-8 w-9 items-center justify-center rounded-none border-0 border-l border-[#E2E8F0] bg-[#F5F5F5] p-0 hover:bg-[#F5F5F5]"
+        className="flex h-8 w-9 items-center justify-center rounded-none border-0 border-l border-[#E2E8F0] bg-[#F5F5F5] p-0 hover:bg-slate-200 cursor-pointer transition"
       >
-        <Search className="h-5 w-5 pb-1 text-[#003B5C]" strokeWidth={2.5} />
+        <Search className="h-4 w-4 text-[#003B5C]" strokeWidth={2.2} />
       </Button>
     </form>
   );
