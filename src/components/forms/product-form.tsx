@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, FolderPlus, List } from "lucide-react";
+import { Plus, Trash2, FolderPlus, List, AlertCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   const router = useRouter();
   const { showSuccess, showError } = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const [formErrorMessages, setFormErrorMessages] = useState<string[]>([]);
   const [dbCategories, setDbCategories] = useState<{ id: string; name: string }[]>([]);
   const [isCustomCategory, setIsCustomCategory] = useState(false);
 
@@ -248,6 +249,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         showSuccess("Product updated successfully!", "Success");
       }
 
+      setFormErrorMessages([]);
       if (onSubmitSuccess) {
         onSubmitSuccess();
       } else {
@@ -256,8 +258,13 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         }, 800);
       }
     } catch (err) {
-      const msg = (err as Error).message || "Failed to save product";
-      showError(msg, "Error");
+      const rawMsg = (err as Error).message || "Failed to save product";
+      const parsedList = rawMsg
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      setFormErrorMessages(parsedList.length > 0 ? parsedList : [rawMsg]);
+      showError(parsedList[0] || "Failed to save product", "Product Error");
     } finally {
       setSubmitting(false);
     }
@@ -265,6 +272,20 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pt-2">
+      {/* Prominent Meaningful Error Banner */}
+      {formErrorMessages.length > 0 && (
+        <div className="rounded-xl bg-red-50 p-4 border border-red-200 text-red-700 space-y-1.5 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2 font-bold text-sm text-red-800">
+            <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
+            <span>Product Save Error:</span>
+          </div>
+          <ul className="list-disc list-inside text-xs font-medium space-y-1 pl-1 text-red-700">
+            {formErrorMessages.map((msg, idx) => (
+              <li key={idx}>{msg}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {/* Main Card */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
         <div className="flex flex-col md:flex-row items-start gap-8">

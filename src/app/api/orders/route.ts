@@ -171,6 +171,18 @@ export async function POST(request: Request) {
     const orderNumber = generateOrderNumber();
 
     const createdOrder = await prisma.$transaction(async (tx) => {
+      // 1. Real-time stock verification against current DB stock
+      for (const line of cartLines) {
+        if (line.variantId) {
+          const variant = await tx.productVariant.findUnique({
+            where: { id: line.variantId },
+          });
+          if (!variant || variant.stock < line.quantity || variant.stock <= 0) {
+            throw new Error(`OUT_OF_STOCK: ${line.title}`);
+          }
+        }
+      }
+
       const newOrder = await tx.order.create({
         data: {
           orderNumber,
@@ -191,7 +203,7 @@ export async function POST(request: Request) {
           });
           if (variant) {
             currentStock = variant.stock;
-            const newVariantStock = Math.max(0, variant.stock - line.quantity);
+            const newVariantStock = variant.stock - line.quantity;
             await tx.productVariant.update({
               where: { id: line.variantId },
               data: { stock: newVariantStock },
@@ -238,6 +250,14 @@ export async function POST(request: Request) {
       201
     );
   } catch (error) {
-    return apiError("Failed to place order", [(error as Error).message], 500);
+    const errorMsg = (error as Error).message || "";
+    if (errorMsg.startsWith("OUT_OF_STOCK")) {
+      return apiError(
+        "Order can't be placed due to quantity going out of stock.",
+        ["OUT_OF_STOCK"],
+        400
+      );
+    }
+    return apiError("Failed to place order", [errorMsg], 500);
   }
 }

@@ -13,6 +13,7 @@ interface CartSummaryProps {
   isEmpty?: boolean;
   selectedItemIds?: string[];
   onOrderPlaced?: (order: { orderId: string; orderNumber: string }) => void;
+  onOutOfStockError?: (message: string) => void;
 }
 
 export function CartSummary({
@@ -20,8 +21,9 @@ export function CartSummary({
   isEmpty = false,
   selectedItemIds = [],
   onOrderPlaced,
+  onOutOfStockError,
 }: CartSummaryProps) {
-  const { showSuccess } = useToast();
+  const { showSuccess, showError } = useToast();
   const [loading, setLoading] = useState(false);
 
   const hasSelectedItems = selectedItemIds.length > 0;
@@ -34,7 +36,15 @@ export function CartSummary({
       showSuccess("Order is successfully placed!");
       onOrderPlaced?.(res);
     } catch (err) {
-      alert((err as Error).message);
+      const errorMsg = (err as Error).message || "Failed to place order";
+      if (
+        errorMsg.toLowerCase().includes("out of stock") ||
+        errorMsg.includes("OUT_OF_STOCK")
+      ) {
+        onOutOfStockError?.("Order can't be placed due to quantity going out of stock. Please update your cart quantity.");
+      } else {
+        showError(errorMsg, "Order Error");
+      }
     } finally {
       setLoading(false);
     }

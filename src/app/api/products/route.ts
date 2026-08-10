@@ -185,81 +185,181 @@ export async function POST(request: Request) {
     const adminUserId = (user.id || user.sub)!;
 
     const createdProduct = await prisma.$transaction(async (tx) => {
-      // 1. Create Base Product
-      const product = await tx.product.create({
-        data: {
-          name: name.trim(),
-          categoryId: category.id,
-          createdById: adminUserId,
+      // 1. Check if a product with the exact same name already exists
+      const existingProduct = await tx.product.findFirst({
+        where: {
+          name: { equals: name.trim(), mode: "insensitive" },
+        },
+        include: {
+          options: { include: { values: true } },
+          variants: {
+            include: {
+              variantOptions: {
+                include: { optionValue: { include: { option: true } } },
+              },
+            },
+          },
         },
       });
 
-      // 2. Create Options and OptionValues
-      const optionValueMap: Record<string, string> = {}; // "Color:Black" => optionValueId
+      let product = existingProduct;
 
-      for (const opt of options) {
-        const createdOpt = await tx.productOption.create({
+      if (!product) {
+        // Create new base product if none exists
+        product = await tx.product.create({
           data: {
-            productId: product.id,
-            name: opt.name.trim(),
+            name: name.trim(),
+            categoryId: category.id,
+            createdById: adminUserId,
+          },
+          include: {
+            options: { include: { values: true } },
+            variants: {
+              include: {
+                variantOptions: {
+                  include: { optionValue: { include: { option: true } } },
+                },
+              },
+            },
           },
         });
+      } else {
+        // Update category if needed
+        await tx.product.update({
+          where: { id: product.id },
+          data: { categoryId: category.id },
+        });
+      }
 
-        for (const valStr of opt.values) {
-          const valTrimmed = valStr.trim();
-          const createdVal = await tx.productOptionValue.create({
-            data: {
-              optionId: createdOpt.id,
-              value: valTrimmed,
-            },
-          });
-          optionValueMap[`${opt.name.trim()}:${valTrimmed}`] = createdVal.id;
+      // 2. Ensure Options and OptionValues exist on the product
+      const optionValueMap: Record<string, string> = {}; // "Color:Black" => optionValueId
+
+      // Map existing options and values
+      for (const existingOpt of product.options) {
+        for (const existingVal of existingOpt.values) {
+          optionValueMap[`${existingOpt.name.trim()}:${existingVal.value.trim()}`] = existingVal.id;
         }
       }
 
-      // 3. Create ProductVariants and VariantOptions
-      if (variants && variants.length > 0) {
-        for (const v of variants) {
-          const variantSku = v.sku || generateSku();
-          const createdVariant = await tx.productVariant.create({
+      for (const opt of options) {
+        const optName = opt.name.trim();
+        let targetOpt = product.options.find(
+          (o) => o.name.toLowerCase() === optName.toLowerCase()
+        );
+
+        if (!targetOpt) {
+          const createdOpt = await tx.productOption.create({
             data: {
               productId: product.id,
-              sku: variantSku,
-              price: v.price,
-              stock: v.stock,
-              images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE],
+              name: optName,
             },
+            include: { values: true },
+          });
+          targetOpt = createdOpt;
+        }
+
+        for (const valStr of opt.values) {
+          const valTrimmed = valStr.trim();
+          let targetVal = targetOpt.values.find(
+            (v) => v.value.toLowerCase() === valTrimmed.toLowerCase()
+          );
+
+          if (!targetVal) {
+            const createdVal = await tx.productOptionValue.create({
+              data: {
+                optionId: targetOpt.id,
+                value: valTrimmed,
+              },
+            });
+            targetVal = createdVal;
+          }
+          optionValueMap[`${optName}:${valTrimmed}`] = targetVal.id;
+        }
+      }
+
+      // 3. Create or Merge ProductVariants
+      if (variants && variants.length > 0) {
+        for (const v of variants) {
+          const attrEntries = Object.entries(v.attributes || {});
+          
+          // Try to find matching variant on existing product
+          const existingVariantMatch = product.variants.find((existingV) => {
+            if (attrEntries.length === 0 && existingV.variantOptions.length === 0) return true;
+            if (attrEntries.length !== existingV.variantOptions.length) return false;
+            return attrEntries.every(([attrName, attrValue]) => {
+              return existingV.variantOptions.some(
+                (vo) =>
+                  vo.optionValue.option.name.toLowerCase() === attrName.toLowerCase() &&
+                  vo.optionValue.value.toLowerCase() === attrValue.toLowerCase()
+              );
+            });
           });
 
-          if (v.attributes) {
-            for (const [attrName, attrValue] of Object.entries(v.attributes)) {
-              const valId = optionValueMap[`${attrName.trim()}:${attrValue.trim()}`];
-              if (valId) {
-                await tx.variantOption.create({
-                  data: {
-                    variantId: createdVariant.id,
-                    optionValueId: valId,
-                  },
-                });
+          if (existingVariantMatch) {
+            // Merge stock into existing variant
+            await tx.productVariant.update({
+              where: { id: existingVariantMatch.id },
+              data: {
+                stock: existingVariantMatch.stock + v.stock,
+                price: v.price,
+                images: v.images && v.images.length > 0 ? v.images : existingVariantMatch.images,
+              },
+            });
+          } else {
+            // Create new variant under existing product
+            const variantSku = v.sku || generateSku();
+            const createdVariant = await tx.productVariant.create({
+              data: {
+                productId: product.id,
+                sku: variantSku,
+                price: v.price,
+                stock: v.stock,
+                images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE],
+              },
+            });
+
+            if (v.attributes) {
+              for (const [attrName, attrValue] of Object.entries(v.attributes)) {
+                const valId = optionValueMap[`${attrName.trim()}:${attrValue.trim()}`];
+                if (valId) {
+                  await tx.variantOption.create({
+                    data: {
+                      variantId: createdVariant.id,
+                      optionValueId: valId,
+                    },
+                  });
+                }
               }
             }
           }
         }
       } else {
-        // Fallback for single variant product (backward compatibility)
+        // Fallback for single variant product
         const finalPrice = price || 0;
         const finalStock = stock || 0;
         const finalImage = imageUrl && imageUrl.trim() !== "" ? imageUrl.trim() : DEFAULT_PRODUCT_IMAGE;
 
-        await tx.productVariant.create({
-          data: {
-            productId: product.id,
-            sku: generateSku(),
-            price: finalPrice,
-            stock: finalStock,
-            images: [finalImage],
-          },
-        });
+        const firstVariant = product.variants[0];
+        if (firstVariant) {
+          await tx.productVariant.update({
+            where: { id: firstVariant.id },
+            data: {
+              stock: firstVariant.stock + finalStock,
+              price: finalPrice,
+              images: [finalImage],
+            },
+          });
+        } else {
+          await tx.productVariant.create({
+            data: {
+              productId: product.id,
+              sku: generateSku(),
+              price: finalPrice,
+              stock: finalStock,
+              images: [finalImage],
+            },
+          });
+        }
       }
 
       return product;

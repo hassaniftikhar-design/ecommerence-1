@@ -18,6 +18,7 @@ import type { CartItem, CartTotals } from "@/types/cart.types";
 import { useRouter } from "next/navigation";
 import { OrderSuccessModal } from "@/components/orders/order-success-modal";
 import { OrdersModal } from "@/components/orders/orders-modal";
+import { OutOfStockModal } from "@/components/cart/out-of-stock-modal";
 
 export default function CartPage() {
   const router = useRouter();
@@ -37,6 +38,7 @@ export default function CartPage() {
     orderNumber: string;
   } | null>(null);
   const [viewOrderDetailId, setViewOrderDetailId] = useState<string | null>(null);
+  const [outOfStockMessage, setOutOfStockMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -152,9 +154,21 @@ export default function CartPage() {
                 fetchCartData();
                 setPlacedOrderInfo(orderInfo);
               }}
+              onOutOfStockError={(msg) => {
+                fetchCartData();
+                setOutOfStockMessage(msg);
+              }}
             />
           )}
         </>
+      )}
+
+      {outOfStockMessage && (
+        <OutOfStockModal
+          isOpen={true}
+          message={outOfStockMessage}
+          onClose={() => setOutOfStockMessage(null)}
+        />
       )}
 
       {placedOrderInfo && (
