@@ -69,8 +69,7 @@ export function CartTable({
                 Product
               </div>
             </TableHead>
-            <TableHead className="font-semibold text-slate-600">Color</TableHead>
-            <TableHead className="font-semibold text-slate-600">Size</TableHead>
+            <TableHead className="font-semibold text-slate-600">Variant</TableHead>
             <TableHead className="font-semibold text-slate-600">Qty</TableHead>
             <TableHead className="font-semibold text-slate-600">Price</TableHead>
             <TableHead className="font-semibold text-slate-600">Total Price</TableHead>

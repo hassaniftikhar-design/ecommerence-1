@@ -4,6 +4,7 @@ import { ProductSearchBar } from "@/components/home/product-search-bar";
 import { CategoryDropdown } from "@/components/home/category-dropdown";
 import { SortDropdown } from "@/components/home/sort-dropdown";
 import { ProductGrid } from "@/components/home/product-grid";
+import { HomeOrdersModal } from "@/components/orders/home-orders-modal";
 import { getProducts, getCategories } from "@/services/product.service";
 
 export const metadata: Metadata = {
@@ -18,6 +19,8 @@ interface HomePageProps {
     search?: string;
     category?: string;
     sort?: string;
+    orders?: string;
+    orderId?: string;
   }>;
 }
 
@@ -26,6 +29,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const q = params?.q || params?.search || "";
   const category = params?.category || "";
   const sort = params?.sort || "";
+  const ordersParam = params?.orders;
+  const orderIdParam = params?.orderId;
 
   const [products, categories] = await Promise.all([
     getProducts(q, category, sort),
@@ -53,6 +58,11 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       </div>
 
       <ProductGrid products={products} />
+
+      <HomeOrdersModal
+        openOrders={Boolean(ordersParam)}
+        initialOrderId={orderIdParam}
+      />
     </div>
   );
 }

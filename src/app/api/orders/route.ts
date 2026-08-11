@@ -76,15 +76,18 @@ export async function GET(request: Request) {
       prisma.order.count({ where: whereClause }),
     ]);
 
-    const formattedOrders = orders.map((order) => ({
-      id: order.id,
-      date: formatDate(order.createdAt),
-      orderNumber: order.orderNumber,
-      user: order.user.name || "Customer",
-      productsCount: order.items.length,
-      amount: Number(order.totalAmount),
-      status: order.status,
-    }));
+    const formattedOrders = orders.map((order) => {
+      const uniqueProductCount = new Set(order.items.map((item) => item.productId)).size;
+      return {
+        id: order.id,
+        date: formatDate(order.createdAt),
+        orderNumber: order.orderNumber,
+        user: order.user.name || "Customer",
+        productsCount: uniqueProductCount || order.items.length,
+        amount: Number(order.totalAmount),
+        status: order.status,
+      };
+    });
 
     return apiSuccess("Orders retrieved successfully", {
       orders: formattedOrders,

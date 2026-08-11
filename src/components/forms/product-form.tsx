@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, FolderPlus, List, AlertCircle } from "lucide-react";
+import { Plus, Trash2, AlertCircle, ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ import { ROUTES } from "@/constants/routes";
 import { createProduct, updateProduct, getCategories } from "@/services/product.service";
 import { productFormSchema, type ProductFormSchemaValues } from "@/lib/validators";
 import type { ProductFormProps } from "@/types/product.types";
+import { cn } from "@/lib/utils";
 
 const COLOR_OPTIONS = [
   "Black",
@@ -76,32 +77,32 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
       const formattedVariants =
         initialData.variants && initialData.variants.length > 0
           ? initialData.variants.map((v) => {
-              const color =
-                v.attributes?.Color ||
-                v.attributes?.color ||
-                v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === "color")
-                  ?.value ||
-                "Black";
-              const size =
-                v.attributes?.Size ||
-                v.attributes?.size ||
-                v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === "size")
-                  ?.value ||
-                "Medium";
-              return {
-                id: v.id,
-                color,
-                size,
-                quantity: v.stock,
-              };
-            })
+            const color =
+              v.attributes?.Color ||
+              v.attributes?.color ||
+              v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === "color")
+                ?.value ||
+              "Black";
+            const size =
+              v.attributes?.Size ||
+              v.attributes?.size ||
+              v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === "size")
+                ?.value ||
+              "Medium";
+            return {
+              id: v.id,
+              color,
+              size,
+              quantity: v.stock,
+            };
+          })
           : [
-              {
-                color: "Black",
-                size: "Medium",
-                quantity: initialData.stock || 10,
-              },
-            ];
+            {
+              color: "Black",
+              size: "Medium",
+              quantity: initialData.stock || 10,
+            },
+          ];
 
       return {
         name: initialData.name || "",
@@ -126,6 +127,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
     control,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<ProductFormSchemaValues>({
     resolver: zodResolver(productFormSchema),
@@ -136,6 +138,44 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
     control,
     name: "variants",
   });
+
+  const [savedDropdownCategory, setSavedDropdownCategory] = useState<string>(
+    mode === "edit" && initialData?.category?.name ? initialData.category.name : "General"
+  );
+  const [customCategoryError, setCustomCategoryError] = useState<string | null>(null);
+
+  const validateCustomCategory = (val: string): boolean => {
+    const trimmed = val.trim();
+    if (!trimmed) {
+      setCustomCategoryError("Category name is required.");
+      return false;
+    }
+    const duplicate = dbCategories.find(
+      (c) => c.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (duplicate) {
+      setCustomCategoryError(`Category "${duplicate.name}" already exists.`);
+      return false;
+    }
+    setCustomCategoryError(null);
+    return true;
+  };
+
+  const handleSwitchToAddMode = () => {
+    const currentVal = watch("categoryName");
+    if (currentVal && !isCustomCategory) {
+      setSavedDropdownCategory(currentVal);
+    }
+    setIsCustomCategory(true);
+    setValue("categoryName", "");
+    setCustomCategoryError(null);
+  };
+
+  const handleSwitchToDropdownMode = () => {
+    setIsCustomCategory(false);
+    setValue("categoryName", savedDropdownCategory || "General");
+    setCustomCategoryError(null);
+  };
 
   // Calculate Total Stock automatically as sum of variant quantities
   const watchedVariants = watch("variants") || [];
@@ -359,25 +399,32 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
             {/* Category */}
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <Label htmlFor="categoryName" className="text-sm font-medium">
-                  Category
+              <div className="flex items-center justify-between mb-1.5">
+                <Label htmlFor="categoryName" className="text-sm font-semibold text-slate-700">
+                  Product Category
                 </Label>
-                <button
+                {/* <button
                   type="button"
-                  onClick={() => setIsCustomCategory((prev) => !prev)}
-                  className="text-xs text-[#007BFF] hover:underline font-semibold flex items-center gap-1"
+                  onClick={isCustomCategory ? handleSwitchToDropdownMode : handleSwitchToAddMode}
+                  className={cn(
+                    "text-xs font-semibold px-3.5 py-1.5 rounded-2xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 active:scale-95",
+                    isCustomCategory
+                      ? "bg-blue-50 hover:bg-blue-100 text-[#007BFF] border border-blue-200"
+                      : "bg-[#007BFF] hover:bg-[#0056b3] text-white"
+                  )}
                 >
                   {isCustomCategory ? (
                     <>
-                      <List className="h-3.5 w-3.5" /> Select Existing Category
+                      <ArrowLeft className="h-3.5 w-3.5" />
+                      <span>← Back to Categories</span>
                     </>
                   ) : (
                     <>
-                      <FolderPlus className="h-3.5 w-3.5" /> + Add New Category
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>+ Add New Category</span>
                     </>
                   )}
-                </button>
+                </button> */}
               </div>
 
               <div className="relative">
@@ -386,44 +433,68 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                   control={control}
                   render={({ field }) =>
                     isCustomCategory ? (
-                      <Input
-                        id="categoryName"
-                        placeholder="Type new category name..."
-                        value={field.value}
-                        onChange={field.onChange}
-                        className="bg-white"
-                      />
+                      <div className="space-y-1.5">
+                        <Input
+                          id="categoryName"
+                          autoFocus
+                          placeholder="Enter category name"
+                          value={field.value}
+                          onChange={(e) => {
+                            field.onChange(e.target.value);
+                            validateCustomCategory(e.target.value);
+                          }}
+                          className={cn(
+                            "h-11 bg-white border-slate-200 focus:border-[#007BFF]",
+                            customCategoryError ? "border-red-500 focus:border-red-500" : ""
+                          )}
+                        />
+                        <div className="pt-0.5">
+                          <button
+                            type="button"
+                            onClick={handleSwitchToDropdownMode}
+                            className="text-xs text-[#007BFF] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                          >
+                            <ArrowLeft className="h-3.5 w-3.5" />
+                            <span> Back to Categories</span>
+                          </button>
+                        </div>
+                      </div>
                     ) : (
                       <Select
                         id="categoryName"
                         value={field.value}
                         onChange={(e) => {
                           if (e.target.value === "__ADD_NEW__") {
-                            setIsCustomCategory(true);
-                            field.onChange("");
+                            handleSwitchToAddMode();
                           } else {
                             field.onChange(e.target.value);
+                            setSavedDropdownCategory(e.target.value);
                           }
                         }}
                         error={!!errors.categoryName}
+                        className="h-11 bg-white border-slate-200"
                       >
-                        <option value="">Select Category</option>
+                        <option value="">Select...</option>
                         {dbCategories.map((cat) => (
                           <option key={cat.id} value={cat.name}>
                             {cat.name}
                           </option>
                         ))}
-                        <option value="__ADD_NEW__">+ Add New Category...</option>
+                        <option value="__ADD_NEW__">+ Create New Category...</option>
                       </Select>
                     )
                   }
                 />
               </div>
-              {errors.categoryName && (
-                <p role="alert" className="mt-1.5 text-sm text-danger font-medium">
+              {customCategoryError ? (
+                <p role="alert" className="mt-1 text-xs text-red-500 font-medium pl-0.5">
+                  {customCategoryError}
+                </p>
+              ) : errors.categoryName ? (
+                <p role="alert" className="mt-1 text-xs text-red-500 font-medium pl-0.5">
                   {errors.categoryName.message}
                 </p>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -451,13 +522,13 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
           </div>
         )}
 
-        {/* Top Header Row for Adding New Variant */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-center bg-slate-50/80 p-3.5 rounded-lg border border-slate-200">
+        {/* Quick Add Variant Header Row - Exactly matching columns with variant list */}
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_44px] gap-3 items-center bg-slate-50/80 p-3.5 rounded-xl border border-slate-200">
           <div>
             <Select
               value={draftColor}
               onChange={(e) => setDraftColor(e.target.value)}
-              className="bg-white"
+              className="bg-white h-11"
             >
               <option value="">Select Color</option>
               {COLOR_OPTIONS.map((c) => (
@@ -472,7 +543,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
             <Select
               value={draftSize}
               onChange={(e) => setDraftSize(e.target.value)}
-              className="bg-white"
+              className="bg-white h-11"
             >
               <option value="">Select Size</option>
               {SIZE_OPTIONS.map((s) => (
@@ -489,25 +560,26 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               placeholder="Enter Qty"
               value={draftQty}
               onChange={(e) => setDraftQty(e.target.value)}
-              className="bg-white"
+              className="bg-white h-11"
             />
           </div>
 
-          <div className="flex justify-end sm:justify-start">
-            <Button
+          <div className="flex justify-end">
+            <button
               type="button"
               onClick={handleAddDraftVariant}
-              className="bg-[#007BFF] hover:bg-blue-600 text-white h-11 px-4 text-sm font-semibold rounded-lg flex items-center justify-center gap-1 shadow-sm w-full sm:w-auto"
+              title="Add variant"
+              className="bg-[#007BFF] hover:bg-blue-600 text-white h-11 w-11 rounded-xl flex items-center justify-center shrink-0 shadow-xs transition-all cursor-pointer active:scale-95"
             >
-              <Plus className="h-4 w-4" /> Add
-            </Button>
+              <Plus className="h-5 w-5 stroke-[2.25]" />
+            </button>
           </div>
         </div>
 
         {/* Added Variants List */}
         {fields.length === 0 ? (
           <div className="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 rounded-lg">
-            No variants added yet. Select a Color, Size, and Quantity above and click &quot;+ Add&quot;.
+            No variants added yet. Select a Color, Size, and Quantity above and click &quot;+&quot;.
           </div>
         ) : (
           <div className="space-y-3">
@@ -519,10 +591,10 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               return (
                 <div
                   key={field.id}
-                  className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3.5 rounded-lg bg-slate-50/50 border border-slate-200"
+                  className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_44px] gap-3 items-center p-3.5 rounded-xl bg-slate-50/50 border border-slate-200"
                 >
                   {/* Color Select */}
-                  <div className="w-full sm:w-1/3">
+                  <div>
                     <Controller
                       name={`variants.${index}.color`}
                       control={control}
@@ -530,7 +602,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                         <Select
                           {...selectField}
                           error={!!colorError}
-                          className="bg-white"
+                          className="bg-white h-11"
                         >
                           <option value="">Select Color</option>
                           {COLOR_OPTIONS.map((c) => (
@@ -547,7 +619,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                   </div>
 
                   {/* Size Select */}
-                  <div className="w-full sm:w-1/3">
+                  <div>
                     <Controller
                       name={`variants.${index}.size`}
                       control={control}
@@ -555,7 +627,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                         <Select
                           {...selectField}
                           error={!!sizeError}
-                          className="bg-white"
+                          className="bg-white h-11"
                         >
                           <option value="">Select Size</option>
                           {SIZE_OPTIONS.map((s) => (
@@ -572,12 +644,12 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                   </div>
 
                   {/* Quantity Input */}
-                  <div className="w-full sm:w-1/4">
+                  <div>
                     <Input
                       type="number"
                       placeholder="Qty"
                       aria-invalid={!!qtyError}
-                      className="bg-white"
+                      className="bg-white h-11"
                       {...register(`variants.${index}.quantity`, {
                         valueAsNumber: true,
                       })}
@@ -588,16 +660,15 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                   </div>
 
                   {/* Delete Button */}
-                  <div className="self-end sm:self-center">
-                    <Button
+                  <div className="flex justify-end">
+                    <button
                       type="button"
-                      variant="outline"
                       onClick={() => remove(index)}
-                      className="h-11 w-11 p-0 border-red-200 text-red-500 hover:bg-red-50 hover:text-red-700 rounded-lg flex items-center justify-center shrink-0"
+                      className="h-11 w-11 p-0 border border-red-200 bg-white text-red-500 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-center shrink-0 transition-all cursor-pointer active:scale-95"
                       title="Remove variant"
                     >
                       <Trash2 className="h-4 w-4" />
-                    </Button>
+                    </button>
                   </div>
                 </div>
               );
@@ -618,8 +689,8 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               ? "Saving Product..."
               : "Updating Product..."
             : mode === "create"
-            ? "Save Product"
-            : "Update"}
+              ? "Save Product"
+              : "Update"}
         </Button>
       </div>
     </form>

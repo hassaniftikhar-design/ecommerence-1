@@ -12,11 +12,14 @@ export interface OrderListItem {
 
 export interface OrderProductLine {
   id: string;
+  productId?: string;
   title: string;
   imageUrl: string;
   price: number;
   quantity: number;
   stock: number;
+  color?: string;
+  size?: string;
 }
 
 export interface OrderDetail extends OrderListItem {

@@ -17,6 +17,7 @@ import { renderStatusBadge } from "@/components/orders/orders-table";
 import { AdminOrderDrawer } from "@/components/orders/admin-order-drawer";
 import { getOrders } from "@/services/order.service";
 import type { OrderListItem } from "@/types/order.types";
+import { useDebounce } from "@/hooks/use-debounce";
 
 export interface AdminOrdersViewProps {
   initialOrderId?: string | null;
@@ -31,16 +32,22 @@ export function AdminOrdersView({
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 400);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(initialOrderId);
   const [drawerOpen, setDrawerOpen] = useState<boolean>(Boolean(initialOrderId));
   const pageSize = 10;
 
+  // Reset to page 1 whenever debounced search term changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchQuery]);
+
   const loadOrders = async () => {
     try {
       setLoading(true);
-      const data = await getOrders(currentPage, pageSize, searchQuery);
+      const data = await getOrders(currentPage, pageSize, debouncedSearchQuery);
       setOrders(data.orders);
       setTotalCount(data.totalCount);
     } catch (err) {
@@ -52,7 +59,7 @@ export function AdminOrdersView({
 
   useEffect(() => {
     loadOrders();
-  }, [currentPage, searchQuery]);
+  }, [currentPage, debouncedSearchQuery]);
 
   useEffect(() => {
     if (initialOrderId) {
@@ -74,7 +81,6 @@ export function AdminOrdersView({
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
-    setCurrentPage(1);
   };
 
   if (session?.user?.role !== "ADMIN") {

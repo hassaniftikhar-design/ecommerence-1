@@ -1,9 +1,10 @@
 "use client";
 
 import { Search } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useDebounce } from "@/hooks/use-debounce";
 
 export function ProductSearchBar() {
   const router = useRouter();
@@ -11,10 +12,31 @@ export function ProductSearchBar() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get("q") || searchParams.get("search") || "";
   const [query, setQuery] = useState(initialQuery);
+  const debouncedQuery = useDebounce(query, 400);
+  const isInitialMount = useRef(true);
 
   useEffect(() => {
     setQuery(initialQuery);
   }, [initialQuery]);
+
+  // Debounced search effect - only triggers search navigation when user stops typing
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    if (debouncedQuery.trim() !== initialQuery.trim()) {
+      const params = new URLSearchParams(searchParams.toString());
+      if (debouncedQuery.trim()) {
+        params.set("q", debouncedQuery.trim());
+      } else {
+        params.delete("q");
+        params.delete("search");
+      }
+      router.push(`${pathname}?${params.toString()}`);
+    }
+  }, [debouncedQuery]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

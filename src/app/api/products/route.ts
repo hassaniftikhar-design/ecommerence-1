@@ -185,8 +185,10 @@ export async function POST(request: Request) {
     const adminUserId = (user.id || user.sub)!;
 
     const createdProduct = await prisma.$transaction(async (tx) => {
-      // 1. Check if a product with the exact same name already exists
-      const existingProduct = await tx.product.findFirst({
+      const targetPrice = price || (variants && variants[0] ? variants[0].price : 0);
+
+      // 1. Check if a product with the exact same name and price already exists
+      const matchingProducts = await tx.product.findMany({
         where: {
           name: { equals: name.trim(), mode: "insensitive" },
         },
@@ -202,7 +204,16 @@ export async function POST(request: Request) {
         },
       });
 
-      let product = existingProduct;
+      // Find product where at least one variant matches targetPrice
+      let product = matchingProducts.find((p) => {
+        if (p.variants.length === 0) return true;
+        return p.variants.some((v) => Math.abs(Number(v.price) - targetPrice) < 0.01);
+      });
+
+      // Fallback: if no price match found, use existing product with matching name
+      if (!product && matchingProducts.length > 0) {
+        product = matchingProducts[0];
+      }
 
       if (!product) {
         // Create new base product if none exists

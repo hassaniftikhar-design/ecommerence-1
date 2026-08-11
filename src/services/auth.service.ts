@@ -25,6 +25,7 @@ export async function login(payload: LoginPayload): Promise<void> {
     redirect: false,
     email: payload.email,
     password: payload.password,
+    rememberMe: payload.rememberMe ? "true" : "false",
   });
 
   if (!result || result.error) {

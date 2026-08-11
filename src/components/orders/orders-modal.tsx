@@ -10,6 +10,8 @@ import { getOrders, getOrderById } from "@/services/order.service";
 import type { OrderDetail, OrderListItem } from "@/types/order.types";
 import { cn } from "@/lib/utils";
 
+const PAGE_SIZE = 13;
+
 interface OrdersModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -67,7 +69,7 @@ export function OrdersModal({ isOpen, onClose, initialOrderId }: OrdersModalProp
       try {
         setLoadingOrders(true);
         setError(null);
-        const data = await getOrders(currentPage, 6);
+        const data = await getOrders(currentPage, PAGE_SIZE);
         setOrders(data.orders);
         setTotalCount(data.totalCount);
       } catch (err) {
@@ -112,8 +114,7 @@ export function OrdersModal({ isOpen, onClose, initialOrderId }: OrdersModalProp
 
   if (!isOpen || !mounted) return null;
 
-  const pageSize = 6;
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex justify-end overflow-hidden">

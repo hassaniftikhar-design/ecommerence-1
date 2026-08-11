@@ -18,7 +18,9 @@ import {
 import { AddProductDrawer } from "@/components/forms/add-product-drawer";
 import { ROUTES } from "@/constants/routes";
 import { getProducts, deleteProduct } from "@/services/product.service";
+import { VariantBadge } from "@/components/common/variant-badge";
 import type { Product } from "@/types/product.types";
+import { useDebounce } from "@/hooks/use-debounce";
 
 export interface AdminProductsViewProps {
   initialOpenAddDrawer?: boolean;
@@ -37,10 +39,15 @@ export function AdminProductsView({
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 400);
   const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchQuery]);
   const [addDrawerOpen, setAddDrawerOpen] = useState<boolean>(initialOpenAddDrawer);
   const [editProductId, setEditProductId] = useState<string | null>(initialEditProductId);
-  const [expandedProductIds, setExpandedProductIds] = useState<Set<string>>(new Set());
+  const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
   const pageSize = 10;
 
   useEffect(() => {
@@ -48,15 +55,7 @@ export function AdminProductsView({
   }, [initialEditProductId]);
 
   const toggleRowExpand = (productId: string) => {
-    setExpandedProductIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(productId)) {
-        next.delete(productId);
-      } else {
-        next.add(productId);
-      }
-      return next;
-    });
+    setExpandedProductId((prev) => (prev === productId ? null : productId));
   };
 
   const fetchProductsList = async () => {
@@ -86,7 +85,6 @@ export function AdminProductsView({
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
-    setCurrentPage(1);
   };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
@@ -114,8 +112,8 @@ export function AdminProductsView({
 
   const filteredProducts = products.filter(
     (product) =>
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (product.category?.name && product.category.name.toLowerCase().includes(searchQuery.toLowerCase()))
+      product.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+      (product.category?.name && product.category.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()))
   );
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
@@ -195,7 +193,7 @@ export function AdminProductsView({
                 const displayStock = product.totalStock ?? product.stock ?? 0;
                 const displayVariantCount = product.variantCount ?? product.variants?.length ?? 1;
                 const displayImage = product.imageUrl || product.variants?.[0]?.images?.[0];
-                const isExpanded = expandedProductIds.has(product.id);
+                const isExpanded = expandedProductId === product.id;
 
                 return (
                   <React.Fragment key={product.id}>
@@ -298,19 +296,13 @@ export function AdminProductsView({
                                       key={variant.id || idx}
                                       className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200/80"
                                     >
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2.5">
+                                        <VariantBadge
+                                          color={color !== "Standard" ? color : undefined}
+                                          size={size !== "Standard" ? size : undefined}
+                                        />
                                         <span className="text-xs font-semibold text-slate-800">
-                                          Color:{" "}
-                                          <span className="text-[#007BFF] font-bold">
-                                            {color}
-                                          </span>
-                                        </span>
-                                        <span className="text-slate-300">|</span>
-                                        <span className="text-xs font-semibold text-slate-800">
-                                          Size:{" "}
-                                          <span className="text-slate-900 font-bold">
-                                            {size}
-                                          </span>
+                                          {color !== "Standard" ? color : ""} {size !== "Standard" ? size : ""}
                                         </span>
                                       </div>
                                       <span className="text-xs font-bold text-slate-700 bg-white border border-slate-200 px-2.5 py-1 rounded-md shadow-xs">

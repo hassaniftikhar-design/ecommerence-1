@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { signupSchema } from "@/lib/validators";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
+export const dynamic = "force-dynamic";  /// i added this bcz it only contain post method during run build adn when server tries to get sttic page data it throws not found 
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();

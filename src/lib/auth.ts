@@ -14,6 +14,7 @@ const providers: NextAuthOptions["providers"] = [
     credentials: {
       email: { label: "Email", type: "email" },
       password: { label: "Password", type: "password" },
+      rememberMe: { label: "Remember Me", type: "text" },
     },
     async authorize(credentials) {
       if (!credentials?.email || !credentials.password) {
@@ -37,11 +38,14 @@ const providers: NextAuthOptions["providers"] = [
         return null;
       }
 
+      const isRememberMe = credentials.rememberMe === "true" || credentials.rememberMe === "1";
+
       return {
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
+        rememberMe: isRememberMe,
       };
     },
   }),
@@ -59,6 +63,7 @@ if (googleClientId && googleClientSecret) {
 export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
+    maxAge: 5 * 24 * 60 * 60, // 5 days maxAge (432,000 seconds)
   },
   providers,
   callbacks: {
@@ -123,6 +128,11 @@ export const authOptions: NextAuthOptions = {
     },
     async jwt({ token, user, account }) {
       if (user) {
+        // If "Remember Me" is checked -> 5 Days (432,000s), otherwise -> 1 Day (86,400s)
+        const isRemember = (user as { rememberMe?: boolean }).rememberMe === true;
+        const maxAgeSeconds = isRemember ? 5 * 24 * 60 * 60 : 1 * 24 * 60 * 60;
+        token.exp = Math.floor(Date.now() / 1000) + maxAgeSeconds;
+
         if (account?.provider === "google" && user.email) {
           const dbUser = await prisma.user.findUnique({
             where: { email: user.email.toLowerCase() },

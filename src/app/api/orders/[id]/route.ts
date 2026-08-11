@@ -23,7 +23,23 @@ export async function GET(
       where: { id },
       include: {
         user: { select: { id: true, name: true, email: true } },
-        items: true,
+        items: {
+          include: {
+            variant: {
+              include: {
+                variantOptions: {
+                  include: {
+                    optionValue: {
+                      include: {
+                        option: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -37,25 +53,44 @@ export async function GET(
       return apiError("Forbidden: Cannot access this order", [], 403);
     }
 
+    const uniqueProductCount = new Set(order.items.map((item) => item.productId)).size;
+
     const formattedDetail = {
       id: order.id,
       date: formatDate(order.createdAt),
       orderNumber: order.orderNumber,
       user: order.user.name || "Customer",
-      productsCount: order.items.length,
+      productsCount: uniqueProductCount || order.items.length,
       amount: Number(order.totalAmount),
       subTotal: Number(order.subTotal),
       tax: Number(order.tax),
       totalAmount: Number(order.totalAmount),
       status: order.status,
-      products: order.items.map((item) => ({
-        id: item.id,
-        title: item.title,
-        imageUrl: item.imageUrl,
-        price: Number(item.price),
-        quantity: item.quantity,
-        stock: item.stock,
-      })),
+      products: order.items.map((item) => {
+        let color: string | undefined = undefined;
+        let size: string | undefined = undefined;
+
+        if (item.variant?.variantOptions) {
+          for (const vo of item.variant.variantOptions) {
+            const optionName = vo.optionValue?.option?.name?.toLowerCase();
+            const val = vo.optionValue?.value;
+            if (optionName === "color") color = val;
+            if (optionName === "size") size = val;
+          }
+        }
+
+        return {
+          id: item.id,
+          productId: item.productId,
+          title: item.title,
+          imageUrl: item.imageUrl,
+          price: Number(item.price),
+          quantity: item.quantity,
+          stock: item.variant?.stock ?? item.stock,
+          color,
+          size,
+        };
+      }),
     };
 
     return apiSuccess("Order retrieved successfully", { order: formattedDetail });

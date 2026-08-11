@@ -6,7 +6,7 @@ import { Trash2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { QuantitySelector } from "@/components/home/quantity-selector";
-import { ColorSwatch } from "@/components/cart/color-swatch";
+import { VariantBadge } from "@/components/common/variant-badge";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import type { CartItem } from "@/types/cart.types";
 
@@ -53,14 +53,12 @@ export function CartItemRow({
         </div>
       </TableCell>
 
-      {/* 2. Color */}
+      {/* 2. Variant (Compact Color Circle + Size Overlay) */}
       <TableCell className="text-xs sm:text-sm text-slate-700">
-        <ColorSwatch color={item.color} />
-      </TableCell>
-
-      {/* 3. Size */}
-      <TableCell className="text-xs sm:text-sm text-slate-700 font-medium">
-        {item.size || "-"}
+        <VariantBadge
+          color={typeof item.color === "string" ? item.color : item.color?.name}
+          size={item.size}
+        />
       </TableCell>
 
       {/* 4. Quantity */}
