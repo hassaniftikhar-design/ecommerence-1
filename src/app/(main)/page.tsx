@@ -44,15 +44,17 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           Our Products
         </h1>
 
-        <div className="flex w-full flex-col sm:flex-row items-center gap-4.5 md:w-auto md:gap-3">
+        <div className="flex w-full flex-col gap-3.5 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
           <div className="w-full sm:w-[260px] md:w-[280px]">
             <ProductSearchBar />
           </div>
-          <div className="w-full sm:w-[140px]">
-            <CategoryDropdown categories={categories} />
-          </div>
-          <div className="w-full sm:w-[140px]">
-            <SortDropdown />
+          <div className="grid grid-cols-2 gap-2.5 w-full sm:w-auto sm:flex sm:items-center sm:gap-3">
+            <div className="w-full sm:w-[140px]">
+              <CategoryDropdown categories={categories} />
+            </div>
+            <div className="w-full sm:w-[140px]">
+              <SortDropdown />
+            </div>
           </div>
         </div>
       </div>

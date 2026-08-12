@@ -70,6 +70,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   const [draftSize, setDraftSize] = useState("");
   const [draftQty, setDraftQty] = useState("");
   const [draftError, setDraftError] = useState<string | null>(null);
+  const draftQtyInputRef = React.useRef<HTMLInputElement>(null);
 
   // Compute default values from initialData if mode === "edit"
   const getDefaultValues = (): ProductFormSchemaValues => {
@@ -187,27 +188,28 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   // Quick Add Variant handler
   const handleAddDraftVariant = () => {
     setDraftError(null);
-    const qtyNum = parseInt(draftQty, 10);
+    let qtyNum = parseInt(draftQty, 10);
     if (isNaN(qtyNum) || qtyNum < 0) {
-      setDraftError("Quantity cannot be negative");
-      return;
+      qtyNum = 0;
     }
 
     const colorVal = (draftColor || "").trim();
     const sizeVal = (draftSize || "").trim();
 
-    // Duplicate check if both color and size are specified
-    if (colorVal || sizeVal) {
-      const isDuplicate = watchedVariants.some(
-        (v) =>
-          (v.color || "").trim().toLowerCase() === colorVal.toLowerCase() &&
-          (v.size || "").trim().toLowerCase() === sizeVal.toLowerCase()
-      );
+    // Duplicate check for both specific and general variants (no color/size)
+    const isDuplicate = watchedVariants.some(
+      (v) =>
+        (v.color || "").trim().toLowerCase() === colorVal.toLowerCase() &&
+        (v.size || "").trim().toLowerCase() === sizeVal.toLowerCase()
+    );
 
-      if (isDuplicate) {
-        setDraftError(`Variant with specified color and size already exists`);
-        return;
-      }
+    if (isDuplicate) {
+      setDraftError(
+        !colorVal && !sizeVal
+          ? "General variant already exists"
+          : "Variant with specified color and size already exists"
+      );
+      return;
     }
 
     append({
@@ -220,6 +222,11 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
     setDraftColor("");
     setDraftSize("");
     setDraftQty("");
+
+    // Keep focus on the draft quantity input
+    setTimeout(() => {
+      draftQtyInputRef.current?.focus();
+    }, 50);
   };
 
   const onSubmit = async (data: ProductFormSchemaValues) => {
@@ -556,10 +563,19 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
           <div>
             <Input
+              ref={draftQtyInputRef}
               type="number"
+              min="0"
               placeholder="Enter Qty"
               value={draftQty}
-              onChange={(e) => setDraftQty(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val !== "" && parseInt(val, 10) < 0) {
+                  setDraftQty("0");
+                } else {
+                  setDraftQty(val);
+                }
+              }}
               className="bg-white h-11"
             />
           </div>
@@ -647,11 +663,17 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                   <div>
                     <Input
                       type="number"
+                      min="1"
                       placeholder="Qty"
                       aria-invalid={!!qtyError}
                       className="bg-white h-11"
                       {...register(`variants.${index}.quantity`, {
                         valueAsNumber: true,
+                        onChange: (e) => {
+                          if (parseInt(e.target.value, 10) < 0) {
+                            e.target.value = "0";
+                          }
+                        },
                       })}
                     />
                     {qtyError && (

@@ -1,20 +1,20 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
-import { Check, ChevronDown } from "lucide-react";
+import { Check } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QuantitySelector } from "@/components/home/quantity-selector";
+import { ProductColorSelector } from "@/components/home/product-color-selector";
+import { ProductSizeSelector } from "@/components/home/product-size-selector";
 import { useToast } from "@/components/ui/toast";
 import { addToCart } from "@/services/cart.service";
 import { RequireLoginModal } from "@/components/auth/require-login-modal";
+import { cn } from "@/lib/utils";
 import type { Product } from "@/types/product.types";
-
-const DEFAULT_SIZES = ["Small", "Medium", "Large"];
-const DEFAULT_COLORS = ["Black", "White", "Red", "Blue"];
 
 export function ProductCard({ product }: { product: Product }) {
   const { status } = useSession();
@@ -39,8 +39,7 @@ export function ProductCard({ product }: { product: Product }) {
         )
         .filter((val): val is string => Boolean(val)) || [];
 
-    const combined = Array.from(new Set([...fromOptions, ...fromVariants]));
-    return combined.length > 0 ? combined : DEFAULT_SIZES;
+    return Array.from(new Set([...fromOptions, ...fromVariants]));
   }, [product]);
 
   // Extract unique colors from variants and options
@@ -62,16 +61,28 @@ export function ProductCard({ product }: { product: Product }) {
         )
         .filter((val): val is string => Boolean(val)) || [];
 
-    const combined = Array.from(new Set([...fromOptions, ...fromVariants]));
-    return combined.length > 0 ? combined : DEFAULT_COLORS;
+    return Array.from(new Set([...fromOptions, ...fromVariants]));
   }, [product]);
 
-  const [selectedSize, setSelectedSize] = useState<string>("");
-  const [selectedColor, setSelectedColor] = useState<string>("");
+  const [selectedSize, setSelectedSize] = useState<string>(availableSizes[0] || "");
+  const [selectedColor, setSelectedColor] = useState<string>(availableColors[0] || "");
 
   const [quantity, setQuantity] = useState(1);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
+
+  // Automatically update selected color/size if available lists change
+  useEffect(() => {
+    if (availableColors.length > 0 && (!selectedColor || !availableColors.includes(selectedColor))) {
+      setSelectedColor(availableColors[0] || "");
+    }
+  }, [availableColors, selectedColor]);
+
+  useEffect(() => {
+    if (availableSizes.length > 0 && (!selectedSize || !availableSizes.includes(selectedSize))) {
+      setSelectedSize(availableSizes[0] || "");
+    }
+  }, [availableSizes, selectedSize]);
 
   // Find matching variant based on selected size and color
   const matchingVariant = useMemo(() => {
@@ -104,6 +115,21 @@ export function ProductCard({ product }: { product: Product }) {
       }) || null
     );
   }, [product.variants, selectedColor, selectedSize]);
+
+  // Find color variant image if specific image exists for chosen color
+  const colorVariantImage = useMemo(() => {
+    if (!selectedColor || !product.variants) return null;
+    const match = product.variants.find((v) => {
+      const colorAttr = (
+        v.attributes?.Color ||
+        v.attributes?.color ||
+        v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === "color")?.value ||
+        ""
+      ).toLowerCase();
+      return colorAttr === selectedColor.toLowerCase() && v.images && v.images.length > 0;
+    });
+    return match?.images?.[0] || null;
+  }, [product.variants, selectedColor]);
 
   // Compute current stock based on selection
   const currentStock = useMemo(() => {
@@ -147,6 +173,7 @@ export function ProductCard({ product }: { product: Product }) {
     matchingVariant?.price ?? product.lowestPrice ?? product.price ?? 0;
 
   const displayImage =
+    colorVariantImage ||
     matchingVariant?.images?.[0] ||
     product.imageUrl ||
     product.variants?.[0]?.images?.[0] ||
@@ -221,45 +248,37 @@ export function ProductCard({ product }: { product: Product }) {
           )}
         </div>
 
-        {/* Select Size and Select Color Dropdowns */}
-        <div className="mb-3.5 grid grid-cols-2 gap-2">
-          {/* Select Size Dropdown */}
-          <div className="relative">
-            <select
-              value={selectedSize}
-              onChange={(e) => setSelectedSize(e.target.value)}
-              className="w-full h-8 sm:h-9 appearance-none rounded-md border border-slate-200 bg-white px-2.5 pr-7 text-[11px] sm:text-xs font-normal text-slate-600 focus:outline-none focus:ring-1 focus:ring-[#007BFF] cursor-pointer"
-            >
-              <option value="">Select Size</option>
-              {availableSizes.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+        {/* Modular Variant Selectors (Color Swatches & Size Chips/Dropdowns in single row) */}
+        {availableColors.length > 1 || availableSizes.length > 1 ? (
+          <div
+            className={cn(
+              "mb-3.5 grid gap-3 items-start",
+              availableColors.length > 1 && availableSizes.length > 1
+                ? "grid-cols-2"
+                : "grid-cols-1"
+            )}
+          >
+            <ProductColorSelector
+              colors={availableColors}
+              selectedColor={selectedColor}
+              onSelectColor={setSelectedColor}
+            />
+            <ProductSizeSelector
+              sizes={availableSizes}
+              selectedSize={selectedSize}
+              onSelectSize={setSelectedSize}
+            />
           </div>
-
-          {/* Select Color Dropdown */}
-          <div className="relative">
-            <select
-              value={selectedColor}
-              onChange={(e) => setSelectedColor(e.target.value)}
-              className="w-full h-8 sm:h-9 appearance-none rounded-md border border-slate-200 bg-white px-2.5 pr-7 text-[11px] sm:text-xs font-normal text-slate-600 focus:outline-none focus:ring-1 focus:ring-[#007BFF] cursor-pointer"
-            >
-              <option value="">Select Color</option>
-              {availableColors.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+        ) : (
+          <div className="mb-3.5 flex items-center">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+              <span className="text-slate-800 font-bold capitalize">Standard size & color</span>
+            </span>
           </div>
-        </div>
+        )}
 
         {/* Bottom Quantity & Add to Cart Action Row */}
-        <div className="mt-auto flex flex-row items-center justify-between gap-1 max-[395px]:flex-col max-[395px]:gap-2 @xs:gap-2">
+        <div className="mt-auto flex flex-row items-center justify-between gap-1 max-[395px]:flex-col max-[395px]:gap-2 @xs:gap-2 pt-1">
           <QuantitySelector
             initialValue={1}
             max={currentStock}

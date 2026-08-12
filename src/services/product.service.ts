@@ -38,12 +38,21 @@ export async function uploadImage(file: File): Promise<string> {
 export async function getProducts(
   q?: string,
   category?: string,
-  sort?: string
+  sort?: string,
+  status?: string
 ): Promise<Product[]> {
   if (typeof window === "undefined") {
     const { prisma } = await import("@/lib/prisma");
 
     const whereClause: Record<string, unknown> = {};
+    if (status === "active") {
+      whereClause.isActive = true;
+    } else if (status === "inactive") {
+      whereClause.isActive = false;
+    } else if (status !== "all") {
+      whereClause.isActive = true;
+    }
+
     if (q && q.trim()) {
       whereClause.name = { contains: q.trim(), mode: "insensitive" };
     }
@@ -114,6 +123,8 @@ export async function getProducts(
       return {
         id: product.id,
         name: product.name,
+        isActive: product.isActive,
+        inactiveAt: product.inactiveAt ? product.inactiveAt.toISOString() : null,
         category: product.category,
         createdBy: product.createdBy,
         options: product.options.map((opt) => ({
@@ -151,6 +162,7 @@ export async function getProducts(
   if (q) params.set("q", q);
   if (category) params.set("category", category);
   if (sort) params.set("sort", sort);
+  if (status) params.set("status", status);
 
   const queryString = params.toString() ? `?${params.toString()}` : "";
   const response = await fetch(`/api/products${queryString}`, {
@@ -241,6 +253,8 @@ export async function getProductById(id: string): Promise<Product> {
     return {
       id: product.id,
       name: product.name,
+      isActive: product.isActive,
+      inactiveAt: product.inactiveAt ? product.inactiveAt.toISOString() : null,
       category: product.category,
       createdBy: product.createdBy,
       options: product.options.map((opt) => ({
@@ -321,9 +335,26 @@ export async function updateProduct(
   return data.product;
 }
 
-export async function deleteProduct(id: string): Promise<void> {
-  const response = await fetch(`/api/products/${id}`, {
-    method: "DELETE",
+export async function activateProduct(id: string): Promise<Product> {
+  const response = await fetch(`/api/products/${id}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isActive: true }),
   });
-  await parseApiResponse<undefined>(response);
+  const data = await parseApiResponse<{ product: Product }>(response);
+  return data.product;
+}
+
+export async function deactivateProduct(id: string): Promise<Product> {
+  const response = await fetch(`/api/products/${id}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isActive: false }),
+  });
+  const data = await parseApiResponse<{ product: Product }>(response);
+  return data.product;
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+  await deactivateProduct(id);
 }

@@ -87,6 +87,9 @@ model Product {
   createdById String
   createdBy   User     @relation(fields: [createdById], references: [id])
 
+  isActive   Boolean   @default(true)
+  inactiveAt DateTime?
+
   options    ProductOption[]
   variants   ProductVariant[]
   cartItems  CartItem[]

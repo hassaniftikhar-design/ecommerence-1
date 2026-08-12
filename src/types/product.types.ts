@@ -29,12 +29,16 @@ export interface ProductVariant {
   updatedAt: string;
 }
 
+export type ProductStatusFilter = "all" | "active" | "inactive";
+
 export interface Product {
   id: string;
   name: string;
   price: number;
   stock: number;
   imageUrl: string;
+  isActive: boolean;
+  inactiveAt?: string | null;
   category: {
     id: string;
     name: string;

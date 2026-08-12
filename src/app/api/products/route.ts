@@ -13,12 +13,27 @@ function generateSku(): string {
 
 export async function GET(request: Request) {
   try {
+    const user = await getCurrentUser(request);
+    const userIsAdmin = Boolean(user && isAdmin(user));
+
     const { searchParams } = new URL(request.url);
     const titleQuery = searchParams.get("q") || searchParams.get("search") || "";
     const categoryQuery = searchParams.get("category") || "";
     const sortQuery = searchParams.get("sort") || "newest";
+    const statusQuery = searchParams.get("status") || (userIsAdmin ? "all" : "active");
 
     const whereClause: Record<string, unknown> = {};
+
+    if (!userIsAdmin) {
+      // Storefront/Customer queries MUST only show active products
+      whereClause.isActive = true;
+    } else {
+      if (statusQuery === "active") {
+        whereClause.isActive = true;
+      } else if (statusQuery === "inactive") {
+        whereClause.isActive = false;
+      }
+    }
 
     if (titleQuery.trim()) {
       whereClause.name = { contains: titleQuery.trim(), mode: "insensitive" };
@@ -93,6 +108,8 @@ export async function GET(request: Request) {
       return {
         id: product.id,
         name: product.name,
+        isActive: product.isActive,
+        inactiveAt: product.inactiveAt ? product.inactiveAt.toISOString() : null,
         category: product.category,
         createdBy: product.createdBy,
         options: product.options.map((opt) => ({

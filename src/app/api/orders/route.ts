@@ -174,8 +174,16 @@ export async function POST(request: Request) {
     const orderNumber = generateOrderNumber();
 
     const createdOrder = await prisma.$transaction(async (tx) => {
-      // 1. Real-time stock verification against current DB stock
+      // 1. Real-time active status & stock verification against current DB
       for (const line of cartLines) {
+        const prod = await tx.product.findUnique({
+          where: { id: line.productId },
+          select: { isActive: true, name: true },
+        });
+        if (!prod || !prod.isActive) {
+          throw new Error(`INACTIVE_PRODUCT: ${line.title}`);
+        }
+
         if (line.variantId) {
           const variant = await tx.productVariant.findUnique({
             where: { id: line.variantId },
@@ -254,6 +262,14 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     const errorMsg = (error as Error).message || "";
+    if (errorMsg.startsWith("INACTIVE_PRODUCT")) {
+      const prodName = errorMsg.split(":")[1]?.trim() || "Product";
+      return apiError(
+        `Order cannot be placed because "${prodName}" is currently inactive.`,
+        ["INACTIVE_PRODUCT"],
+        400
+      );
+    }
     if (errorMsg.startsWith("OUT_OF_STOCK")) {
       return apiError(
         "Order can't be placed due to quantity going out of stock.",

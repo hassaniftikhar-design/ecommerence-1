@@ -18,6 +18,9 @@ export async function GET(
   try {
     const { id } = await params;
 
+    const user = await getCurrentUser(request);
+    const userIsAdmin = Boolean(user && isAdmin(user));
+
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
@@ -44,8 +47,8 @@ export async function GET(
       },
     });
 
-    if (!product) {
-      return apiError("Product not found", [], 404);
+    if (!product || (!userIsAdmin && !product.isActive)) {
+      return apiError("Product not found or inactive", [], 404);
     }
 
     const variantsFormatted = product.variants.map((v) => {
@@ -80,6 +83,8 @@ export async function GET(
     const formattedProduct = {
       id: product.id,
       name: product.name,
+      isActive: product.isActive,
+      inactiveAt: product.inactiveAt ? product.inactiveAt.toISOString() : null,
       category: product.category,
       createdBy: product.createdBy,
       options: product.options.map((opt) => ({
@@ -366,7 +371,7 @@ export async function DELETE(
     const user = await getCurrentUser(request);
 
     if (!user || !isAdmin(user)) {
-      return apiError("Forbidden: Only ADMIN users can delete products", [], 403);
+      return apiError("Forbidden: Only ADMIN users can deactivate products", [], 403);
     }
 
     const { id } = await params;
@@ -379,12 +384,16 @@ export async function DELETE(
       return apiError("Product not found", [], 404);
     }
 
-    await prisma.product.delete({
+    await prisma.product.update({
       where: { id },
+      data: {
+        isActive: false,
+        inactiveAt: new Date(),
+      },
     });
 
-    return apiSuccess("Product deleted successfully");
+    return apiSuccess("Product inactivated successfully");
   } catch (error) {
-    return apiError("Failed to delete product", [(error as Error).message], 500);
+    return apiError("Failed to deactivate product", [(error as Error).message], 500);
   }
 }

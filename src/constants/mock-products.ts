@@ -8,6 +8,7 @@ export const MOCK_PRODUCTS: Product[] = [
     stock: 10,
     imageUrl:
       "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80",
+    isActive: true,
     category: { id: "cat-1", name: "Audio" },
     createdBy: { id: "admin-1", name: "Admin" },
     options: [],
@@ -22,6 +23,7 @@ export const MOCK_PRODUCTS: Product[] = [
     stock: 15,
     imageUrl:
       "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80",
+    isActive: true,
     category: { id: "cat-1", name: "Audio" },
     createdBy: { id: "admin-1", name: "Admin" },
     options: [],
@@ -36,6 +38,7 @@ export const MOCK_PRODUCTS: Product[] = [
     stock: 8,
     imageUrl:
       "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80",
+    isActive: true,
     category: { id: "cat-2", name: "Wearables" },
     createdBy: { id: "admin-1", name: "Admin" },
     options: [],
@@ -50,6 +53,7 @@ export const MOCK_PRODUCTS: Product[] = [
     stock: 20,
     imageUrl:
       "https://images.unsplash.com/photo-1511467687858-23d96c32e4ae?auto=format&fit=crop&w=600&q=80",
+    isActive: true,
     category: { id: "cat-3", name: "Peripherals" },
     createdBy: { id: "admin-1", name: "Admin" },
     options: [],

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Edit2, Trash2, ChevronDown, ChevronUp, Search } from "lucide-react";
+import { Edit2, Search, ChevronDown, ChevronUp, Power, RotateCcw, AlertTriangle, X } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
@@ -17,10 +17,13 @@ import {
 } from "@/components/ui/table";
 import { AddProductDrawer } from "@/components/forms/add-product-drawer";
 import { ROUTES } from "@/constants/routes";
-import { getProducts, deleteProduct } from "@/services/product.service";
+import { getProducts, activateProduct, deactivateProduct } from "@/services/product.service";
 import { VariantBadge } from "@/components/common/variant-badge";
-import type { Product } from "@/types/product.types";
+import type { Product, ProductStatusFilter } from "@/types/product.types";
 import { useDebounce } from "@/hooks/use-debounce";
+import { useToast } from "@/components/ui/toast";
+import { Tooltip } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 export interface AdminProductsViewProps {
   initialOpenAddDrawer?: boolean;
@@ -36,19 +39,40 @@ export function AdminProductsView({
   onCloseEditDrawer,
 }: AdminProductsViewProps = {}) {
   const { data: session, status } = useSession();
+  const { showSuccess, showError } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ProductStatusFilter>("all");
   const debouncedSearchQuery = useDebounce(searchQuery, 400);
   const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedSearchQuery]);
   const [addDrawerOpen, setAddDrawerOpen] = useState<boolean>(initialOpenAddDrawer);
   const [editProductId, setEditProductId] = useState<string | null>(initialEditProductId);
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
+
+  // Image preview modal state
+  const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
+
+  // Status change confirmation dialog state
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean;
+    productId: string;
+    productName: string;
+    targetStatus: "active" | "inactive";
+  }>({
+    open: false,
+    productId: "",
+    productName: "",
+    targetStatus: "inactive",
+  });
+  const [processingStatus, setProcessingStatus] = useState(false);
+
   const pageSize = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchQuery, statusFilter]);
 
   useEffect(() => {
     setEditProductId(initialEditProductId);
@@ -58,13 +82,15 @@ export function AdminProductsView({
     setExpandedProductId((prev) => (prev === productId ? null : productId));
   };
 
-  const fetchProductsList = async () => {
+  const fetchProductsList = async (currentFilter?: ProductStatusFilter) => {
     try {
       setLoading(true);
-      const data = await getProducts();
+      const activeFilter = currentFilter ?? statusFilter;
+      const data = await getProducts(undefined, undefined, undefined, activeFilter);
       setProducts(data);
     } catch (err) {
       console.error("Failed to load products:", err);
+      showError((err as Error).message || "Failed to load products", "Error");
     } finally {
       setLoading(false);
     }
@@ -87,14 +113,42 @@ export function AdminProductsView({
     setSearchQuery(e.target.value);
   };
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
+  const handleStatusFilterChange = (filterOpt: ProductStatusFilter) => {
+    setStatusFilter(filterOpt);
+    fetchProductsList(filterOpt);
+  };
+
+  const openStatusConfirmation = (
+    productId: string,
+    productName: string,
+    currentIsActive: boolean,
+    e: React.MouseEvent
+  ) => {
     e.stopPropagation();
-    if (!confirm("Are you sure you want to delete this product?")) return;
+    setConfirmModal({
+      open: true,
+      productId,
+      productName,
+      targetStatus: currentIsActive ? "inactive" : "active",
+    });
+  };
+
+  const handleConfirmStatusChange = async () => {
     try {
-      await deleteProduct(id);
+      setProcessingStatus(true);
+      if (confirmModal.targetStatus === "inactive") {
+        await deactivateProduct(confirmModal.productId);
+        showSuccess(`Product "${confirmModal.productName}" is now inactive.`, "Status Updated");
+      } else {
+        await activateProduct(confirmModal.productId);
+        showSuccess(`Product "${confirmModal.productName}" has been restored and activated.`, "Status Updated");
+      }
       await fetchProductsList();
     } catch (err) {
-      alert((err as Error).message);
+      showError((err as Error).message || "Failed to update status", "Error");
+    } finally {
+      setProcessingStatus(false);
+      setConfirmModal({ open: false, productId: "", productName: "", targetStatus: "inactive" });
     }
   };
 
@@ -125,28 +179,47 @@ export function AdminProductsView({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-[#007BFF]">Products</h1>
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-          <div className="relative w-full sm:w-64">
+
+          <div className="relative w-full sm:w-64 h-9">
             <input
               type="text"
               placeholder="Search product title or category..."
               value={searchQuery}
               onChange={handleSearchChange}
-              className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-9 text-xs sm:text-sm text-slate-700 placeholder-slate-400 outline-none focus:border-[#007BFF]"
+              className="w-full h-9 rounded-lg border border-slate-200 bg-white pl-3 pr-9 text-xs sm:text-sm text-slate-700 placeholder-slate-400 outline-none focus:border-[#007BFF]"
             />
-            <Search className="absolute right-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          </div>
+
+          <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 shrink-0 h-9">
+            {(["all", "active", "inactive"] as const).map((filterOpt) => (
+              <button
+                key={filterOpt}
+                type="button"
+                onClick={() => handleStatusFilterChange(filterOpt)}
+                className={cn(
+                  "px-3 h-7 flex items-center justify-center text-xs font-semibold rounded-md capitalize transition-all cursor-pointer",
+                  statusFilter === filterOpt
+                    ? "bg-white text-[#007BFF] shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                )}
+              >
+                {filterOpt === "all" ? "All" : filterOpt === "active" ? "Active" : "Inactive"}
+              </button>
+            ))}
           </div>
 
           <Button
             type="button"
             onClick={() => setAddDrawerOpen(true)}
             variant="outline"
-            className="w-full sm:w-auto border-[#007BFF] text-[#007BFF] hover:bg-blue-50 font-medium px-4 py-2 text-sm cursor-pointer"
+            className="w-full sm:w-auto h-9 border-[#007BFF] text-[#007BFF] hover:bg-blue-50 font-medium px-4 text-sm cursor-pointer"
           >
             + Add a Single Product
           </Button>
 
           <Link href={ROUTES.adminAddMultipleProducts} className="w-full sm:w-auto">
-            <Button className="w-full sm:w-auto bg-[#007BFF] hover:bg-blue-600 text-white font-medium px-4 py-2 text-sm shadow-sm">
+            <Button className="w-full sm:w-auto h-9 bg-[#007BFF] hover:bg-blue-600 text-white font-medium px-4 text-sm shadow-sm">
               + Add Multiple Products
             </Button>
           </Link>
@@ -158,11 +231,12 @@ export function AdminProductsView({
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50/70 border-b border-slate-200">
-              <TableHead className="w-[45%] font-semibold text-slate-600">Title</TableHead>
+              <TableHead className="w-[35%] font-semibold text-slate-600">Title</TableHead>
               <TableHead className="font-semibold text-slate-600">Price</TableHead>
               <TableHead className="font-semibold text-slate-600">Total Stock</TableHead>
               <TableHead className="font-semibold text-slate-600">Variants</TableHead>
-              <TableHead className="text-right font-semibold text-slate-600">Actions</TableHead>
+              <TableHead className="font-semibold text-slate-600">Status</TableHead>
+              <TableHead className="text-right font-semibold text-slate-600 pr-20">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -178,12 +252,13 @@ export function AdminProductsView({
                   <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                   <TableCell><Skeleton className="h-6 w-20 rounded" /></TableCell>
-                  <TableCell className="text-right"><Skeleton className="h-6 w-16 ml-auto" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                  <TableCell className="text-right pr-8"><Skeleton className="h-8 w-28 ml-auto rounded-lg" /></TableCell>
                 </TableRow>
               ))
             ) : paginatedProducts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="h-32 text-center text-slate-400">
+                <TableCell colSpan={6} className="h-32 text-center text-slate-400">
                   No products found. Click &quot;+ Add a Single Product&quot; to create one.
                 </TableCell>
               </TableRow>
@@ -199,30 +274,46 @@ export function AdminProductsView({
                   <React.Fragment key={product.id}>
                     <TableRow
                       onClick={() => toggleRowExpand(product.id)}
-                      className="hover:bg-slate-50/70 border-b border-slate-100 cursor-pointer transition-colors"
+                      className={cn(
+                        "hover:bg-slate-50/70 border-b border-slate-100 cursor-pointer transition-colors",
+                        !product.isActive && "bg-slate-50/40 opacity-85"
+                      )}
                     >
                       <TableCell className="py-3">
                         <div className="flex items-start gap-3">
                           <img
                             src={displayImage}
                             alt={product.name}
-                            className="h-10 w-10 shrink-0 rounded object-cover border border-slate-200"
+                            title="Click to view full image"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewImage({ url: displayImage || "", title: product.name });
+                            }}
+                            className="h-10 w-10 shrink-0 rounded object-cover border border-slate-200 cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-2xs"
                             onError={(e) => {
                               (e.target as HTMLImageElement).src =
                                 "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80";
                             }}
                           />
                           <div className="min-w-0">
-                            <p className="text-xs sm:text-sm font-medium text-slate-700 line-clamp-2">
-                              {product.name}
-                            </p>
+                            <Tooltip content={product.name} side="top">
+                              <p className="text-xs sm:text-sm font-medium text-slate-700 line-clamp-2 cursor-pointer hover:text-[#007BFF] transition-colors">
+                                {product.name}
+                              </p>
+                            </Tooltip>
+                            {product.category?.name && (
+                              <span className="text-[11px] text-slate-400 block">
+                                {product.category.name}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </TableCell>
+
                       <TableCell className="text-xs sm:text-sm text-slate-700 font-medium">
                         ${Number(displayPrice).toFixed(2)}
                       </TableCell>
-                      <TableCell className="text-xs sm:text-sm text-slate-700 font-medium">
+                      <TableCell className="text-xs sm:text-sm text-slate-700 font-medium pl-10">
                         {displayStock}
                       </TableCell>
                       <TableCell className="text-xs sm:text-sm text-slate-600 font-medium">
@@ -237,7 +328,25 @@ export function AdminProductsView({
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">
+
+                      <TableCell>
+                        {product.isActive ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                            Active
+                          </span>
+                        ) : (
+                          <span
+                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/80"
+                            title={product.inactiveAt ? `Deactivated: ${new Date(product.inactiveAt).toLocaleString()}` : "Inactive"}
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+                            Inactive
+                          </span>
+                        )}
+                      </TableCell>
+
+                      <TableCell className="text-right pr-8">
                         <div className="flex items-center justify-end gap-3">
                           <button
                             type="button"
@@ -245,19 +354,34 @@ export function AdminProductsView({
                               e.stopPropagation();
                               setEditProductId(product.id);
                             }}
-                            className="text-blue-500 hover:text-blue-700 p-1 cursor-pointer"
+                            className="text-blue-500 hover:text-blue-700 p-1.5 rounded-lg hover:bg-blue-50 cursor-pointer transition shrink-0"
                             title="Edit Product"
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={(e) => handleDelete(product.id, e)}
-                            className="text-red-500 hover:text-red-700 p-1 cursor-pointer"
-                            title="Delete Product"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+
+                          {/* Fixed-width status toggle button for visual consistency */}
+                          {product.isActive ? (
+                            <button
+                              type="button"
+                              onClick={(e) => openStatusConfirmation(product.id, product.name, true, e)}
+                              className="w-[108px] h-8 inline-flex items-center justify-center gap-1.5 text-xs font-medium rounded-lg text-amber-700 bg-amber-50/80 hover:bg-amber-100 border border-amber-300/90 cursor-pointer transition shadow-2xs active:scale-95 shrink-0"
+                              title="Deactivate Product"
+                            >
+                              <Power className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                              <span>Deactivate</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => openStatusConfirmation(product.id, product.name, false, e)}
+                              className="w-[108px] h-8 inline-flex items-center justify-center gap-1.5 text-xs font-medium rounded-lg text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 border border-emerald-300/90 cursor-pointer transition shadow-2xs active:scale-95 shrink-0"
+                              title="Restore Product"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                              <span>Restore</span>
+                            </button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -265,7 +389,7 @@ export function AdminProductsView({
                     {/* Expandable Variant Breakdown Row */}
                     {isExpanded && (
                       <TableRow className="bg-slate-50/60 border-b border-slate-200">
-                        <TableCell colSpan={5} className="p-4 sm:p-5">
+                        <TableCell colSpan={6} className="p-4 sm:p-5">
                           <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
                             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                               <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
@@ -344,9 +468,8 @@ export function AdminProductsView({
               <button
                 key={page}
                 onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1.5 font-medium border-r border-slate-200 last:border-r-0 ${
-                  currentPage === page ? "text-[#007BFF] bg-blue-50" : "text-slate-600 hover:bg-slate-50"
-                }`}
+                className={`px-3 py-1.5 font-medium border-r border-slate-200 last:border-r-0 ${currentPage === page ? "text-[#007BFF] bg-blue-50" : "text-slate-600 hover:bg-slate-50"
+                  }`}
               >
                 {page}
               </button>
@@ -358,6 +481,105 @@ export function AdminProductsView({
             >
               Next
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Full-Screen Lightbox Image Preview Modal */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 backdrop-blur-md p-2 sm:p-4 animate-in fade-in duration-200"
+          onClick={() => setPreviewImage(null)}
+        >
+          {/* Floating Close Button */}
+          <button
+            type="button"
+            onClick={() => setPreviewImage(null)}
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 z-[10001] rounded-full p-2.5 bg-black/60 hover:bg-black/90 text-white transition cursor-pointer shadow-2xl border border-white/20"
+            aria-label="Close preview"
+          >
+            <X className="h-6 w-6" />
+          </button>
+
+          {/* Full Screen Image View Container */}
+          <div
+            className="relative flex items-center justify-center w-full h-full max-w-[96vw] max-h-[95vh] animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={previewImage.url}
+              alt="Full size preview"
+              className="w-full h-full max-w-[96vw] max-h-[95vh] object-contain rounded-2xl shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Status Confirmation Modal Dialog */}
+      {confirmModal.open && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "p-3 rounded-full shrink-0",
+                confirmModal.targetStatus === "inactive" ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"
+              )}>
+                {confirmModal.targetStatus === "inactive" ? (
+                  <AlertTriangle className="h-6 w-6" />
+                ) : (
+                  <RotateCcw className="h-6 w-6" />
+                )}
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">
+                  {confirmModal.targetStatus === "inactive" ? "Deactivate Product?" : "Restore Product?"}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Confirm active status change for this product
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-600">
+              {confirmModal.targetStatus === "inactive" ? (
+                <>
+                  Are you sure you want to deactivate <span className="font-semibold text-slate-900">&quot;{confirmModal.productName}&quot;</span>?
+                </>
+              ) : (
+                <>
+                  Are you sure you want to restore <span className="font-semibold text-slate-900">&quot;{confirmModal.productName}&quot;</span>?
+                </>
+              )}
+            </p>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={processingStatus}
+                onClick={() => setConfirmModal({ open: false, productId: "", productName: "", targetStatus: "inactive" })}
+                className="border-slate-200 text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={processingStatus}
+                onClick={handleConfirmStatusChange}
+                className={cn(
+                  "font-semibold text-white",
+                  confirmModal.targetStatus === "inactive"
+                    ? "bg-amber-600 hover:bg-amber-700"
+                    : "bg-emerald-600 hover:bg-emerald-700"
+                )}
+              >
+                {processingStatus
+                  ? "Processing..."
+                  : confirmModal.targetStatus === "inactive"
+                    ? "Deactivate Product"
+                    : "Restore Product"}
+              </Button>
+            </div>
           </div>
         </div>
       )}

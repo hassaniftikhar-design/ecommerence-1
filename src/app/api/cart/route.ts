@@ -188,6 +188,10 @@ export async function POST(request: Request) {
       return apiError("Product not found", [], 404);
     }
 
+    if (!product.isActive) {
+      return apiError("This product is inactive and cannot be added to cart.", [], 400);
+    }
+
     // Default to first variant if variantId not specified
     let targetVariantId = variantId;
     if (!targetVariantId && product.variants.length > 0) {
