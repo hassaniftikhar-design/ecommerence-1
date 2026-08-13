@@ -264,7 +264,7 @@ export function AdminProductsView({
               </TableRow>
             ) : (
               paginatedProducts.map((product) => {
-                const displayPrice = product.lowestPrice ?? product.price ?? 0;
+                const displayPrice = product.price ?? product.lowestPrice ?? 0;
                 const displayStock = product.totalStock ?? product.stock ?? 0;
                 const displayVariantCount = product.variantCount ?? product.variants?.length ?? 1;
                 const displayImage = product.imageUrl || product.variants?.[0]?.images?.[0];
@@ -292,7 +292,7 @@ export function AdminProductsView({
                             className="h-10 w-10 shrink-0 rounded object-cover border border-slate-200 cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-2xs"
                             onError={(e) => {
                               (e.target as HTMLImageElement).src =
-                                "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80";
+                                "/placeholder-product.png";
                             }}
                           />
                           <div className="min-w-0">

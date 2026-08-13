@@ -3,8 +3,7 @@ import { getCurrentUser } from "@/lib/server-auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
 const TAX_RATE = 0.08;
-const DEFAULT_PRODUCT_IMAGE =
-  "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80";
+const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
 
 function generateOrderNumber(): string {
   const randNum = Math.floor(100000 + Math.random() * 900000);
@@ -143,11 +142,7 @@ export async function POST(request: Request) {
     }
 
     const cartLines = targetItems.map((item) => {
-      const unitPrice = item.variant
-        ? Number(item.variant.price)
-        : item.product.variants[0]
-        ? Number(item.product.variants[0].price)
-        : 0;
+      const unitPrice = Number(item.product.price);
 
       const lineTotal = Math.round(unitPrice * item.quantity * 100) / 100;
       const imageUrl =

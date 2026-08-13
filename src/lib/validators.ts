@@ -90,7 +90,7 @@ export const productOptionSchema = z.object({
 export const productVariantSchema = z.object({
   id: z.string().optional(),
   sku: z.string().optional(),
-  price: z.number().positive("Price must be greater than zero"),
+  price: z.number().optional(),
   stock: z.number().int().nonnegative("Stock must be zero or greater"),
   images: z.array(z.string()).default([]),
   attributes: z.record(z.string()).default({}),
@@ -104,7 +104,8 @@ export const createProductSchema = z
     options: z.array(productOptionSchema).default([]),
     variants: z.array(productVariantSchema).default([]),
     // Backward-compatibility single variant fields
-    price: z.number().positive().optional(),
+    // price: z.number().positive().optional(),
+    price: z.number().positive(),
     stock: z.number().int().nonnegative().optional(),
     imageUrl: z.string().optional().or(z.literal("")),
   })
@@ -136,6 +137,8 @@ export const productVariantItemSchema = z.object({
     .number({ invalid_type_error: "Quantity must be a number" })
     .int("Quantity must be an integer")
     .min(0, "Quantity cannot be negative"),
+  file: z.any().optional(),
+  previewUrl: z.string().optional(),
 });
 
 export const productFormSchema = z
@@ -145,10 +148,19 @@ export const productFormSchema = z
     price: z
       .number({ invalid_type_error: "Price must be a number" })
       .min(0, "Price cannot be negative"),
-    imageUrl: z.string().optional(),
+    defaultImageFile: z.any().optional(),
+    defaultImageUrl: z.string().optional(),
     variants: z.array(productVariantItemSchema),
   })
   .superRefine((data, ctx) => {
+    if (!data.defaultImageFile && (!data.defaultImageUrl || !data.defaultImageUrl.trim())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Default Product Image is required",
+        path: ["defaultImageUrl"],
+      });
+    }
+
     const seenCombos = new Set<string>();
     data.variants.forEach((v, index) => {
       const colorVal = (v.color || "").trim().toLowerCase();

@@ -20,7 +20,6 @@ export interface ProductVariant {
   id: string;
   productId: string;
   sku: string;
-  price: number;
   stock: number;
   images: string[];
   attributes?: Record<string, string>;

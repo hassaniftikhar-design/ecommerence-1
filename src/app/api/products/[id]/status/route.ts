@@ -2,8 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, isAdmin } from "@/lib/server-auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
-const DEFAULT_PRODUCT_IMAGE =
-  "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80";
+const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
 
 export async function PATCH(
   request: Request,
@@ -77,7 +76,6 @@ export async function PATCH(
         id: v.id,
         productId: v.productId,
         sku: v.sku,
-        price: Number(v.price),
         stock: v.stock,
         images: v.images,
         attributes,
@@ -87,8 +85,7 @@ export async function PATCH(
       };
     });
 
-    const prices = variantsFormatted.map((v) => v.price);
-    const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
+    const productPrice = Number(updatedProduct.price);
     const totalStock = variantsFormatted.reduce((acc, v) => acc + v.stock, 0);
     const primaryImage =
       variantsFormatted[0]?.images?.[0] || DEFAULT_PRODUCT_IMAGE;
@@ -111,10 +108,10 @@ export async function PATCH(
         })),
       })),
       variants: variantsFormatted,
-      price: lowestPrice,
+      price: productPrice,
       stock: totalStock,
       imageUrl: primaryImage,
-      lowestPrice,
+      lowestPrice: productPrice,
       totalStock,
       variantCount: variantsFormatted.length,
       createdAt: updatedProduct.createdAt.toISOString(),

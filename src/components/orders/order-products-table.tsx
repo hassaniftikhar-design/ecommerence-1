@@ -99,7 +99,7 @@ export function OrderProductsTable({
                           <Image
                             src={
                               group.imageUrl ||
-                              "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80"
+                              "/placeholder-product.png"
                             }
                             alt={group.title}
                             fill

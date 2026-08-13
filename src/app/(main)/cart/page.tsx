@@ -155,7 +155,6 @@ export default function CartPage() {
                 setPlacedOrderInfo(orderInfo);
               }}
               onOutOfStockError={(msg) => {
-                fetchCartData();
                 setOutOfStockMessage(msg);
               }}
             />

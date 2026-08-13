@@ -9,18 +9,26 @@ interface OutOfStockModalProps {
   isOpen: boolean;
   onClose: () => void;
   message?: string;
+  title?: string;
 }
 
 export function OutOfStockModal({
   isOpen,
   onClose,
+  title = "Order Can't Be Placed",
   message = "Order can't be placed due to quantity going out of stock. Please update your cart quantity.",
 }: OutOfStockModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 border border-slate-100">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 border border-slate-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Close Icon */}
         <button
           type="button"
@@ -38,10 +46,10 @@ export function OutOfStockModal({
           </div>
           <div>
             <h3 className="text-lg font-bold text-slate-900">
-              Order Can&apos;t Be Placed
+              {title}
             </h3>
             <p className="text-xs font-medium text-amber-600">
-              Item Stock Limit Exceeded
+              Action Required
             </p>
           </div>
         </div>

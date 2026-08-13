@@ -169,15 +169,14 @@ export function ProductCard({ product }: { product: Product }) {
     return product.totalStock ?? product.stock ?? 0;
   }, [product, selectedColor, selectedSize, matchingVariant]);
 
-  const currentPrice =
-    matchingVariant?.price ?? product.lowestPrice ?? product.price ?? 0;
+  const currentPrice = product.price ?? product.lowestPrice ?? 0;
 
   const displayImage =
     colorVariantImage ||
     matchingVariant?.images?.[0] ||
     product.imageUrl ||
     product.variants?.[0]?.images?.[0] ||
-    "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80";
+    "/placeholder-product.png";
 
   const isOutOfStock = currentStock === 0;
 

@@ -16,8 +16,8 @@ model User {
   id            String    @id @default(cuid())
   name          String
   email         String    @unique
-  phone         String
-  password      String
+  phone         String?
+  password      String?
   role          Role      @default(USER)
   emailVerified DateTime?
   isActive      Boolean   @default(true)
@@ -80,6 +80,7 @@ model Product {
   id          String   @id @default(cuid())
   name        String
   description String?
+  price       Decimal  @default(0.00) @db.Decimal(10, 2)
 
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
@@ -133,8 +134,6 @@ model ProductVariant {
 
   sku String @unique
 
-  price Decimal @db.Decimal(10, 2)
-
   stock Int
 
   images String[]
@@ -183,7 +182,7 @@ model CartItem {
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   variantId String?
-  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  variant   ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
 
   quantity Int @default(1)
 

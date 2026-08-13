@@ -4,8 +4,7 @@ import { getCurrentUser, isAdmin } from "@/lib/server-auth";
 import { updateProductSchema } from "@/lib/validators";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
-const DEFAULT_PRODUCT_IMAGE =
-  "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80";
+const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
 
 function generateSku(): string {
   return `SKU-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`;
@@ -64,7 +63,6 @@ export async function GET(
         id: v.id,
         productId: v.productId,
         sku: v.sku,
-        price: Number(v.price),
         stock: v.stock,
         images: v.images,
         attributes,
@@ -74,8 +72,7 @@ export async function GET(
       };
     });
 
-    const prices = variantsFormatted.map((v) => v.price);
-    const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
+    const productPrice = Number(product.price);
     const totalStock = variantsFormatted.reduce((acc, v) => acc + v.stock, 0);
     const primaryImage =
       variantsFormatted[0]?.images?.[0] || DEFAULT_PRODUCT_IMAGE;
@@ -98,10 +95,10 @@ export async function GET(
         })),
       })),
       variants: variantsFormatted,
-      price: lowestPrice,
+      price: productPrice,
       stock: totalStock,
       imageUrl: primaryImage,
-      lowestPrice,
+      lowestPrice: productPrice,
       totalStock,
       variantCount: variantsFormatted.length,
       createdAt: product.createdAt.toISOString(),
@@ -191,6 +188,7 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
         data: {
           ...(name !== undefined ? { name: name.trim() } : {}),
           ...(targetCategoryId ? { categoryId: targetCategoryId } : {}),
+          ...(price !== undefined ? { price } : {}),
         },
       });
 
@@ -222,23 +220,43 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
           }
         }
 
-        // Replace Variants if provided
+        // Update / Upsert Variants if provided
         if (variants !== undefined && variants.length > 0) {
-          await tx.productVariant.deleteMany({
-            where: { productId: id },
-          });
+          const oldVariants = existingProduct.variants;
+          const newVariantIds: string[] = [];
 
-          for (const v of variants) {
-            const variantSku = v.sku || generateSku();
-            const createdVariant = await tx.productVariant.create({
-              data: {
-                productId: id,
-                sku: variantSku,
-                price: v.price,
-                stock: v.stock,
-                images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE],
-              },
-            });
+          for (let i = 0; i < variants.length; i++) {
+            const v = variants[i];
+            if (!v) continue;
+            const existingVar = oldVariants[i];
+            let targetVariantId: string;
+
+            if (existingVar) {
+              await tx.productVariant.update({
+                where: { id: existingVar.id },
+                data: {
+                  stock: v.stock,
+                  images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE],
+                },
+              });
+              await tx.variantOption.deleteMany({
+                where: { variantId: existingVar.id },
+              });
+              targetVariantId = existingVar.id;
+            } else {
+              const variantSku = v.sku || generateSku();
+              const createdVariant = await tx.productVariant.create({
+                data: {
+                  productId: id,
+                  sku: variantSku,
+                  stock: v.stock,
+                  images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE],
+                },
+              });
+              targetVariantId = createdVariant.id;
+            }
+
+            newVariantIds.push(targetVariantId);
 
             if (v.attributes) {
               for (const [attrName, attrValue] of Object.entries(v.attributes)) {
@@ -246,7 +264,7 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
                 if (valId) {
                   await tx.variantOption.create({
                     data: {
-                      variantId: createdVariant.id,
+                      variantId: targetVariantId,
                       optionValueId: valId,
                     },
                   });
@@ -254,33 +272,77 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
               }
             }
           }
+
+          const primaryVariantId = newVariantIds[0];
+          const unusedOldVariants = oldVariants.filter((ov) => !newVariantIds.includes(ov.id));
+          for (const unusedVar of unusedOldVariants) {
+            if (primaryVariantId) {
+              await tx.cartItem.updateMany({
+                where: { variantId: unusedVar.id },
+                data: { variantId: primaryVariantId },
+              });
+            }
+            await tx.productVariant.delete({
+              where: { id: unusedVar.id },
+            });
+          }
         }
       } else if (variants !== undefined && variants.length > 0) {
         // Options not provided, but variants provided
-        await tx.productVariant.deleteMany({
-          where: { productId: id },
-        });
+        const oldVariants = existingProduct.variants;
+        const newVariantIds: string[] = [];
 
-        for (const v of variants) {
-          const variantSku = v.sku || generateSku();
-          await tx.productVariant.create({
-            data: {
-              productId: id,
-              sku: variantSku,
-              price: v.price,
-              stock: v.stock,
-              images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE],
-            },
+        for (let i = 0; i < variants.length; i++) {
+          const v = variants[i];
+          if (!v) continue;
+          const existingVar = oldVariants[i];
+          let targetVariantId: string;
+
+          if (existingVar) {
+            await tx.productVariant.update({
+              where: { id: existingVar.id },
+              data: {
+                stock: v.stock,
+                images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE],
+              },
+            });
+            targetVariantId = existingVar.id;
+          } else {
+            const variantSku = v.sku || generateSku();
+            const createdVariant = await tx.productVariant.create({
+              data: {
+                productId: id,
+                sku: variantSku,
+                stock: v.stock,
+                images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE],
+              },
+            });
+            targetVariantId = createdVariant.id;
+          }
+
+          newVariantIds.push(targetVariantId);
+        }
+
+        const primaryVariantId = newVariantIds[0];
+        const unusedOldVariants = oldVariants.filter((ov) => !newVariantIds.includes(ov.id));
+        for (const unusedVar of unusedOldVariants) {
+          if (primaryVariantId) {
+            await tx.cartItem.updateMany({
+              where: { variantId: unusedVar.id },
+              data: { variantId: primaryVariantId },
+            });
+          }
+          await tx.productVariant.delete({
+            where: { id: unusedVar.id },
           });
         }
-      } else if (price !== undefined || stock !== undefined || imageUrl !== undefined) {
+      } else if (stock !== undefined || imageUrl !== undefined) {
         // Update first variant for single product updates
         const firstVariant = existingProduct.variants[0];
         if (firstVariant) {
           await tx.productVariant.update({
             where: { id: firstVariant.id },
             data: {
-              ...(price !== undefined ? { price } : {}),
               ...(stock !== undefined ? { stock } : {}),
               ...(imageUrl !== undefined ? { images: [imageUrl || DEFAULT_PRODUCT_IMAGE] } : {}),
             },
@@ -322,7 +384,6 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
         id: v.id,
         productId: v.productId,
         sku: v.sku,
-        price: Number(v.price),
         stock: v.stock,
         images: v.images,
         attributes,
@@ -332,8 +393,7 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
       };
     });
 
-    const prices = variantsFormatted.map((v) => v.price);
-    const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
+    const productPrice = Number(fullProduct.price);
     const totalStock = variantsFormatted.reduce((acc, v) => acc + v.stock, 0);
     const primaryImage =
       variantsFormatted[0]?.images?.[0] || DEFAULT_PRODUCT_IMAGE;
@@ -345,10 +405,10 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
       createdBy: fullProduct.createdBy,
       options: fullProduct.options,
       variants: variantsFormatted,
-      price: lowestPrice,
+      price: productPrice,
       stock: totalStock,
       imageUrl: primaryImage,
-      lowestPrice,
+      lowestPrice: productPrice,
       totalStock,
       variantCount: variantsFormatted.length,
       createdAt: fullProduct.createdAt.toISOString(),

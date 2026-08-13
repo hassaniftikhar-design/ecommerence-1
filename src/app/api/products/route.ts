@@ -4,8 +4,7 @@ import { getCurrentUser, isAdmin } from "@/lib/server-auth";
 import { createProductSchema } from "@/lib/validators";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
-const DEFAULT_PRODUCT_IMAGE =
-  "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80";
+const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
 
 function generateSku(): string {
   return `SKU-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`;
@@ -89,7 +88,6 @@ export async function GET(request: Request) {
           id: v.id,
           productId: v.productId,
           sku: v.sku,
-          price: Number(v.price),
           stock: v.stock,
           images: v.images,
           attributes,
@@ -99,8 +97,7 @@ export async function GET(request: Request) {
         };
       });
 
-      const prices = variantsFormatted.map((v) => v.price);
-      const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
+      const productPrice = Number(product.price);
       const totalStock = variantsFormatted.reduce((acc, v) => acc + v.stock, 0);
       const primaryImage =
         variantsFormatted[0]?.images?.[0] || DEFAULT_PRODUCT_IMAGE;
@@ -123,11 +120,10 @@ export async function GET(request: Request) {
           })),
         })),
         variants: variantsFormatted,
-        // Computed backwards-compatibility fields
-        price: lowestPrice,
+        price: productPrice,
         stock: totalStock,
         imageUrl: primaryImage,
-        lowestPrice,
+        lowestPrice: productPrice,
         totalStock,
         variantCount: variantsFormatted.length,
         createdAt: product.createdAt.toISOString(),
@@ -136,9 +132,9 @@ export async function GET(request: Request) {
     });
 
     if (sortQuery === "price-asc") {
-      formattedProducts.sort((a, b) => a.lowestPrice - b.lowestPrice);
+      formattedProducts.sort((a, b) => a.price - b.price);
     } else if (sortQuery === "price-desc") {
-      formattedProducts.sort((a, b) => b.lowestPrice - a.lowestPrice);
+      formattedProducts.sort((a, b) => b.price - a.price);
     }
 
     return apiSuccess("Products retrieved successfully", {
@@ -202,9 +198,9 @@ export async function POST(request: Request) {
     const adminUserId = (user.id || user.sub)!;
 
     const createdProduct = await prisma.$transaction(async (tx) => {
-      const targetPrice = price || (variants && variants[0] ? variants[0].price : 0);
+      const targetPrice = price || 0;
 
-      // 1. Check if a product with the exact same name and price already exists
+      // 1. Check if a product with the exact same name already exists
       const matchingProducts = await tx.product.findMany({
         where: {
           name: { equals: name.trim(), mode: "insensitive" },
@@ -221,22 +217,14 @@ export async function POST(request: Request) {
         },
       });
 
-      // Find product where at least one variant matches targetPrice
-      let product = matchingProducts.find((p) => {
-        if (p.variants.length === 0) return true;
-        return p.variants.some((v) => Math.abs(Number(v.price) - targetPrice) < 0.01);
-      });
-
-      // Fallback: if no price match found, use existing product with matching name
-      if (!product && matchingProducts.length > 0) {
-        product = matchingProducts[0];
-      }
+      let product = matchingProducts[0] || null;
 
       if (!product) {
         // Create new base product if none exists
         product = await tx.product.create({
           data: {
             name: name.trim(),
+            price: targetPrice,
             categoryId: category.id,
             createdById: adminUserId,
           },
@@ -252,10 +240,10 @@ export async function POST(request: Request) {
           },
         });
       } else {
-        // Update category if needed
+        // Update category and price if needed
         await tx.product.update({
           where: { id: product.id },
-          data: { categoryId: category.id },
+          data: { categoryId: category.id, price: targetPrice },
         });
       }
 
@@ -329,7 +317,6 @@ export async function POST(request: Request) {
               where: { id: existingVariantMatch.id },
               data: {
                 stock: existingVariantMatch.stock + v.stock,
-                price: v.price,
                 images: v.images && v.images.length > 0 ? v.images : existingVariantMatch.images,
               },
             });
@@ -340,7 +327,6 @@ export async function POST(request: Request) {
               data: {
                 productId: product.id,
                 sku: variantSku,
-                price: v.price,
                 stock: v.stock,
                 images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE],
               },
@@ -363,7 +349,6 @@ export async function POST(request: Request) {
         }
       } else {
         // Fallback for single variant product
-        const finalPrice = price || 0;
         const finalStock = stock || 0;
         const finalImage = imageUrl && imageUrl.trim() !== "" ? imageUrl.trim() : DEFAULT_PRODUCT_IMAGE;
 
@@ -373,7 +358,6 @@ export async function POST(request: Request) {
             where: { id: firstVariant.id },
             data: {
               stock: firstVariant.stock + finalStock,
-              price: finalPrice,
               images: [finalImage],
             },
           });
@@ -382,7 +366,6 @@ export async function POST(request: Request) {
             data: {
               productId: product.id,
               sku: generateSku(),
-              price: finalPrice,
               stock: finalStock,
               images: [finalImage],
             },
@@ -426,7 +409,6 @@ export async function POST(request: Request) {
         id: v.id,
         productId: v.productId,
         sku: v.sku,
-        price: Number(v.price),
         stock: v.stock,
         images: v.images,
         attributes,
@@ -436,8 +418,7 @@ export async function POST(request: Request) {
       };
     });
 
-    const prices = variantsFormatted.map((v) => v.price);
-    const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
+    const productPrice = Number(fullProduct.price);
     const totalStock = variantsFormatted.reduce((acc, v) => acc + v.stock, 0);
     const primaryImage =
       variantsFormatted[0]?.images?.[0] || DEFAULT_PRODUCT_IMAGE;
@@ -449,21 +430,19 @@ export async function POST(request: Request) {
       createdBy: fullProduct.createdBy,
       options: fullProduct.options,
       variants: variantsFormatted,
-      price: lowestPrice,
+      price: productPrice,
       stock: totalStock,
       imageUrl: primaryImage,
-      lowestPrice,
+      lowestPrice: productPrice,
       totalStock,
       variantCount: variantsFormatted.length,
       createdAt: fullProduct.createdAt.toISOString(),
       updatedAt: fullProduct.updatedAt.toISOString(),
     };
 
-    return apiSuccess(
-      "Product created successfully",
-      { product: formattedProduct },
-      201
-    );
+    return apiSuccess("Product created successfully", {
+      product: formattedProduct,
+    });
   } catch (error) {
     return apiError("Failed to create product", [(error as Error).message], 500);
   }

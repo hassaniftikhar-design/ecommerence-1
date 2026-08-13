@@ -11,10 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { FormField } from "@/components/forms/form-field";
-import { ImageUpload } from "@/components/ui/image-upload";
 import { useToast } from "@/components/ui/toast";
 import { ROUTES } from "@/constants/routes";
-import { createProduct, updateProduct, getCategories } from "@/services/product.service";
+import { DefaultImageUpload } from "@/components/ui/default-image-upload";
+import { VariantImageUpload } from "@/components/ui/variant-image-upload";
+import { uploadImage, createProduct, updateProduct, getCategories } from "@/services/product.service";
 import { productFormSchema, type ProductFormSchemaValues } from "@/lib/validators";
 import type { ProductFormProps } from "@/types/product.types";
 import { cn } from "@/lib/utils";
@@ -65,51 +66,57 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
     loadCategories();
   }, []);
 
-  // Quick variant addition state (matching header controls in design screenshot)
+  // Quick variant addition state
   const [draftColor, setDraftColor] = useState("");
   const [draftSize, setDraftSize] = useState("");
   const [draftQty, setDraftQty] = useState("");
+  const [draftFile, setDraftFile] = useState<File | undefined>(undefined);
+  const [draftPreviewUrl, setDraftPreviewUrl] = useState<string | undefined>(undefined);
   const [draftError, setDraftError] = useState<string | null>(null);
   const draftQtyInputRef = React.useRef<HTMLInputElement>(null);
 
   // Compute default values from initialData if mode === "edit"
   const getDefaultValues = (): ProductFormSchemaValues => {
     if (mode === "edit" && initialData) {
+      const primaryUrl = initialData.imageUrl || initialData.variants?.[0]?.images?.[0] || "";
+
       const formattedVariants =
         initialData.variants && initialData.variants.length > 0
           ? initialData.variants.map((v) => {
-            const color =
-              v.attributes?.Color ||
-              v.attributes?.color ||
-              v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === "color")
-                ?.value ||
-              "Black";
-            const size =
-              v.attributes?.Size ||
-              v.attributes?.size ||
-              v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === "size")
-                ?.value ||
-              "Medium";
-            return {
-              id: v.id,
-              color,
-              size,
-              quantity: v.stock,
-            };
-          })
+              const color =
+                v.attributes?.Color ||
+                v.attributes?.color ||
+                v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === "color")
+                  ?.value ||
+                "Black";
+              const size =
+                v.attributes?.Size ||
+                v.attributes?.size ||
+                v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === "size")
+                  ?.value ||
+                "Medium";
+              const variantImg = v.images && v.images.length > 0 ? v.images[0] : undefined;
+              return {
+                id: v.id,
+                color,
+                size,
+                quantity: v.stock,
+                previewUrl: variantImg !== primaryUrl ? variantImg : undefined,
+              };
+            })
           : [
-            {
-              color: "Black",
-              size: "Medium",
-              quantity: initialData.stock || 10,
-            },
-          ];
+              {
+                color: "Black",
+                size: "Medium",
+                quantity: initialData.stock || 10,
+              },
+            ];
 
       return {
         name: initialData.name || "",
         categoryName: initialData.category?.name || "General",
         price: initialData.lowestPrice ?? initialData.price ?? 0,
-        imageUrl: initialData.imageUrl || initialData.variants?.[0]?.images?.[0] || "",
+        defaultImageUrl: primaryUrl,
         variants: formattedVariants,
       };
     }
@@ -118,7 +125,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
       name: "",
       categoryName: "General",
       price: 0,
-      imageUrl: "",
+      defaultImageUrl: "",
       variants: [],
     };
   };
@@ -196,7 +203,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
     const colorVal = (draftColor || "").trim();
     const sizeVal = (draftSize || "").trim();
 
-    // Duplicate check for both specific and general variants (no color/size)
+    // Duplicate check for both specific and general variants
     const isDuplicate = watchedVariants.some(
       (v) =>
         (v.color || "").trim().toLowerCase() === colorVal.toLowerCase() &&
@@ -216,14 +223,17 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
       color: colorVal,
       size: sizeVal,
       quantity: qtyNum,
+      file: draftFile,
+      previewUrl: draftPreviewUrl,
     });
 
     // Reset draft fields
     setDraftColor("");
     setDraftSize("");
     setDraftQty("");
+    setDraftFile(undefined);
+    setDraftPreviewUrl(undefined);
 
-    // Keep focus on the draft quantity input
     setTimeout(() => {
       draftQtyInputRef.current?.focus();
     }, 50);
@@ -237,11 +247,23 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         return;
       }
 
+      // 1. Upload mandatory Default Product Image if a new file was selected
+      let finalDefaultImageUrl = data.defaultImageUrl || "";
+      if (data.defaultImageFile) {
+        finalDefaultImageUrl = await uploadImage(data.defaultImageFile);
+      }
+
+      if (!finalDefaultImageUrl) {
+        showError("Default Product Image is required", "Error");
+        setSubmitting(false);
+        return;
+      }
+
+      // 2. Upload optional variant-specific images or fallback to finalDefaultImageUrl
       let formattedVariants = [];
       const options = [];
 
       if (data.variants && data.variants.length > 0) {
-        // Extract unique colors and sizes for Product Options schema
         const uniqueColors = Array.from(
           new Set(data.variants.map((v) => (v.color || "").trim()).filter(Boolean))
         );
@@ -252,26 +274,34 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         if (uniqueColors.length > 0) options.push({ name: "Color", values: uniqueColors });
         if (uniqueSizes.length > 0) options.push({ name: "Size", values: uniqueSizes });
 
-        formattedVariants = data.variants.map((v) => {
-          const attributes: Record<string, string> = {};
-          if (v.color?.trim()) attributes.Color = v.color.trim();
-          if (v.size?.trim()) attributes.Size = v.size.trim();
+        formattedVariants = await Promise.all(
+          data.variants.map(async (v) => {
+            const attributes: Record<string, string> = {};
+            if (v.color?.trim()) attributes.Color = v.color.trim();
+            if (v.size?.trim()) attributes.Size = v.size.trim();
 
-          return {
-            id: v.id,
-            price: data.price,
-            stock: v.quantity,
-            images: data.imageUrl ? [data.imageUrl] : [],
-            attributes,
-          };
-        });
+            let variantImageUrl = finalDefaultImageUrl;
+            if (v.file) {
+              variantImageUrl = await uploadImage(v.file);
+            } else if (v.previewUrl) {
+              variantImageUrl = v.previewUrl;
+            }
+
+            return {
+              id: v.id,
+              price: data.price,
+              stock: v.quantity,
+              images: [variantImageUrl],
+              attributes,
+            };
+          })
+        );
       } else {
-        // Fallback single default variant when no custom options added
         formattedVariants = [
           {
             price: data.price,
             stock: 10,
-            images: data.imageUrl ? [data.imageUrl] : [],
+            images: [finalDefaultImageUrl],
             attributes: {},
           },
         ];
@@ -282,7 +312,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         categoryName: data.categoryName.trim(),
         price: data.price,
         stock: totalStock || 10,
-        imageUrl: data.imageUrl || undefined,
+        imageUrl: finalDefaultImageUrl,
         options,
         variants: formattedVariants,
       };
@@ -319,7 +349,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pt-2">
-      {/* Prominent Meaningful Error Banner */}
+      {/* Prominent Error Banner */}
       {formErrorMessages.length > 0 && (
         <div className="rounded-xl bg-red-50 p-4 border border-red-200 text-red-700 space-y-1.5 animate-in fade-in duration-200">
           <div className="flex items-center gap-2 font-bold text-sm text-red-800">
@@ -333,33 +363,39 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
           </ul>
         </div>
       )}
+
       {/* Main Card */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
         <div className="flex flex-col md:flex-row items-start gap-8">
-          {/* Left Column: Reusable Image Upload */}
+          {/* Left Column: Required Default Product Image */}
           <div className="w-full md:w-56 shrink-0">
+            <Label className="text-sm font-semibold text-slate-700 mb-1.5 block">
+              Default Product Image <span className="text-red-500">*</span>
+            </Label>
             <Controller
-              name="imageUrl"
+              name="defaultImageUrl"
               control={control}
               render={({ field }) => (
-                <ImageUpload
-                  value={field.value ? [field.value] : []}
-                  onChange={(urls) => field.onChange(urls[0] || "")}
+                <DefaultImageUpload
+                  file={watch("defaultImageFile")}
+                  previewUrl={field.value}
+                  onChange={(newFile, newPreviewUrl) => {
+                    setValue("defaultImageFile", newFile);
+                    field.onChange(newPreviewUrl || "");
+                  }}
                   disabled={submitting}
-                  maxFiles={1}
                 />
               )}
             />
-            {errors.imageUrl && (
-              <p className="mt-1 text-xs text-danger font-medium">
-                {errors.imageUrl.message}
+            {errors.defaultImageUrl && (
+              <p className="mt-1.5 text-xs text-red-500 font-medium">
+                {errors.defaultImageUrl.message}
               </p>
             )}
           </div>
 
-          {/* Right Column: Name (Title), Price, Quantity (Total Stock), Category */}
+          {/* Right Column: Title, Price, Total Quantity, Category */}
           <div className="flex-1 w-full space-y-4">
-            {/* Product Title */}
             <div>
               <FormField
                 label="Product Title"
@@ -369,7 +405,6 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               />
             </div>
 
-            {/* Price & Quantity (Read-only total stock) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <FormField
@@ -404,34 +439,11 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               </div>
             </div>
 
-            {/* Category */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <Label htmlFor="categoryName" className="text-sm font-semibold text-slate-700">
                   Product Category
                 </Label>
-                {/* <button
-                  type="button"
-                  onClick={isCustomCategory ? handleSwitchToDropdownMode : handleSwitchToAddMode}
-                  className={cn(
-                    "text-xs font-semibold px-3.5 py-1.5 rounded-2xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 active:scale-95",
-                    isCustomCategory
-                      ? "bg-blue-50 hover:bg-blue-100 text-[#007BFF] border border-blue-200"
-                      : "bg-[#007BFF] hover:bg-[#0056b3] text-white"
-                  )}
-                >
-                  {isCustomCategory ? (
-                    <>
-                      <ArrowLeft className="h-3.5 w-3.5" />
-                      <span>← Back to Categories</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="h-3.5 w-3.5" />
-                      <span>+ Add New Category</span>
-                    </>
-                  )}
-                </button> */}
               </div>
 
               <div className="relative">
@@ -512,7 +524,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         <div className="border-b border-slate-100 pb-3">
           <h2 className="text-lg font-semibold text-slate-800">Product Variants</h2>
           <p className="text-xs text-slate-500">
-            Add variants with Color, Size, and Quantity. At least one variant is required.
+            Add variants with Color, Size, Quantity, and an optional variant-specific image.
           </p>
         </div>
 
@@ -529,8 +541,8 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
           </div>
         )}
 
-        {/* Quick Add Variant Header Row - Exactly matching columns with variant list */}
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_44px] gap-3 items-center bg-slate-50/80 p-3.5 rounded-xl border border-slate-200">
+        {/* Quick Add Variant Header Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto_44px] gap-3 items-center bg-slate-50/80 p-3.5 rounded-xl border border-slate-200">
           <div>
             <Select
               value={draftColor}
@@ -580,6 +592,18 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
             />
           </div>
 
+          <div>
+            <VariantImageUpload
+              file={draftFile}
+              previewUrl={draftPreviewUrl}
+              onChange={(file, previewUrl) => {
+                setDraftFile(file);
+                setDraftPreviewUrl(previewUrl);
+              }}
+              disabled={submitting}
+            />
+          </div>
+
           <div className="flex justify-end">
             <button
               type="button"
@@ -595,7 +619,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         {/* Added Variants List */}
         {fields.length === 0 ? (
           <div className="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 rounded-lg">
-            No variants added yet. Select a Color, Size, and Quantity above and click &quot;+&quot;.
+            No variants added yet. Select Color, Size, Quantity, and optional image above, then click &quot;+&quot;.
           </div>
         ) : (
           <div className="space-y-3">
@@ -607,7 +631,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               return (
                 <div
                   key={field.id}
-                  className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_44px] gap-3 items-center p-3.5 rounded-xl bg-slate-50/50 border border-slate-200"
+                  className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto_44px] gap-3 items-center p-3.5 rounded-xl bg-slate-50/50 border border-slate-200"
                 >
                   {/* Color Select */}
                   <div>
@@ -679,6 +703,25 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                     {qtyError && (
                       <p className="mt-1 text-xs text-danger font-medium">{qtyError}</p>
                     )}
+                  </div>
+
+                  {/* Optional Variant Image Uploader */}
+                  <div>
+                    <Controller
+                      name={`variants.${index}.previewUrl`}
+                      control={control}
+                      render={({ field: imgField }) => (
+                        <VariantImageUpload
+                          file={watch(`variants.${index}.file`)}
+                          previewUrl={imgField.value}
+                          onChange={(newFile, newPreviewUrl) => {
+                            setValue(`variants.${index}.file`, newFile);
+                            imgField.onChange(newPreviewUrl || "");
+                          }}
+                          disabled={submitting}
+                        />
+                      )}
+                    />
                   </div>
 
                   {/* Delete Button */}

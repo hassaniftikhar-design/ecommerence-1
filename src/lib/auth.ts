@@ -25,7 +25,7 @@ const providers: NextAuthOptions["providers"] = [
         where: { email: credentials.email.toLowerCase() },
       });
 
-      if (!user || !user.isActive) {
+      if (!user || !user.isActive || !user.password) {
         return null;
       }
 
@@ -81,8 +81,8 @@ export const authOptions: NextAuthOptions = {
             data: {
               email: normalizedEmail,
               name: user.name || "Google User",
-              phone: "",
-              password: "",
+              phone: null,
+              password: null,
               emailVerified: new Date(),
               role: "USER",
               isActive: true,

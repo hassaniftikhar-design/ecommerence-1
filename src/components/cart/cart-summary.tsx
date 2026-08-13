@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { ROUTES } from "@/constants/routes";
 import { placeOrder } from "@/services/cart.service";
 import type { CartTotals } from "@/types/cart.types";
 
@@ -23,32 +21,39 @@ export function CartSummary({
   onOrderPlaced,
   onOutOfStockError,
 }: CartSummaryProps) {
-  const { showSuccess, showError } = useToast();
+  const { showSuccess } = useToast();
   const [loading, setLoading] = useState(false);
+  const [orderFailed, setOrderFailed] = useState(false);
 
   const hasSelectedItems = selectedItemIds.length > 0;
 
+  // Reset orderFailed whenever user changes item selections or cart totals
+  useEffect(() => {
+    setOrderFailed(false);
+  }, [selectedItemIds, totals]);
+
   const handlePlaceOrder = async () => {
-    if (isEmpty || !hasSelectedItems) return;
+    if (isEmpty || !hasSelectedItems || loading || orderFailed) return;
     try {
       setLoading(true);
+      setOrderFailed(false);
       const res = await placeOrder(selectedItemIds);
       showSuccess("Order is successfully placed!");
       onOrderPlaced?.(res);
     } catch (err) {
+      setOrderFailed(true);
       const errorMsg = (err as Error).message || "Failed to place order";
-      if (
-        errorMsg.toLowerCase().includes("out of stock") ||
-        errorMsg.includes("OUT_OF_STOCK")
-      ) {
-        onOutOfStockError?.("Order can't be placed due to quantity going out of stock. Please update your cart quantity.");
-      } else {
-        showError(errorMsg, "Order Error");
-      }
+      const formattedMsg =
+        errorMsg.toLowerCase().includes("out of stock") || errorMsg.includes("OUT_OF_STOCK")
+          ? "Order can't be placed due to quantity going out of stock. Please update your cart quantity."
+          : errorMsg;
+      onOutOfStockError?.(formattedMsg);
     } finally {
       setLoading(false);
     }
   };
+
+  const isButtonDisabled = isEmpty || loading || !hasSelectedItems || orderFailed;
 
   return (
     <div className="mt-8 flex flex-col items-end gap-3 w-full">
@@ -70,10 +75,12 @@ export function CartSummary({
 
       <Button
         onClick={handlePlaceOrder}
-        disabled={isEmpty || loading || !hasSelectedItems}
-        className="mt-2 w-full max-w-xs bg-[#007BFF] hover:bg-blue-600 text-white font-semibold h-11 text-base rounded-xl shadow-sm disabled:cursor-not-allowed disabled:bg-slate-300"
+        disabled={isButtonDisabled}
+        className="mt-2 w-full max-w-xs bg-[#007BFF] hover:bg-blue-600 text-white font-semibold h-11 text-base rounded-xl shadow-sm disabled:cursor-not-allowed disabled:bg-slate-300 transition-all"
       >
-        {loading ? "Placing Order..." : "Place Order"}
+        {loading
+          ? "Placing Order..."
+          : "Place Order"}
       </Button>
     </div>
   );

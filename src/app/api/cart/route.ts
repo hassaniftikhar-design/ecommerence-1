@@ -5,8 +5,7 @@ import { getCurrentUser } from "@/lib/server-auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
 const TAX_RATE = 0.08; // 8% Tax
-const DEFAULT_PRODUCT_IMAGE =
-  "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80";
+const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
 
 async function getOrCreateCart(request: Request): Promise<{ cartId: string; sessionIdCookie?: string }> {
   const user = await getCurrentUser(request);
@@ -54,7 +53,19 @@ async function formatCartResponse(cartId: string) {
         include: {
           product: {
             include: {
-              variants: true,
+              variants: {
+                include: {
+                  variantOptions: {
+                    include: {
+                      optionValue: {
+                        include: {
+                          option: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
             },
           },
           variant: {
@@ -87,8 +98,10 @@ async function formatCartResponse(cartId: string) {
     let colorVal: string | undefined = undefined;
     let sizeVal: string | undefined = undefined;
 
-    if (item.variant?.variantOptions) {
-      for (const vo of item.variant.variantOptions) {
+    const activeVariant = item.variant || item.product.variants[0];
+
+    if (activeVariant?.variantOptions) {
+      for (const vo of activeVariant.variantOptions) {
         const optName = vo.optionValue.option.name.toLowerCase();
         if (optName.includes("color") || optName.includes("colour")) {
           colorVal = vo.optionValue.value;
@@ -98,11 +111,7 @@ async function formatCartResponse(cartId: string) {
       }
     }
 
-    const unitPrice = item.variant
-      ? Number(item.variant.price)
-      : item.product.variants[0]
-      ? Number(item.product.variants[0].price)
-      : 0;
+    const unitPrice = Number(item.product.price);
 
     const totalPrice = Math.round(unitPrice * item.quantity * 100) / 100;
     const imageUrl =
@@ -113,8 +122,8 @@ async function formatCartResponse(cartId: string) {
     const itemStock = item.variant
       ? item.variant.stock
       : item.product.variants[0]
-      ? item.product.variants[0].stock
-      : 0;
+        ? item.product.variants[0].stock
+        : 0;
 
     return {
       id: item.id,

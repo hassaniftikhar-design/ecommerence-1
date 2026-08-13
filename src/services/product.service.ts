@@ -7,8 +7,7 @@ interface ApiResponse<T = unknown> {
   errors?: string[];
 }
 
-const DEFAULT_PRODUCT_IMAGE =
-  "https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80";
+const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
 
 async function parseApiResponse<T>(response: Response): Promise<T> {
   const json: ApiResponse<T> = await response.json();
@@ -63,6 +62,10 @@ export async function getProducts(
     let orderByClause: Record<string, unknown> = { createdAt: "desc" };
     if (sort === "name-asc") {
       orderByClause = { name: "asc" };
+    } else if (sort === "price-asc") {
+      orderByClause = { price: "asc" };
+    } else if (sort === "price-desc") {
+      orderByClause = { price: "desc" };
     }
 
     const products = await prisma.product.findMany({
@@ -104,7 +107,6 @@ export async function getProducts(
           id: v.id,
           productId: v.productId,
           sku: v.sku,
-          price: Number(v.price),
           stock: v.stock,
           images: v.images,
           attributes,
@@ -114,8 +116,7 @@ export async function getProducts(
         };
       });
 
-      const prices = variantsFormatted.map((v) => v.price);
-      const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
+      const productPrice = Number(product.price);
       const totalStock = variantsFormatted.reduce((acc, v) => acc + v.stock, 0);
       const primaryImage =
         variantsFormatted[0]?.images?.[0] || DEFAULT_PRODUCT_IMAGE;
@@ -138,22 +139,16 @@ export async function getProducts(
           })),
         })),
         variants: variantsFormatted,
-        price: lowestPrice,
+        price: productPrice,
         stock: totalStock,
         imageUrl: primaryImage,
-        lowestPrice,
+        lowestPrice: productPrice,
         totalStock,
         variantCount: variantsFormatted.length,
         createdAt: product.createdAt.toISOString(),
         updatedAt: product.updatedAt.toISOString(),
       };
     });
-
-    if (sort === "price-asc") {
-      formatted.sort((a, b) => a.lowestPrice - b.lowestPrice);
-    } else if (sort === "price-desc") {
-      formatted.sort((a, b) => b.lowestPrice - a.lowestPrice);
-    }
 
     return formatted;
   }
@@ -234,7 +229,6 @@ export async function getProductById(id: string): Promise<Product> {
         id: v.id,
         productId: v.productId,
         sku: v.sku,
-        price: Number(v.price),
         stock: v.stock,
         images: v.images,
         attributes,
@@ -244,8 +238,7 @@ export async function getProductById(id: string): Promise<Product> {
       };
     });
 
-    const prices = variantsFormatted.map((v) => v.price);
-    const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
+    const productPrice = Number(product.price);
     const totalStock = variantsFormatted.reduce((acc, v) => acc + v.stock, 0);
     const primaryImage =
       variantsFormatted[0]?.images?.[0] || DEFAULT_PRODUCT_IMAGE;
@@ -268,10 +261,10 @@ export async function getProductById(id: string): Promise<Product> {
         })),
       })),
       variants: variantsFormatted,
-      price: lowestPrice,
+      price: productPrice,
       stock: totalStock,
       imageUrl: primaryImage,
-      lowestPrice,
+      lowestPrice: productPrice,
       totalStock,
       variantCount: variantsFormatted.length,
       createdAt: product.createdAt.toISOString(),

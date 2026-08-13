@@ -31,6 +31,10 @@ export async function POST(request: Request) {
       return apiError("User not found or inactive", [], 404);
     }
 
+    if (!dbUser.password) {
+      return apiError("No password set for this account. Please use password reset.", [], 400);
+    }
+
     const isMatch = await compare(currentPassword, dbUser.password);
     if (!isMatch) {
       return apiError("Incorrect current password", [], 400);
