@@ -8,15 +8,41 @@ interface ApiResponse<T = unknown> {
 }
 
 async function parseApiResponse<T>(response: Response): Promise<T> {
-  const json: ApiResponse<T> = await response.json();
-  if (!response.ok || !json.success) {
-    const errorMsg =
-      json.errors && json.errors.length > 0
-        ? json.errors.join(", ")
-        : json.message || "Request failed";
+  let json: ApiResponse<T> | null = null;
+  try {
+    json = await response.json();
+  } catch {
+    if (!response.ok) {
+      throw new Error(`Server error (${response.status}). Please try again.`);
+    }
+  }
+
+  if (!response.ok || (json && json.success === false)) {
+    let errorMsg = "";
+
+    if (json?.errors && Array.isArray(json.errors) && json.errors.length > 0) {
+      errorMsg = json.errors
+        .map((err) =>
+          typeof err === "string"
+            ? err
+            : (err as { message?: string })?.message || JSON.stringify(err)
+        )
+        .filter(Boolean)
+        .join(", ");
+    }
+
+    if (!errorMsg && json?.message) {
+      errorMsg = json.message;
+    }
+
+    if (!errorMsg) {
+      errorMsg = `Request failed (${response.status || "Error"}). Please try again.`;
+    }
+
     throw new Error(errorMsg);
   }
-  return json.data as T;
+
+  return (json?.data ?? json) as T;
 }
 
 export async function getOrders(
@@ -26,6 +52,8 @@ export async function getOrders(
 ): Promise<{
   orders: OrderListItem[];
   totalCount: number;
+  totalUnits: number;
+  totalAmount: number;
   pageSize: number;
 }> {
   const searchQuery = search ? `&search=${encodeURIComponent(search)}` : "";
@@ -38,6 +66,8 @@ export async function getOrders(
   return parseApiResponse<{
     orders: OrderListItem[];
     totalCount: number;
+    totalUnits: number;
+    totalAmount: number;
     pageSize: number;
   }>(response);
 }

@@ -7,3 +7,33 @@
     @apply bg-surface-page text-ink;
   }
 }
+
+@keyframes slideInFromRight {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromLeft {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-from-right {
+  animation: slideInFromRight 300ms ease-out forwards;
+}
+
+.animate-slide-in-from-left {
+  animation: slideInFromLeft 300ms ease-out forwards;
+}

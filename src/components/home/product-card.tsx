@@ -67,6 +67,38 @@ export function ProductCard({ product }: { product: Product }) {
   const [selectedSize, setSelectedSize] = useState<string>(availableSizes[0] || "");
   const [selectedColor, setSelectedColor] = useState<string>(availableColors[0] || "");
 
+  type SlideDirection = "left" | "right";
+  const [slideDirection, setSlideDirection] = useState<SlideDirection>("right");
+  const [animationKey, setAnimationKey] = useState<number>(0);
+
+  // Handle color selection with dynamic directional slide animation calculation
+  const handleSelectColor = (newColor: string) => {
+    if (!newColor || newColor.toLowerCase() === selectedColor.toLowerCase()) {
+      return;
+    }
+
+    const currentColorIndex = availableColors.findIndex(
+      (c) => c.toLowerCase() === selectedColor.toLowerCase()
+    );
+    const newColorIndex = availableColors.findIndex(
+      (c) => c.toLowerCase() === newColor.toLowerCase()
+    );
+
+    if (
+      currentColorIndex !== -1 &&
+      newColorIndex !== -1 &&
+      currentColorIndex !== newColorIndex
+    ) {
+      // Calculate dynamic slide direction based on ordered color index comparison
+      const direction: SlideDirection =
+        newColorIndex > currentColorIndex ? "right" : "left";
+      setSlideDirection(direction);
+      setAnimationKey((prev) => prev + 1);
+    }
+
+    setSelectedColor(newColor);
+  };
+
   const [quantity, setQuantity] = useState(1);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(false);
@@ -180,7 +212,7 @@ export function ProductCard({ product }: { product: Product }) {
 
   const isOutOfStock = currentStock === 0;
 
-  const { showSuccess } = useToast();
+  const { showSuccess, showError } = useToast();
 
   const handleAddToCart = async () => {
     if (!isAuthenticated) {
@@ -196,7 +228,7 @@ export function ProductCard({ product }: { product: Product }) {
       setAdded(true);
       setTimeout(() => setAdded(false), 1500);
     } catch (err) {
-      alert((err as Error).message);
+      showError((err as Error).message || "Failed to add item to cart", "Cart Error");
     } finally {
       setAdding(false);
     }
@@ -213,10 +245,17 @@ export function ProductCard({ product }: { product: Product }) {
             </span>
           )}
           <Image
+            key={animationKey}
             src={displayImage}
             alt={product.name}
             fill
-            className="object-cover"
+            className={cn(
+              "object-cover",
+              animationKey > 0 &&
+                (slideDirection === "right"
+                  ? "animate-slide-in-from-right"
+                  : "animate-slide-in-from-left")
+            )}
             sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
             unoptimized
           />
@@ -260,7 +299,7 @@ export function ProductCard({ product }: { product: Product }) {
             <ProductColorSelector
               colors={availableColors}
               selectedColor={selectedColor}
-              onSelectColor={setSelectedColor}
+              onSelectColor={handleSelectColor}
             />
             <ProductSizeSelector
               sizes={availableSizes}

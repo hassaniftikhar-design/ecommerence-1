@@ -10,14 +10,25 @@ async function parseErrorResponse(response: Response): Promise<string> {
   const data = (await response.json().catch(() => null)) as {
     message?: string;
     error?: string;
-    errors?: string[];
+    errors?: unknown[];
   } | null;
 
-  if (data?.errors && data.errors.length > 0) {
-    return data.errors.join(", ");
+  if (data?.errors && Array.isArray(data.errors) && data.errors.length > 0) {
+    return data.errors
+      .map((err) =>
+        typeof err === "string"
+          ? err
+          : (err as { message?: string })?.message || JSON.stringify(err)
+      )
+      .filter(Boolean)
+      .join(", ");
   }
 
-  return data?.message || data?.error || response.statusText || "Request failed";
+  return (
+    data?.message ||
+    data?.error ||
+    (response.statusText ? `Error: ${response.statusText}` : "Request failed")
+  );
 }
 
 export async function login(payload: LoginPayload): Promise<void> {
@@ -29,7 +40,15 @@ export async function login(payload: LoginPayload): Promise<void> {
   });
 
   if (!result || result.error) {
-    throw new Error(result?.error ?? "Invalid email or password");
+    if (
+      result?.error === "CredentialsSignin" ||
+      result?.error?.includes("CredentialsSignin")
+    ) {
+      throw new Error("Wrong username password, please enter correct credentials");
+    }
+    throw new Error(
+      result?.error ?? "Wrong username password, please enter correct credentials"
+    );
   }
 }
 

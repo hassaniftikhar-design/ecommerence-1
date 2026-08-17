@@ -423,6 +423,9 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
   }
 }
 
+
+
+
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

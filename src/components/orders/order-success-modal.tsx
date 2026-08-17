@@ -2,14 +2,12 @@
 
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ROUTES } from "@/constants/routes";
 
 interface OrderSuccessModalProps {
   isOpen: boolean;
-  orderId: string;
+  orderId?: string;
   orderNumber: string;
   onContinueShopping: () => void;
   onViewOrderDetails: () => void;
@@ -17,7 +15,6 @@ interface OrderSuccessModalProps {
 
 export function OrderSuccessModal({
   isOpen,
-  orderId,
   orderNumber,
   onContinueShopping,
   onViewOrderDetails,

@@ -35,7 +35,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Mobile Header Toggle */}
       <div className="flex lg:hidden items-center justify-between border-b border-slate-100 bg-white p-4 shrink-0">
         <Link href={ROUTES.adminProducts} className="text-xl font-bold text-slate-900">
-          E-commerce
+          ShopFastStore
         </Link>
         <div className="flex items-center gap-3">
           {/* User Icon Dropdown for Mobile */}
@@ -78,7 +78,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div>
           <div className="hidden lg:block mb-8">
             <Link href={ROUTES.adminProducts} className="text-xl font-bold text-slate-900">
-              E-commerce
+              ShopFastStore
             </Link>
           </div>
 

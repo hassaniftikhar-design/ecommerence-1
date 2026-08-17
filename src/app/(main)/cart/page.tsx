@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { AlertCircle } from "lucide-react";
 import { BackHeading } from "@/components/common/back-heading";
 import { CartSkeleton } from "@/components/cart/cart-skeleton";
 import { CartTable } from "@/components/cart/cart-table";
@@ -129,8 +130,9 @@ export default function CartPage() {
       <BackHeading title="Your Shopping Bag" href={ROUTES.home} />
 
       {error && (
-        <div className="rounded-lg bg-red-50 p-4 text-xs font-semibold text-red-600 border border-red-200">
-          {error}
+        <div className="rounded-xl bg-red-50 p-4 text-xs font-semibold text-red-700 border border-red-200 flex items-start gap-2.5 shadow-2xs">
+          <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
+          <span className="flex-1 leading-snug">{error}</span>
         </div>
       )}
 

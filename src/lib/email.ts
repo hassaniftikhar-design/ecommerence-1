@@ -65,7 +65,7 @@ export async function sendResetPasswordEmail(
 ): Promise<void> {
   const origin = nextAuthUrl ?? "http://localhost:3000";
   const resetUrl = `${origin}/reset-password?token=${encodeURIComponent(token)}`;
-  const subject = "Reset your E-commerce password";
+  const subject = "Reset your ShopFastStore password";
   const text = `You requested a password reset. Click here to reset your password: ${resetUrl}\n\nThis link will expire in ${PASSWORD_RESET_EXPIRATION_MINUTES} minutes.\n\nIf you did not request this, ignore this message.`;
   const html = `<p>You requested a password reset. Click <a href="${resetUrl}" style="text-decoration: underline;">here</a> to reset your password.</p><p>This link will expire in ${PASSWORD_RESET_EXPIRATION_MINUTES} minutes.</p><p>If you did not request this, ignore this email.</p>`;
 

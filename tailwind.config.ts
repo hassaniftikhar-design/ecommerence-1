@@ -38,6 +38,20 @@ const config: Config = {
       borderRadius: {
         DEFAULT: "6px",
       },
+      keyframes: {
+        "slide-in-from-right": {
+          "0%": { transform: "translateX(100%)", opacity: "0" },
+          "100%": { transform: "translateX(0)", opacity: "1" },
+        },
+        "slide-in-from-left": {
+          "0%": { transform: "translateX(-100%)", opacity: "0" },
+          "100%": { transform: "translateX(0)", opacity: "1" },
+        },
+      },
+      animation: {
+        "slide-in-from-right": "slide-in-from-right 300ms ease-out forwards",
+        "slide-in-from-left": "slide-in-from-left 300ms ease-out forwards",
+      },
     },
   },
   plugins: [

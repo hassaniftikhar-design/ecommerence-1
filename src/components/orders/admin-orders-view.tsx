@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { Search, ShoppingBag, Package, DollarSign, ArrowUpRight } from "lucide-react";
 import { useSession } from "next-auth/react";
-
+import Link from "next/link";
+import { ROUTES } from "@/constants/routes";
 import {
   Table,
   TableBody,
@@ -35,6 +36,8 @@ export function AdminOrdersView({
   const debouncedSearchQuery = useDebounce(searchQuery, 400);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [totalUnits, setTotalUnits] = useState(0);
+  const [totalAmount, setTotalAmount] = useState(0);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(initialOrderId);
   const [drawerOpen, setDrawerOpen] = useState<boolean>(Boolean(initialOrderId));
   const pageSize = 10;
@@ -50,6 +53,8 @@ export function AdminOrdersView({
       const data = await getOrders(currentPage, pageSize, debouncedSearchQuery);
       setOrders(data.orders);
       setTotalCount(data.totalCount);
+      setTotalUnits(data.totalUnits || 0);
+      setTotalAmount(data.totalAmount || 0);
     } catch (err) {
       console.error(err);
     } finally {
@@ -86,17 +91,15 @@ export function AdminOrdersView({
   if (session?.user?.role !== "ADMIN") {
     return (
       <div className="py-12 text-center text-slate-600 font-medium">
-        Access Denied. Only ADMIN users can access this page.
+        Access Denied. Please login again.
+        <Link href={ROUTES.login} className="mt-4 inline-block font-semibold text-primary underline">
+          Go to Login
+        </Link>
       </div>
     );
   }
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-
-  const totalUnits = orders.reduce((acc, o) => acc + o.productsCount, 0);
-  const totalAmount = orders
-    .filter((o) => o.status !== "REJECTED")
-    .reduce((acc, o) => acc + o.amount, 0);
 
   return (
     <div className="space-y-6">
@@ -240,9 +243,8 @@ export function AdminOrdersView({
                 key={page}
                 type="button"
                 onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1.5 font-medium border-r border-slate-200 last:border-r-0 cursor-pointer ${
-                  currentPage === page ? "text-[#007BFF] bg-blue-50" : "text-slate-600 hover:bg-slate-50"
-                }`}
+                className={`px-3 py-1.5 font-medium border-r border-slate-200 last:border-r-0 cursor-pointer ${currentPage === page ? "text-[#007BFF] bg-blue-50" : "text-slate-600 hover:bg-slate-50"
+                  }`}
               >
                 {page}
               </button>

@@ -8,19 +8,25 @@ declare module "next-auth" {
     name: string;
     email: string;
     role: Role;
+    rememberMe?: boolean;
+    sessionExpiresAt?: number;
   }
 
   interface Session {
     user: {
       id: string;
       role: Role;
+      rememberMe?: boolean;
+      sessionExpiresAt?: number;
     } & DefaultSession["user"];
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
-    id: string;
-    role: Role;
+    id?: string;
+    role?: Role;
+    rememberMe?: boolean;
+    sessionExpiresAt?: number;
   }
-}
+} 

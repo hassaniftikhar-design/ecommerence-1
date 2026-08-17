@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { apiSuccess, apiError } from "@/lib/api-response";
-
-const TAX_RATE = 0.08;
+import { TAX_RATE } from "@/constants/generalconstants";
 const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
 
 async function formatCartResponse(cartId: string) {
@@ -67,8 +66,8 @@ async function formatCartResponse(cartId: string) {
     const itemStock = item.variant
       ? item.variant.stock
       : item.product.variants[0]
-      ? item.product.variants[0].stock
-      : 0;
+        ? item.product.variants[0].stock
+        : 0;
 
     return {
       id: item.id,
@@ -142,8 +141,8 @@ async function handleQuantityUpdate(
     const availableStock = cartItem.variant
       ? cartItem.variant.stock
       : cartItem.product.variants[0]
-      ? cartItem.product.variants[0].stock
-      : 0;
+        ? cartItem.product.variants[0].stock
+        : 0;
 
     let targetQuantity = quantity;
     if (availableStock > 0 && targetQuantity > availableStock) {

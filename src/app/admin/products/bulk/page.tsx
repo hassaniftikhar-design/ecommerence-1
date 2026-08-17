@@ -63,7 +63,10 @@ export default function AddMultipleProductsPage() {
   if (session?.user?.role !== "ADMIN") {
     return (
       <div className="py-12 text-center text-slate-600 font-medium">
-        Access Denied. Only ADMIN users can access this page.
+        Access Denied. Please Login again.
+        <Link href={ROUTES.login} className="mt-4 inline-block font-semibold text-primary underline">
+          Go to Login
+        </Link>
       </div>
     );
   }

@@ -12,39 +12,18 @@ import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { FormField } from "@/components/forms/form-field";
 import { useToast } from "@/components/ui/toast";
-import { ROUTES } from "@/constants/routes";
+import { ROUTES, COLOR_OPTIONS, SIZE_OPTIONS } from "@/constants";
 import { DefaultImageUpload } from "@/components/ui/default-image-upload";
 import { VariantImageUpload } from "@/components/ui/variant-image-upload";
-import { uploadImage, createProduct, updateProduct, getCategories } from "@/services/product.service";
+import { uploadImage, createProduct, updateProduct, getCategories, activateProduct, deactivateProduct } from "@/services/product.service";
 import { productFormSchema, type ProductFormSchemaValues } from "@/lib/validators";
 import type { ProductFormProps } from "@/types/product.types";
 import { cn } from "@/lib/utils";
 
-const COLOR_OPTIONS = [
-  "Black",
-  "White",
-  "Red",
-  "Blue",
-  "Green",
-  "Yellow",
-  "Gray",
-  "Navy",
-  "Brown",
-  "Pink",
-  "Purple",
-  "Orange",
-  "Beige",
-];
-
-const SIZE_OPTIONS = [
-  "Small",
-  "Medium",
-  "Large",
-  "XL",
-  "XXL",
-  "3XL",
-  "XS",
-];
+interface ColorImageItem {
+  file?: File;
+  previewUrl?: string;
+}
 
 export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormProps) {
   const router = useRouter();
@@ -53,6 +32,60 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   const [formErrorMessages, setFormErrorMessages] = useState<string[]>([]);
   const [dbCategories, setDbCategories] = useState<{ id: string; name: string }[]>([]);
   const [isCustomCategory, setIsCustomCategory] = useState(false);
+
+  // Color-based image map: { "Red": { file, previewUrl }, "Blue": { file, previewUrl } }
+  const [colorImages, setColorImages] = useState<Record<string, ColorImageItem>>({});
+
+  // Product Active / Inactive status tracking
+  const [isActive, setIsActive] = useState<boolean>(
+    initialData?.isActive !== undefined ? initialData.isActive : true
+  );
+  const [togglingStatus, setTogglingStatus] = useState(false);
+  const [pendingStatusChange, setPendingStatusChange] = useState<"activate" | "deactivate" | null>(null);
+
+  useEffect(() => {
+    if (initialData?.isActive !== undefined) {
+      setIsActive(initialData.isActive);
+    }
+  }, [initialData?.isActive]);
+
+  const handleStatusSelectChange = (newVal: string) => {
+    if (mode === "create") {
+      setIsActive(newVal === "Active");
+      return;
+    }
+
+    if (newVal === "Inactive" && isActive) {
+      setPendingStatusChange("deactivate");
+    } else if (newVal === "Active" && !isActive) {
+      setPendingStatusChange("activate");
+    }
+  };
+
+  const confirmStatusChange = async () => {
+    if (!initialData?.id || !pendingStatusChange) return;
+
+    try {
+      setTogglingStatus(true);
+      if (pendingStatusChange === "deactivate") {
+        await deactivateProduct(initialData.id);
+        setIsActive(false);
+        showSuccess("Product deactivated successfully!", "Status Updated");
+      } else {
+        await activateProduct(initialData.id);
+        setIsActive(true);
+        showSuccess("Product restored successfully!", "Status Updated");
+      }
+      if (onSubmitSuccess) {
+        onSubmitSuccess();
+      }
+    } catch (err) {
+      showError((err as Error).message || "Failed to update product status", "Status Error");
+    } finally {
+      setTogglingStatus(false);
+      setPendingStatusChange(null);
+    }
+  };
 
   useEffect(() => {
     async function loadCategories() {
@@ -70,10 +103,32 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   const [draftColor, setDraftColor] = useState("");
   const [draftSize, setDraftSize] = useState("");
   const [draftQty, setDraftQty] = useState("");
-  const [draftFile, setDraftFile] = useState<File | undefined>(undefined);
-  const [draftPreviewUrl, setDraftPreviewUrl] = useState<string | undefined>(undefined);
   const [draftError, setDraftError] = useState<string | null>(null);
   const draftQtyInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Initialize color images when editing
+  useEffect(() => {
+    if (mode === "edit" && initialData && initialData.variants) {
+      const primaryUrl = initialData.imageUrl || initialData.variants[0]?.images?.[0] || "";
+      const extracted: Record<string, ColorImageItem> = {};
+
+      for (const v of initialData.variants) {
+        const color =
+          v.attributes?.Color ||
+          v.attributes?.color ||
+          v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === "color")?.value;
+
+        if (color && v.images && v.images.length > 0) {
+          const imgUrl = v.images[0];
+          if (imgUrl && imgUrl !== primaryUrl && !extracted[color]) {
+            extracted[color] = { previewUrl: imgUrl };
+          }
+        }
+      }
+
+      setColorImages(extracted);
+    }
+  }, [mode, initialData]);
 
   // Compute default values from initialData if mode === "edit"
   const getDefaultValues = (): ProductFormSchemaValues => {
@@ -83,34 +138,32 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
       const formattedVariants =
         initialData.variants && initialData.variants.length > 0
           ? initialData.variants.map((v) => {
-              const color =
-                v.attributes?.Color ||
-                v.attributes?.color ||
-                v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === "color")
-                  ?.value ||
-                "Black";
-              const size =
-                v.attributes?.Size ||
-                v.attributes?.size ||
-                v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === "size")
-                  ?.value ||
-                "Medium";
-              const variantImg = v.images && v.images.length > 0 ? v.images[0] : undefined;
-              return {
-                id: v.id,
-                color,
-                size,
-                quantity: v.stock,
-                previewUrl: variantImg !== primaryUrl ? variantImg : undefined,
-              };
-            })
+            const color =
+              v.attributes?.Color ||
+              v.attributes?.color ||
+              v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === "color")
+                ?.value ||
+              "";
+            const size =
+              v.attributes?.Size ||
+              v.attributes?.size ||
+              v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === "size")
+                ?.value ||
+              "";
+            return {
+              id: v.id,
+              color,
+              size,
+              quantity: v.stock,
+            };
+          })
           : [
-              {
-                color: "Black",
-                size: "Medium",
-                quantity: initialData.stock || 10,
-              },
-            ];
+            {
+              color: "Black",
+              size: "Medium",
+              quantity: initialData.stock || 5,
+            },
+          ];
 
       return {
         name: initialData.name || "",
@@ -192,6 +245,20 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
     return sum + (isNaN(qty) || qty < 0 ? 0 : qty);
   }, 0);
 
+  // Helper to update color image state for a color
+  const handleColorImageChange = (colorName: string, file?: File, previewUrl?: string) => {
+    if (!colorName) return;
+    setColorImages((prev) => {
+      const updated = { ...prev };
+      if (!file && !previewUrl) {
+        delete updated[colorName];
+      } else {
+        updated[colorName] = { file, previewUrl };
+      }
+      return updated;
+    });
+  };
+
   // Quick Add Variant handler
   const handleAddDraftVariant = () => {
     setDraftError(null);
@@ -203,7 +270,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
     const colorVal = (draftColor || "").trim();
     const sizeVal = (draftSize || "").trim();
 
-    // Duplicate check for both specific and general variants
+    // Duplicate check for variants
     const isDuplicate = watchedVariants.some(
       (v) =>
         (v.color || "").trim().toLowerCase() === colorVal.toLowerCase() &&
@@ -223,16 +290,12 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
       color: colorVal,
       size: sizeVal,
       quantity: qtyNum,
-      file: draftFile,
-      previewUrl: draftPreviewUrl,
     });
 
     // Reset draft fields
     setDraftColor("");
     setDraftSize("");
     setDraftQty("");
-    setDraftFile(undefined);
-    setDraftPreviewUrl(undefined);
 
     setTimeout(() => {
       draftQtyInputRef.current?.focus();
@@ -259,7 +322,18 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         return;
       }
 
-      // 2. Upload optional variant-specific images or fallback to finalDefaultImageUrl
+      // 2. Upload color-specific images to Cloudinary (deferred upload pipeline)
+      const finalColorImageUrls: Record<string, string> = {};
+      for (const [colorName, state] of Object.entries(colorImages)) {
+        if (state.file) {
+          const uploadedUrl = await uploadImage(state.file);
+          finalColorImageUrls[colorName] = uploadedUrl;
+        } else if (state.previewUrl) {
+          finalColorImageUrls[colorName] = state.previewUrl;
+        }
+      }
+
+      // 3. Format variants: Assign color-specific image if present, else fallback to Default Product Image
       let formattedVariants = [];
       const options = [];
 
@@ -274,28 +348,22 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         if (uniqueColors.length > 0) options.push({ name: "Color", values: uniqueColors });
         if (uniqueSizes.length > 0) options.push({ name: "Size", values: uniqueSizes });
 
-        formattedVariants = await Promise.all(
-          data.variants.map(async (v) => {
-            const attributes: Record<string, string> = {};
-            if (v.color?.trim()) attributes.Color = v.color.trim();
-            if (v.size?.trim()) attributes.Size = v.size.trim();
+        formattedVariants = data.variants.map((v) => {
+          const colorKey = (v.color || "").trim();
+          const attributes: Record<string, string> = {};
+          if (colorKey) attributes.Color = colorKey;
+          if (v.size?.trim()) attributes.Size = v.size.trim();
 
-            let variantImageUrl = finalDefaultImageUrl;
-            if (v.file) {
-              variantImageUrl = await uploadImage(v.file);
-            } else if (v.previewUrl) {
-              variantImageUrl = v.previewUrl;
-            }
+          const variantImageUrl = finalColorImageUrls[colorKey] || finalDefaultImageUrl;
 
-            return {
-              id: v.id,
-              price: data.price,
-              stock: v.quantity,
-              images: [variantImageUrl],
-              attributes,
-            };
-          })
-        );
+          return {
+            id: v.id,
+            price: data.price,
+            stock: v.quantity,
+            images: [variantImageUrl],
+            attributes,
+          };
+        });
       } else {
         formattedVariants = [
           {
@@ -439,81 +507,107 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               </div>
             </div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <Label htmlFor="categoryName" className="text-sm font-semibold text-slate-700">
-                  Product Category
-                </Label>
-              </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Product Category */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <Label htmlFor="categoryName" className="text-sm font-semibold text-slate-700">
+                    Product Category
+                  </Label>
+                </div>
 
-              <div className="relative">
-                <Controller
-                  name="categoryName"
-                  control={control}
-                  render={({ field }) =>
-                    isCustomCategory ? (
-                      <div className="space-y-1.5">
-                        <Input
+                <div className="relative">
+                  <Controller
+                    name="categoryName"
+                    control={control}
+                    render={({ field }) =>
+                      isCustomCategory ? (
+                        <div className="space-y-1.5">
+                          <Input
+                            id="categoryName"
+                            autoFocus
+                            placeholder="Enter category name"
+                            value={field.value}
+                            onChange={(e) => {
+                              field.onChange(e.target.value);
+                              validateCustomCategory(e.target.value);
+                            }}
+                            className={cn(
+                              "h-11 bg-white border-slate-200 focus:border-[#007BFF]",
+                              customCategoryError ? "border-red-500 focus:border-red-500" : ""
+                            )}
+                          />
+                          <div className="pt-0.5">
+                            <button
+                              type="button"
+                              onClick={handleSwitchToDropdownMode}
+                              className="text-xs text-[#007BFF] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                            >
+                              <ArrowLeft className="h-3.5 w-3.5" />
+                              <span> Back to Categories</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Select
                           id="categoryName"
-                          autoFocus
-                          placeholder="Enter category name"
                           value={field.value}
                           onChange={(e) => {
-                            field.onChange(e.target.value);
-                            validateCustomCategory(e.target.value);
+                            if (e.target.value === "__ADD_NEW__") {
+                              handleSwitchToAddMode();
+                            } else {
+                              field.onChange(e.target.value);
+                              setSavedDropdownCategory(e.target.value);
+                            }
                           }}
-                          className={cn(
-                            "h-11 bg-white border-slate-200 focus:border-[#007BFF]",
-                            customCategoryError ? "border-red-500 focus:border-red-500" : ""
-                          )}
-                        />
-                        <div className="pt-0.5">
-                          <button
-                            type="button"
-                            onClick={handleSwitchToDropdownMode}
-                            className="text-xs text-[#007BFF] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
-                          >
-                            <ArrowLeft className="h-3.5 w-3.5" />
-                            <span> Back to Categories</span>
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <Select
-                        id="categoryName"
-                        value={field.value}
-                        onChange={(e) => {
-                          if (e.target.value === "__ADD_NEW__") {
-                            handleSwitchToAddMode();
-                          } else {
-                            field.onChange(e.target.value);
-                            setSavedDropdownCategory(e.target.value);
-                          }
-                        }}
-                        error={!!errors.categoryName}
-                        className="h-11 bg-white border-slate-200"
-                      >
-                        <option value="">Select...</option>
-                        {dbCategories.map((cat) => (
-                          <option key={cat.id} value={cat.name}>
-                            {cat.name}
-                          </option>
-                        ))}
-                        <option value="__ADD_NEW__">+ Create New Category...</option>
-                      </Select>
-                    )
-                  }
-                />
+                          error={!!errors.categoryName}
+                          className="h-11 bg-white border-slate-200"
+                        >
+                          <option value="">Select...</option>
+                          {dbCategories.map((cat) => (
+                            <option key={cat.id} value={cat.name}>
+                              {cat.name}
+                            </option>
+                          ))}
+                          <option value="__ADD_NEW__">+ Create New Category...</option>
+                        </Select>
+                      )
+                    }
+                  />
+                </div>
+                {customCategoryError ? (
+                  <p role="alert" className="mt-1 text-xs text-red-500 font-medium pl-0.5">
+                    {customCategoryError}
+                  </p>
+                ) : errors.categoryName ? (
+                  <p role="alert" className="mt-1 text-xs text-red-500 font-medium pl-0.5">
+                    {errors.categoryName.message}
+                  </p>
+                ) : null}
               </div>
-              {customCategoryError ? (
-                <p role="alert" className="mt-1 text-xs text-red-500 font-medium pl-0.5">
-                  {customCategoryError}
-                </p>
-              ) : errors.categoryName ? (
-                <p role="alert" className="mt-1 text-xs text-red-500 font-medium pl-0.5">
-                  {errors.categoryName.message}
-                </p>
-              ) : null}
+
+              {/* Product Status */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <Label htmlFor="productStatus" className="text-sm font-semibold text-slate-700">
+                    Product Status
+                  </Label>
+                </div>
+
+                <Select
+                  id="productStatus"
+                  value={isActive ? "Active" : "Inactive"}
+                  onChange={(e) => handleStatusSelectChange(e.target.value)}
+                  disabled={togglingStatus}
+                  className={cn(
+                    "h-11 font-semibold bg-white border-slate-200 cursor-pointer",
+                    isActive ? "text-emerald-700 font-bold" : "text-amber-700 font-bold"
+                  )}
+                >
+                  <option value="Active">Active</option>
+                  {mode === "edit" && <option value="Inactive">Inactive</option>}
+                </Select>
+              </div>
             </div>
           </div>
         </div>
@@ -524,7 +618,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         <div className="border-b border-slate-100 pb-3">
           <h2 className="text-lg font-semibold text-slate-800">Product Variants</h2>
           <p className="text-xs text-slate-500">
-            Add variants with Color, Size, Quantity, and an optional variant-specific image.
+            Add variants with Color, Size, Quantity, and optional image. Uploading an image for a color syncs across all variants of that color.
           </p>
         </div>
 
@@ -592,15 +686,19 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
             />
           </div>
 
+          {/* Variant Image Upload for Draft Row (Color-Synced) */}
           <div>
             <VariantImageUpload
-              file={draftFile}
-              previewUrl={draftPreviewUrl}
-              onChange={(file, previewUrl) => {
-                setDraftFile(file);
-                setDraftPreviewUrl(previewUrl);
+              file={colorImages[draftColor]?.file}
+              previewUrl={colorImages[draftColor]?.previewUrl}
+              onChange={(newFile, newPreviewUrl) => {
+                if (draftColor) {
+                  handleColorImageChange(draftColor, newFile, newPreviewUrl);
+                } else {
+                  showError("Please select a Color first to attach an image", "Warning");
+                }
               }}
-              disabled={submitting}
+              disabled={submitting || !draftColor}
             />
           </div>
 
@@ -627,6 +725,8 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               const colorError = errors.variants?.[index]?.color?.message;
               const sizeError = errors.variants?.[index]?.size?.message;
               const qtyError = errors.variants?.[index]?.quantity?.message;
+
+              const vColor = (watch(`variants.${index}.color`) || "").trim();
 
               return (
                 <div
@@ -705,22 +805,19 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                     )}
                   </div>
 
-                  {/* Optional Variant Image Uploader */}
+                  {/* Image Upload Box directly in variant row (Color-Synced) */}
                   <div>
-                    <Controller
-                      name={`variants.${index}.previewUrl`}
-                      control={control}
-                      render={({ field: imgField }) => (
-                        <VariantImageUpload
-                          file={watch(`variants.${index}.file`)}
-                          previewUrl={imgField.value}
-                          onChange={(newFile, newPreviewUrl) => {
-                            setValue(`variants.${index}.file`, newFile);
-                            imgField.onChange(newPreviewUrl || "");
-                          }}
-                          disabled={submitting}
-                        />
-                      )}
+                    <VariantImageUpload
+                      file={colorImages[vColor]?.file}
+                      previewUrl={colorImages[vColor]?.previewUrl}
+                      onChange={(newFile, newPreviewUrl) => {
+                        if (vColor) {
+                          handleColorImageChange(vColor, newFile, newPreviewUrl);
+                        } else {
+                          showError("Please select a Color first to attach an image", "Warning");
+                        }
+                      }}
+                      disabled={submitting || !vColor}
                     />
                   </div>
 
@@ -758,6 +855,63 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               : "Update"}
         </Button>
       </div>
+
+      {/* Status Change Confirmation Modal */}
+      {pendingStatusChange && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full  space-y-4 border border-slate-200/90 ring-1 ring-slate-900/10">
+            <div className="flex items-center gap-3">
+              <div
+                className={cn(
+                  "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
+                  pendingStatusChange === "deactivate" ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"
+                )}
+              >
+                <AlertCircle className="h-5 w-5 stroke-[2.25]" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-800">
+                  {pendingStatusChange === "deactivate" ? "Deactivate Product?" : "Restore Product?"}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {pendingStatusChange === "deactivate"
+                    ? "Deactivating this product will hide it from customer search and shop listings."
+                    : "Restoring this product will make it active and visible to customers again."}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPendingStatusChange(null)}
+                disabled={togglingStatus}
+                className="text-xs font-semibold rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={confirmStatusChange}
+                disabled={togglingStatus}
+                className={cn(
+                  "text-xs font-semibold text-white rounded-xl shadow-xs",
+                  pendingStatusChange === "deactivate"
+                    ? "bg-amber-600 hover:bg-amber-700"
+                    : "bg-emerald-600 hover:bg-emerald-700"
+                )}
+              >
+                {togglingStatus
+                  ? "Updating..."
+                  : pendingStatusChange === "deactivate"
+                    ? "Yes, Deactivate"
+                    : "Yes, Restore"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

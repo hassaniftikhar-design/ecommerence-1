@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Edit2, Search, ChevronDown, ChevronUp, Power, RotateCcw, AlertTriangle, X } from "lucide-react";
+import { Edit2, Search, ChevronDown, ChevronUp, X } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/table";
 import { AddProductDrawer } from "@/components/forms/add-product-drawer";
 import { ROUTES } from "@/constants/routes";
-import { getProducts, activateProduct, deactivateProduct } from "@/services/product.service";
+import { getProductsPaginated, type ProductsPaginationMeta } from "@/services/product.service";
 import { VariantBadge } from "@/components/common/variant-badge";
 import type { Product, ProductStatusFilter } from "@/types/product.types";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -39,13 +39,21 @@ export function AdminProductsView({
   onCloseEditDrawer,
 }: AdminProductsViewProps = {}) {
   const { data: session, status } = useSession();
-  const { showSuccess, showError } = useToast();
+  const { showError } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProductStatusFilter>("all");
   const debouncedSearchQuery = useDebounce(searchQuery, 400);
   const [currentPage, setCurrentPage] = useState(1);
+  const [paginationMeta, setPaginationMeta] = useState<ProductsPaginationMeta>({
+    page: 1,
+    limit: 10,
+    totalItems: 0,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPrevPage: false,
+  });
 
   const [addDrawerOpen, setAddDrawerOpen] = useState<boolean>(initialOpenAddDrawer);
   const [editProductId, setEditProductId] = useState<string | null>(initialEditProductId);
@@ -53,26 +61,6 @@ export function AdminProductsView({
 
   // Image preview modal state
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
-
-  // Status change confirmation dialog state
-  const [confirmModal, setConfirmModal] = useState<{
-    open: boolean;
-    productId: string;
-    productName: string;
-    targetStatus: "active" | "inactive";
-  }>({
-    open: false,
-    productId: "",
-    productName: "",
-    targetStatus: "inactive",
-  });
-  const [processingStatus, setProcessingStatus] = useState(false);
-
-  const pageSize = 10;
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debouncedSearchQuery, statusFilter]);
 
   useEffect(() => {
     setEditProductId(initialEditProductId);
@@ -82,12 +70,21 @@ export function AdminProductsView({
     setExpandedProductId((prev) => (prev === productId ? null : productId));
   };
 
-  const fetchProductsList = async (currentFilter?: ProductStatusFilter) => {
+  const fetchProductsList = async (
+    targetPage: number = currentPage,
+    targetSearch: string = debouncedSearchQuery,
+    targetFilter: ProductStatusFilter = statusFilter
+  ) => {
     try {
       setLoading(true);
-      const activeFilter = currentFilter ?? statusFilter;
-      const data = await getProducts(undefined, undefined, undefined, activeFilter);
-      setProducts(data);
+      const result = await getProductsPaginated({
+        page: targetPage,
+        limit: 10,
+        search: targetSearch,
+        status: targetFilter,
+      });
+      setProducts(result.products);
+      setPaginationMeta(result.pagination);
     } catch (err) {
       console.error("Failed to load products:", err);
       showError((err as Error).message || "Failed to load products", "Error");
@@ -96,9 +93,17 @@ export function AdminProductsView({
     }
   };
 
+  // Trigger search / status filter change: reset to page 1
   useEffect(() => {
-    fetchProductsList();
-  }, []);
+    setCurrentPage(1);
+    fetchProductsList(1, debouncedSearchQuery, statusFilter);
+  }, [debouncedSearchQuery, statusFilter]);
+
+  // Page change
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    fetchProductsList(newPage, debouncedSearchQuery, statusFilter);
+  };
 
   useEffect(() => {
     setAddDrawerOpen(initialOpenAddDrawer);
@@ -115,63 +120,21 @@ export function AdminProductsView({
 
   const handleStatusFilterChange = (filterOpt: ProductStatusFilter) => {
     setStatusFilter(filterOpt);
-    fetchProductsList(filterOpt);
   };
 
-  const openStatusConfirmation = (
-    productId: string,
-    productName: string,
-    currentIsActive: boolean,
-    e: React.MouseEvent
-  ) => {
-    e.stopPropagation();
-    setConfirmModal({
-      open: true,
-      productId,
-      productName,
-      targetStatus: currentIsActive ? "inactive" : "active",
-    });
-  };
 
-  const handleConfirmStatusChange = async () => {
-    try {
-      setProcessingStatus(true);
-      if (confirmModal.targetStatus === "inactive") {
-        await deactivateProduct(confirmModal.productId);
-        showSuccess(`Product "${confirmModal.productName}" is now inactive.`, "Status Updated");
-      } else {
-        await activateProduct(confirmModal.productId);
-        showSuccess(`Product "${confirmModal.productName}" has been restored and activated.`, "Status Updated");
-      }
-      await fetchProductsList();
-    } catch (err) {
-      showError((err as Error).message || "Failed to update status", "Error");
-    } finally {
-      setProcessingStatus(false);
-      setConfirmModal({ open: false, productId: "", productName: "", targetStatus: "inactive" });
-    }
-  };
 
   if (status !== "loading" && (!session || session.user?.role !== "ADMIN")) {
     return (
       <div className="mx-auto max-w-lg py-16 text-center">
         <h1 className="text-2xl font-bold text-red-600">Access Denied</h1>
-        <p className="mt-2 text-slate-600">You must be logged in as an ADMIN to view this page.</p>
+        <p className="mt-2 text-slate-600">You must be logged in again to view this page.</p>
         <Link href={ROUTES.login} className="mt-4 inline-block font-semibold text-primary underline">
           Go to Login
         </Link>
       </div>
     );
   }
-
-  const filteredProducts = products.filter(
-    (product) =>
-      product.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
-      (product.category?.name && product.category.name.toLowerCase().includes(debouncedSearchQuery.toLowerCase()))
-  );
-
-  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
-  const paginatedProducts = filteredProducts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-6">
@@ -236,7 +199,7 @@ export function AdminProductsView({
               <TableHead className="font-semibold text-slate-600">Total Stock</TableHead>
               <TableHead className="font-semibold text-slate-600">Variants</TableHead>
               <TableHead className="font-semibold text-slate-600">Status</TableHead>
-              <TableHead className="text-right font-semibold text-slate-600 pr-20">Actions</TableHead>
+              <TableHead className="text-right font-semibold text-slate-600 pr-14">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -256,14 +219,14 @@ export function AdminProductsView({
                   <TableCell className="text-right pr-8"><Skeleton className="h-8 w-28 ml-auto rounded-lg" /></TableCell>
                 </TableRow>
               ))
-            ) : paginatedProducts.length === 0 ? (
+            ) : products.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-32 text-center text-slate-400">
                   No products found. Click &quot;+ Add a Single Product&quot; to create one.
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedProducts.map((product) => {
+              products.map((product) => {
                 const displayPrice = product.price ?? product.lowestPrice ?? 0;
                 const displayStock = product.totalStock ?? product.stock ?? 0;
                 const displayVariantCount = product.variantCount ?? product.variants?.length ?? 1;
@@ -346,7 +309,7 @@ export function AdminProductsView({
                         )}
                       </TableCell>
 
-                      <TableCell className="text-right pr-8">
+                      <TableCell className="text-right pr-16">
                         <div className="flex items-center justify-end gap-3">
                           <button
                             type="button"
@@ -359,29 +322,6 @@ export function AdminProductsView({
                           >
                             <Edit2 className="h-4 w-4" />
                           </button>
-
-                          {/* Fixed-width status toggle button for visual consistency */}
-                          {product.isActive ? (
-                            <button
-                              type="button"
-                              onClick={(e) => openStatusConfirmation(product.id, product.name, true, e)}
-                              className="w-[108px] h-8 inline-flex items-center justify-center gap-1.5 text-xs font-medium rounded-lg text-amber-700 bg-amber-50/80 hover:bg-amber-100 border border-amber-300/90 cursor-pointer transition shadow-2xs active:scale-95 shrink-0"
-                              title="Deactivate Product"
-                            >
-                              <Power className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                              <span>Deactivate</span>
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={(e) => openStatusConfirmation(product.id, product.name, false, e)}
-                              className="w-[108px] h-8 inline-flex items-center justify-center gap-1.5 text-xs font-medium rounded-lg text-emerald-700 bg-emerald-50/80 hover:bg-emerald-100 border border-emerald-300/90 cursor-pointer transition shadow-2xs active:scale-95 shrink-0"
-                              title="Restore Product"
-                            >
-                              <RotateCcw className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                              <span>Restore</span>
-                            </button>
-                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -454,30 +394,41 @@ export function AdminProductsView({
       </div>
 
       {/* Table Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-end">
-          <div className="inline-flex items-center border border-slate-200 rounded-lg overflow-hidden text-xs">
+      {paginationMeta.totalPages > 1 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+          <p className="text-xs text-slate-500 font-medium">
+            Showing{" "}
+            <span className="font-semibold text-slate-800">
+              {Math.min((paginationMeta.page - 1) * paginationMeta.limit + 1, paginationMeta.totalItems)}
+            </span>{" "}
+            to{" "}
+            <span className="font-semibold text-slate-800">
+              {Math.min(paginationMeta.page * paginationMeta.limit, paginationMeta.totalItems)}
+            </span>{" "}
+            of <span className="font-semibold text-slate-800">{paginationMeta.totalItems}</span> products
+          </p>
+          <div className="inline-flex items-center border border-slate-200 rounded-lg overflow-hidden text-xs bg-white shadow-2xs">
             <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1.5 text-slate-600 hover:bg-slate-50 disabled:opacity-50 border-r border-slate-200"
+              onClick={() => handlePageChange(paginationMeta.page - 1)}
+              disabled={!paginationMeta.hasPrevPage}
+              className="px-3 py-1.5 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed border-r border-slate-200 font-medium transition cursor-pointer"
             >
               Previous
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            {Array.from({ length: paginationMeta.totalPages }, (_, i) => i + 1).map((page) => (
               <button
                 key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1.5 font-medium border-r border-slate-200 last:border-r-0 ${currentPage === page ? "text-[#007BFF] bg-blue-50" : "text-slate-600 hover:bg-slate-50"
+                onClick={() => handlePageChange(page)}
+                className={`px-3 py-1.5 font-semibold border-r border-slate-200 last:border-r-0 transition cursor-pointer ${paginationMeta.page === page ? "text-[#007BFF] bg-blue-50/90" : "text-slate-600 hover:bg-slate-50"
                   }`}
               >
                 {page}
               </button>
             ))}
             <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1.5 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              onClick={() => handlePageChange(paginationMeta.page + 1)}
+              disabled={!paginationMeta.hasNextPage}
+              className="px-3 py-1.5 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition cursor-pointer"
             >
               Next
             </button>
@@ -515,74 +466,7 @@ export function AdminProductsView({
         </div>
       )}
 
-      {/* Status Confirmation Modal Dialog */}
-      {confirmModal.open && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full border border-slate-200 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
-            <div className="flex items-center gap-3">
-              <div className={cn(
-                "p-3 rounded-full shrink-0",
-                confirmModal.targetStatus === "inactive" ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"
-              )}>
-                {confirmModal.targetStatus === "inactive" ? (
-                  <AlertTriangle className="h-6 w-6" />
-                ) : (
-                  <RotateCcw className="h-6 w-6" />
-                )}
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">
-                  {confirmModal.targetStatus === "inactive" ? "Deactivate Product?" : "Restore Product?"}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Confirm active status change for this product
-                </p>
-              </div>
-            </div>
 
-            <p className="text-sm text-slate-600">
-              {confirmModal.targetStatus === "inactive" ? (
-                <>
-                  Are you sure you want to deactivate <span className="font-semibold text-slate-900">&quot;{confirmModal.productName}&quot;</span>?
-                </>
-              ) : (
-                <>
-                  Are you sure you want to restore <span className="font-semibold text-slate-900">&quot;{confirmModal.productName}&quot;</span>?
-                </>
-              )}
-            </p>
-
-            <div className="flex justify-end gap-3 pt-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={processingStatus}
-                onClick={() => setConfirmModal({ open: false, productId: "", productName: "", targetStatus: "inactive" })}
-                className="border-slate-200 text-slate-700 hover:bg-slate-50"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                disabled={processingStatus}
-                onClick={handleConfirmStatusChange}
-                className={cn(
-                  "font-semibold text-white",
-                  confirmModal.targetStatus === "inactive"
-                    ? "bg-amber-600 hover:bg-amber-700"
-                    : "bg-emerald-600 hover:bg-emerald-700"
-                )}
-              >
-                {processingStatus
-                  ? "Processing..."
-                  : confirmModal.targetStatus === "inactive"
-                    ? "Deactivate Product"
-                    : "Restore Product"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Add Product Drawer Slider (696px width) */}
       <AddProductDrawer

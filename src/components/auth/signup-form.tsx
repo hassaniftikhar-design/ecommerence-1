@@ -2,6 +2,7 @@
 
 import { useState, type ChangeEvent, type FormEvent } from "react";
 
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AuthFooterLink } from "@/components/auth/auth-footer-link";
 import { FormField } from "@/components/forms/form-field";
@@ -19,6 +20,7 @@ export function SignupForm() {
     confirmPassword: "",
   });
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -29,13 +31,22 @@ export function SignupForm() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+    setSuccessMessage(null);
 
     try {
       setLoading(true);
       await signup(formData);
-      window.location.href = "/login";
+      setSuccessMessage("Account created successfully! Redirecting to login...");
+      setTimeout(() => {
+        window.location.href = "/login?registered=true";
+      }, 1500);
     } catch (err) {
-      setError((err as Error).message);
+      const msg = (err as Error).message;
+      if (msg === "CredentialsSignin" || msg.includes("CredentialsSignin")) {
+        setError("Wrong username password, please enter correct credentials");
+      } else {
+        setError(msg || "Failed to create account. Please check your details.");
+      }
     } finally {
       setLoading(false);
     }
@@ -44,8 +55,30 @@ export function SignupForm() {
   return (
     <form onSubmit={handleSubmit} noValidate>
       {error && (
-        <div className="mb-4 text-sm text-red-600 font-medium text-center">
-          {error}
+        <div className="mb-4 rounded-md bg-[#f8d7da] border border-[#f5c6cb] px-4 py-3 text-sm text-[#721c24] flex items-center justify-between gap-3 shadow-2xs">
+          <span className="flex-1 font-medium">{error}</span>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="text-[#721c24] hover:opacity-75 transition-opacity cursor-pointer shrink-0 font-bold p-0.5 text-base leading-none"
+            aria-label="Dismiss error"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="mb-4 rounded-md bg-[#d4edda] border border-[#c3e6cb] px-4 py-3 text-sm text-[#155724] flex items-center justify-between gap-3 shadow-2xs">
+          <span className="flex-1 font-medium">{successMessage}</span>
+          <button
+            type="button"
+            onClick={() => setSuccessMessage(null)}
+            className="text-[#155724] hover:opacity-75 transition-opacity cursor-pointer shrink-0 font-bold p-0.5 text-base leading-none"
+            aria-label="Dismiss message"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 

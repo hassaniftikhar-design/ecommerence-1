@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Check, X } from "lucide-react";
+import { ArrowLeft, Check, X, AlertCircle } from "lucide-react";
 import { OrderSummaryFields } from "@/components/orders/order-summary-fields";
 import { OrderProductsTable } from "@/components/orders/order-products-table";
 import { renderStatusBadge } from "@/components/orders/orders-table";
@@ -153,8 +153,9 @@ export function AdminOrderDrawer({
         {/* Content Body Area */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {error && (
-            <div className="rounded-lg bg-red-50 p-4 text-xs font-semibold text-red-600 border border-red-200">
-              {error}
+            <div className="rounded-xl bg-red-50 p-4 text-xs font-semibold text-red-700 border border-red-200 flex items-start gap-2.5 shadow-2xs">
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
+              <span className="flex-1 leading-snug">{error}</span>
             </div>
           )}
 

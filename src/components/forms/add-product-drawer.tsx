@@ -46,26 +46,42 @@ export function AddProductDrawer({
 
   // Fetch product details in edit mode
   useEffect(() => {
-    if (!isOpen || mode !== "edit" || !productId) return;
+    if (!isOpen || mode !== "edit" || !productId) {
+      setProductData(null);
+      setLoading(false);
+      return;
+    }
 
+    let isSubscribed = true;
     async function fetchDetail() {
       if (!productId) return;
       try {
         setLoading(true);
         setError(null);
         const data = await getProductById(productId);
-        setProductData(data);
+        if (isSubscribed) {
+          setProductData(data);
+        }
       } catch (err) {
-        setError((err as Error).message);
+        if (isSubscribed) {
+          setError((err as Error).message);
+        }
       } finally {
-        setLoading(false);
+        if (isSubscribed) {
+          setLoading(false);
+        }
       }
     }
 
     fetchDetail();
+    return () => {
+      isSubscribed = false;
+    };
   }, [isOpen, mode, productId]);
 
   if (!isOpen || !mounted) return null;
+
+  const isEditLoading = mode === "edit" && (loading || !productData);
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex justify-end overflow-hidden">
@@ -107,7 +123,7 @@ export function AddProductDrawer({
 
         {/* Content Body Area */}
         <div className="flex-1 overflow-y-auto p-6">
-          {mode === "edit" && loading ? (
+          {isEditLoading ? (
             <div className="py-20 text-center text-slate-400 font-medium">
               Loading product details...
             </div>
@@ -117,6 +133,7 @@ export function AddProductDrawer({
             </div>
           ) : (
             <ProductForm
+              key={mode === "edit" ? productId : "create"}
               mode={mode}
               initialData={mode === "edit" ? productData || undefined : undefined}
               onSubmitSuccess={() => {

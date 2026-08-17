@@ -52,8 +52,9 @@ export async function GET(request: Request) {
       : {};
 
     const whereClause = { ...baseUserFilter, ...searchFilter };
+    const validOrdersWhere = { ...baseUserFilter, status: { not: "REJECTED" as const } };
 
-    const [orders, totalCount] = await Promise.all([
+    const [orders, totalCount, validOrdersAmountAgg, validOrderItemsAgg] = await Promise.all([
       prisma.order.findMany({
         where: whereClause,
         include: {
@@ -73,7 +74,18 @@ export async function GET(request: Request) {
         take: limit,
       }),
       prisma.order.count({ where: whereClause }),
+      prisma.order.aggregate({
+        _sum: { totalAmount: true },
+        where: validOrdersWhere,
+      }),
+      prisma.orderItem.aggregate({
+        _sum: { quantity: true },
+        where: { order: validOrdersWhere },
+      }),
     ]);
+
+    const totalAmountSum = Number(validOrdersAmountAgg._sum.totalAmount || 0);
+    const totalUnitsSum = validOrderItemsAgg._sum.quantity || 0;
 
     const formattedOrders = orders.map((order) => {
       const uniqueProductCount = new Set(order.items.map((item) => item.productId)).size;
@@ -91,6 +103,8 @@ export async function GET(request: Request) {
     return apiSuccess("Orders retrieved successfully", {
       orders: formattedOrders,
       totalCount,
+      totalUnits: totalUnitsSum,
+      totalAmount: totalAmountSum,
       page,
       pageSize: limit,
     });

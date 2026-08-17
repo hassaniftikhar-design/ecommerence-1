@@ -1,5 +1,6 @@
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { getCurrentUser, isAdmin } from "@/lib/server-auth";
 import { createProductSchema } from "@/lib/validators";
 import { apiSuccess, apiError } from "@/lib/api-response";
@@ -16,12 +17,20 @@ export async function GET(request: Request) {
     const userIsAdmin = Boolean(user && isAdmin(user));
 
     const { searchParams } = new URL(request.url);
-    const titleQuery = searchParams.get("q") || searchParams.get("search") || "";
-    const categoryQuery = searchParams.get("category") || "";
+    const searchQuery = (searchParams.get("search") || searchParams.get("q") || "").trim();
+    const categoryQuery = (searchParams.get("category") || "").trim();
     const sortQuery = searchParams.get("sort") || "newest";
     const statusQuery = searchParams.get("status") || (userIsAdmin ? "all" : "active");
 
-    const whereClause: Record<string, unknown> = {};
+    // Pagination parameters (Default: page 1, 12 per call for pagination queries)
+    const pageParam = searchParams.get("page");
+    const limitParam = searchParams.get("limit");
+    const isPaginatedCall = Boolean(pageParam || limitParam || (userIsAdmin && searchParams.has("page")));
+
+    const pageNumber = Math.max(1, parseInt(pageParam || "1", 10) || 1);
+    const limitNumber = Math.max(1, Math.min(100, parseInt(limitParam || "12", 10) || 12));
+
+    const whereClause: Prisma.ProductWhereInput = {};
 
     if (!userIsAdmin) {
       // Storefront/Customer queries MUST only show active products
@@ -34,18 +43,23 @@ export async function GET(request: Request) {
       }
     }
 
-    if (titleQuery.trim()) {
-      whereClause.name = { contains: titleQuery.trim(), mode: "insensitive" };
+    if (searchQuery) {
+      whereClause.OR = [
+        { name: { contains: searchQuery, mode: "insensitive" } },
+        { category: { name: { contains: searchQuery, mode: "insensitive" } } },
+      ];
     }
 
-    if (categoryQuery.trim()) {
-      whereClause.category = { name: { equals: categoryQuery.trim(), mode: "insensitive" } };
+    if (categoryQuery) {
+      whereClause.category = { name: { equals: categoryQuery, mode: "insensitive" } };
     }
 
-    let orderByClause: Record<string, unknown> = { createdAt: "desc" };
+    let orderByClause: Prisma.ProductOrderByWithRelationInput = { createdAt: "desc" };
     if (sortQuery === "name-asc") {
       orderByClause = { name: "asc" };
     }
+
+    const totalCount = await prisma.product.count({ where: whereClause });
 
     const products = await prisma.product.findMany({
       where: whereClause,
@@ -72,6 +86,12 @@ export async function GET(request: Request) {
         },
       },
       orderBy: orderByClause,
+      ...(isPaginatedCall
+        ? {
+          skip: (pageNumber - 1) * limitNumber,
+          take: limitNumber,
+        }
+        : {}),
     });
 
     const formattedProducts = products.map((product) => {
@@ -137,8 +157,24 @@ export async function GET(request: Request) {
       formattedProducts.sort((a, b) => b.price - a.price);
     }
 
+    const effectiveLimit = isPaginatedCall ? limitNumber : (totalCount || 1);
+    const totalPages = Math.max(1, Math.ceil(totalCount / effectiveLimit));
+    const hasMore = isPaginatedCall ? pageNumber * limitNumber < totalCount : false;
+
     return apiSuccess("Products retrieved successfully", {
       products: formattedProducts,
+      page: isPaginatedCall ? pageNumber : 1,
+      limit: isPaginatedCall ? limitNumber : totalCount,
+      total: totalCount,
+      hasMore,
+      pagination: {
+        page: isPaginatedCall ? pageNumber : 1,
+        limit: isPaginatedCall ? limitNumber : totalCount,
+        totalItems: totalCount,
+        totalPages: isPaginatedCall ? totalPages : 1,
+        hasNextPage: isPaginatedCall ? pageNumber < totalPages : false,
+        hasPrevPage: isPaginatedCall ? pageNumber > 1 : false,
+      },
     });
   } catch (error) {
     return apiError("Failed to fetch products", [(error as Error).message], 500);
@@ -297,7 +333,7 @@ export async function POST(request: Request) {
       if (variants && variants.length > 0) {
         for (const v of variants) {
           const attrEntries = Object.entries(v.attributes || {});
-          
+
           // Try to find matching variant on existing product
           const existingVariantMatch = product.variants.find((existingV) => {
             if (attrEntries.length === 0 && existingV.variantOptions.length === 0) return true;

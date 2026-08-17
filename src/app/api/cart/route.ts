@@ -1,48 +1,53 @@
 import { cookies } from "next/headers";
-import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server-auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
+import { TAX_RATE } from "@/constants/generalconstants";
 
-const TAX_RATE = 0.08; // 8% Tax
 const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
 
 async function getOrCreateCart(request: Request): Promise<{ cartId: string; sessionIdCookie?: string }> {
   const user = await getCurrentUser(request);
+
+  if (!user || (!user.id && !user.sub)) {
+    throw new Error("Unauthorized. You must be logged in to access cart.");
+  }
+
+  const userId = (user.id || user.sub)!;
+  let cart = await prisma.cart.findUnique({
+    where: { userId },
+  });
+
+  if (!cart) {
+    cart = await prisma.cart.create({
+      data: { userId },
+    });
+  }
+  return { cartId: cart.id };
+
+  /*
+  // Guest cart session logic (Commented out per business logic: user must be logged in)
   const cookieStore = await cookies();
   let sessionId = cookieStore.get("cart_session_id")?.value;
   let newSessionId: string | undefined = undefined;
 
-  if (user && (user.id || user.sub)) {
-    const userId = (user.id || user.sub)!;
-    let cart = await prisma.cart.findUnique({
-      where: { userId },
-    });
-
-    if (!cart) {
-      cart = await prisma.cart.create({
-        data: { userId },
-      });
-    }
-    return { cartId: cart.id };
-  } else {
-    if (!sessionId) {
-      sessionId = `sess_${randomBytes(16).toString("hex")}`;
-      newSessionId = sessionId;
-    }
-
-    let cart = await prisma.cart.findUnique({
-      where: { sessionId },
-    });
-
-    if (!cart) {
-      cart = await prisma.cart.create({
-        data: { sessionId },
-      });
-    }
-
-    return { cartId: cart.id, sessionIdCookie: newSessionId };
+  if (!sessionId) {
+    sessionId = `sess_${randomBytes(16).toString("hex")}`;
+    newSessionId = sessionId;
   }
+
+  let cart = await prisma.cart.findUnique({
+    where: { sessionId },
+  });
+
+  if (!cart) {
+    cart = await prisma.cart.create({
+      data: { sessionId },
+    });
+  }
+
+  return { cartId: cart.id, sessionIdCookie: newSessionId };
+  */
 }
 
 async function formatCartResponse(cartId: string) {

@@ -8,7 +8,7 @@ import { ROUTES } from "@/constants/routes";
 export function Logo() {
   return (
     <Link href={ROUTES.home} className="text-sm font-bold leading-6 text-[#343A40] sm:text-base">
-      E-commerce
+      ShopFastStore
     </Link>
   );
 }

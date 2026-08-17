@@ -4,6 +4,7 @@ import { useState, useEffect, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
+import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/forms/form-field";
 import { isStrongPassword } from "@/utils/validation";
@@ -122,8 +123,9 @@ export function ResetPasswordForm() {
   return (
     <form onSubmit={handleSubmit} noValidate>
       {error && (
-        <div className="mb-4 text-sm text-red-600 font-medium text-center">
-          {error}
+        <div className="mb-4 rounded-xl bg-red-50 p-3.5 border border-red-200 text-xs sm:text-sm font-medium text-red-700 flex items-start gap-2.5 shadow-2xs">
+          <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
+          <span className="flex-1 leading-snug">{error}</span>
         </div>
       )}
 

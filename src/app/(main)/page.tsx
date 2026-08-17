@@ -8,9 +8,9 @@ import { HomeOrdersModal } from "@/components/orders/home-orders-modal";
 import { getProducts, getCategories } from "@/services/product.service";
 
 export const metadata: Metadata = {
-  title: "Our Products",
-  description: "Browse the full E-commerce product catalog.",
-  openGraph: { title: "Our Products | E-commerce" },
+  title: "ShopFastStore",
+  description: "Browse the full ShopFastStore product catalog.",
+  openGraph: { title: "ShopFastStore | Our Products" },
 };
 
 interface HomePageProps {
@@ -32,8 +32,14 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const ordersParam = params?.orders;
   const orderIdParam = params?.orderId;
 
-  const [products, categories] = await Promise.all([
-    getProducts(q, category, sort),
+  const [initialProducts, categories] = await Promise.all([
+    getProducts({
+      page: 1,
+      limit: 12,
+      q,
+      category,
+      sort,
+    }),
     getCategories(),
   ]);
 
@@ -59,7 +65,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         </div>
       </div>
 
-      <ProductGrid products={products} />
+      <ProductGrid initialData={initialProducts} q={q} category={category} sort={sort} />
 
       <HomeOrdersModal
         openOrders={Boolean(ordersParam)}

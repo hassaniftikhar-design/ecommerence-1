@@ -10,15 +10,15 @@ import "./globals.css";
 // in later without this file ever needing "use client" itself.
 export const metadata: Metadata = {
   title: {
-    default: "E-commerce",
-    template: "%s | E-commerce",
+    default: "ShopFastStore",
+    template: "%s | ShopFastStore",
   },
   description:
-    "A modern e-commerce storefront built with Next.js App Router.",
+    "ShopFastStore - A modern e-commerce storefront ",
   openGraph: {
-    title: "E-commerce",
+    title: "ShopFastStore",
     description:
-      "A modern e-commerce storefront built with Next.js App Router.",
+      "ShopFastStore - A modern e-commerce storefront ",
     type: "website",
   },
 };
