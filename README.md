@@ -1,144 +1,231 @@
-# E-commerce (Phase 1: Authentication + Landing + Account Portal)
+# Full-Stack Production E-Commerce Application
 
-Next.js App Router + TypeScript + Tailwind CSS + shadcn-style primitives.
-**UI only** — no auth logic, no database, no API calls. Every submit
-handler and service function is a documented placeholder (`TODO(backend-
-integration)`) ready for the next phase (Route Handlers + Zod + NextAuth
-+ Prisma + PostgreSQL).
+## Tech Stack
+- Next.js 15
+- TypeScript
+- PostgreSQL
+- Prisma
+- NextAuth.js
+- Tailwind CSS
 
-## Getting started
+## Description
+
+The application is designed around a layered architecture that separates the **HTTP/API layer**, **backend business logic**, **frontend API clients**, and **database access**. It includes variant-aware inventory management, transactional order processing, role-based administration, authentication, price-change protection, and defensive cart/order handling.
+
+---
+
+## ✨ Features
+
+* 🛍️ Product catalog with search, filtering, sorting, and category browsing
+* 🎨 Multi-option product variants such as **Color** and **Size**
+* 📦 Variant-level inventory management
+* 🛒 Persistent cart with quantity and stock validation
+* 💰 Price-change protection during checkout
+* 🔄 Defensive handling of deleted/inactive products and variants
+* 🧾 Transactional order creation and inventory updates
+* 👨‍💼 Dedicated admin portal
+* 🔐 Credentials-based authentication with JWT sessions
+* 🛡️ Role-based access control for administrative operations
+* 🔑 Password reset and email verification flows
+* 🔔 In-app order and status notifications
+* 📊 Admin dashboard with revenue and order analytics
+* ⚡ Atomic inventory updates to prevent overselling
+* ✅ Zod-based request validation
+* 🧱 Layered backend architecture for maintainability
+
+---
+
+# 🏗️ Architecture
+
+The application follows a layered three-tier architecture:
+
+```text
+┌──────────────────────────────────────────────┐
+│                 CLIENT / UI                  │
+│                                              │
+│  React Components / Server Components        │
+│                    │                         │
+│                    ▼                         │
+│       Frontend Service Layer                 │
+│       src/services/                          │
+│                    │                         │
+│                fetch()                       │
+└────────────────────┼─────────────────────────┘
+                     │ HTTP
+                     ▼
+┌──────────────────────────────────────────────┐
+│               API / HTTP LAYER               │
+│                                              │
+│       src/app/api/**/route.ts                │
+│                                              │
+│  • Authentication / authorization            │
+│  • Request parsing                           │
+│  • Input validation                          │
+│  • HTTP status / response handling           │
+└────────────────────┼─────────────────────────┘
+                     │
+                     ▼
+┌──────────────────────────────────────────────┐
+│            BACKEND SERVICE LAYER             │
+│                                              │
+│       src/server/services/                   │
+│                                              │
+│  • Business logic                            │
+│  • Transactions                              │
+│  • Inventory validation                      │
+│  • Cart/order processing                     │
+└────────────────────┼─────────────────────────┘
+                     │
+                     ▼
+┌──────────────────────────────────────────────┐
+│              DATA ACCESS LAYER               │
+│                                              │
+│                  Prisma                      │
+│                     │                        │
+│                     ▼                        │
+│                 PostgreSQL                   │
+└──────────────────────────────────────────────┘
+```
+
+
+# 🛠️ Technology Stack
+
+| Technology         | Purpose                    |
+| ------------------ | -------------------------- |
+| **Next.js 15**     | Full-stack React framework |
+| **React**          | User interface             |
+| **TypeScript**     | Type safety                |
+| **Tailwind CSS**   | Styling                    |
+| **Prisma ORM**     | Database access            |
+| **PostgreSQL**     | Relational database        |
+| **NextAuth.js**    | Authentication             |
+| **bcryptjs**       | Password hashing           |
+| **Zod**            | Runtime validation         |
+| **Lucide React**   | Icons                      |
+| **Prisma Migrate** | Database migrations        |
+
+---
+
+# ⚙️ Getting Started
+
+## Prerequisites
+
+Make sure you have:
+
+* Node.js 18+
+* npm
+* PostgreSQL
+* Git
+
+---
+
+## 1. Clone the Repository
+
+```bash
+git clone https://github.com/hassaniftikhar-design/ecommerence-1.git
+cd ecommerence-1
+```
+
+## 2. Install Dependencies
 
 ```bash
 npm install
+```
+
+## 3. Configure Environment Variables
+
+create env file 
+
+### Database
+DATABASE_URL="postgresql://postgres:6856@localhost:5432/ecommerce_db?schema=public"
+
+### NextAuth
+NEXTAUTH_SECRET="supersecretkey_change_in_production_12345"
+NEXTAUTH_URL="http://localhost:3000"
+
+### SMTP Configuration
+SMTP_HOST="smtp.mailtrap.io"
+SMTP_PORT="2525"
+SMTP_USER="smtp_user_placeholder"
+SMTP_PASS="smtp_pass_placeholder"
+EMAIL_FROM="noreply@ecommerceapp.com"
+
+### Cloudinary Storage Configuration 
+CLOUDINARY_CLOUD_NAME="your_cloud_name"
+CLOUDINARY_API_KEY="your_api_key"
+CLOUDINARY_API_SECRET="your_api_secret"
+
+
+
+
+---
+
+## 4. Run Database Migrations
+
+```bash
+npx prisma migrate dev
+```
+
+Generate the Prisma client:
+
+```bash
+npx prisma generate
+```
+
+---
+
+## 5. Start the Development Server
+
+```bash
 npm run dev
 ```
 
-Then open:
-- `/` — Home / product landing page
-- `/login`, `/signup`, `/forgot-password`, `/reset-password`
-- `/cart` — Shopping bag
-- `/orders` — Order history (paginated)
-- `/orders/[orderId]` — Order detail (try `/orders/342599`)
+The application will be available at:
 
-## Design tokens
-
-Colors were sampled directly (pixel-by-pixel with PIL) from the Figma
-screenshots rather than eyeballed, and turned out to match Bootstrap's
-default palette almost exactly:
-
-| Token | Hex | Used for |
-|---|---|---|
-| `primary` | `#007bff` | Headings, buttons, links, price |
-| `primary-hover` | `#0069d9` | Button hover |
-| `danger` | `#dc3545` | Field error text, remove-item icon |
-| `warning` | `#ffc107` | Confirm-dialog warning triangle |
-| `ink` | `#212529` | Body / label text |
-| `muted` | `#6c757d` | Placeholder text, secondary copy |
-| `meta` | `#868e96` | De-emphasized metadata ("42 Total Count") |
-| `graytext` | `#495057` | Table header/cell text (Cart, Orders) |
-| `navy` | `#002050` | Order Detail headings (a distinct blue from `primary` — sampled, not a typo) |
-| `charcoal` | `#272b41` | Dialog/dropdown body text, Order Detail field values |
-| `border` | `#ced4da` | Input borders |
-| `border-card` | `#dfdfdf` | Card/table borders |
-| `surface-page` | `#f8f9fa` | Page background |
-| `surface-card` | `#ffffff` | Card background |
-
-These live in `tailwind.config.ts` as `theme.extend.colors`, so every
-component references `bg-primary` / `text-muted` / etc. instead of raw
-hex values.
-
-## Folder structure and why
-
-```
-src/
-├── app/                  Routes only. Route groups + colocated
-│                         loading/error/not-found. No business logic.
-│                         "(main)" holds Home/Cart/Orders/Order Detail
-│                         behind a single shared layout (header + page
-│                         container, so it's declared exactly once).
-│                         "(auth)" holds the 4 auth screens behind their
-│                         own centered layout.
-├── components/
-│   ├── ui/               Framework-agnostic primitives (Button, Input,
-│   │                     Label, Checkbox, Card, Table, Pagination,
-│   │                     AlertDialog, DropdownMenu) — shadcn-style, no
-│   │                     app-specific knowledge.
-│   ├── forms/            Generic form building blocks shared by any
-│   │                     future form, not just auth (FormField today).
-│   ├── auth/             Everything specific to auth screens.
-│   ├── home/             Everything specific to the landing/product page.
-│   ├── cart/             Everything specific to the shopping bag.
-│   ├── orders/           Everything specific to Orders / Order Detail.
-│   └── common/           Shared across areas (Logo, UserMenu,
-│                         BackHeading, ConfirmDialog).
-├── hooks/                Reusable stateful logic (useQuantity,
-│                         useCartSelection).
-├── lib/                  Small framework glue (cn(), font loader).
-├── services/             auth/product/cart/order .service.ts — all
-│                         throw "Not implemented" today, real fetch
-│                         calls in the next phase. Components already
-│                         import from here.
-├── types/                Shared TS interfaces, written against the
-│                         eventual backend shape, not just today's UI.
-├── constants/            ROUTES map + mock product/cart/order data.
-├── utils/                Pure functions (email/password format checks).
-├── providers/            Currently a passthrough; where NextAuth's
-│                         SessionProvider etc. will mount later.
-├── styles/               Reserved (see styles/README.md).
-└── assets/               Reserved (see assets/README.md).
+```text
+http://localhost:3000
 ```
 
-## Rendering strategy
+---
 
-Every page, layout, and "dumb" composition component (`AuthCard`,
-`ProductGrid`, `SiteHeader`) is a **Server Component** by default. `"use
-client"` appears only on the leaves that actually need browser state or
-event handlers:
+# 🧪 Verification
 
-- `LoginForm`, `SignupForm`, `ForgotPasswordForm`, `ResetPasswordForm` —
-  controlled inputs (`useState`).
-- `RememberMe`, `Checkbox` — Radix's checkbox manages its own internal
-  state/keyboard handling client-side.
-- `ProductCard`, `QuantitySelector` — per-card quantity state and the
-  (placeholder) add-to-cart click handler.
-- `ProductSearchBar`, `SortDropdown` — controlled `<input>`/`<select>`.
-- `UserMenu` — Radix DropdownMenu manages open/close state client-side.
-- `CartTable`, `CartItemRow`, `CartSummary`, `ConfirmDialog` — shared
-  row-selection state and the remove/place-order handlers.
-- `error.tsx` — Next.js requires this one to be a Client Component.
+Before submitting or deploying the application, run:
 
-`OrdersTable`, `OrderSummaryFields`, `OrderProductsTable`, and
-`components/ui/pagination.tsx` are all plain Server Components —
-Orders/Order Detail have no interactivity in Phase 1, and pagination is
-implemented as `<Link href="/orders?page=2">` so `OrdersPage` can read
-`searchParams.page` directly instead of needing client-side state just
-to turn a page.
+### TypeScript
 
-This keeps the JS bundle shipped to the browser as small as the brief's
-"Server Components by default" rule asks for, while still allowing
-interactivity exactly where the Figma requires it.
+```bash
+npx tsc --noEmit
+```
 
-## What's a placeholder, on purpose
+### ESLint
 
-- All four form submit handlers stop at `event.preventDefault()` plus a
-  `TODO(backend-integration)` comment.
-- `auth.service.ts` / `product.service.ts` functions all `throw new
-  Error("Not implemented")`.
-- Product images use `placehold.co` — swap for real product photography
-  (or a Prisma-backed CDN URL) once available; `next.config.ts` already
-  whitelists that domain for `next/image`.
-- Product prices are `$0.00` because the Figma shows the same
-  placeholder value on every card.
-- `SiteHeader` shows the logged-in `UserMenu` (Orders/Logout) because
-  of a hardcoded `IS_AUTHENTICATED = true` — swap for a real session
-  check once auth exists.
-- Cart's quantity stepper is the *same* `QuantitySelector` component
-  used on the product grid, not a re-implementation — one place to fix
-  stepper behavior everywhere it appears.
-- `CartSummary`'s Sub Total/Tax/Total don't recompute live as you
-  change a row's quantity (see the comment in that file) — real-time
-  totals need either a lifted cart store or real prices, both of which
-  belong to backend integration, not this UI pass.
+```bash
+npm run lint
+```
 
-None of this is meant to be shipped — it's the seam where Phase 2
-(backend integration) plugs in without touching component markup.
+### Production Build
+
+```bash
+npm run build
+```
+
+A successful production build should complete without TypeScript, ESLint, or compilation errors.
+
+---
+
+
+# 🔒 Production Considerations
+
+Before deploying to production, configure:
+
+* Production PostgreSQL database
+* Secure `NEXTAUTH_SECRET`
+* Production environment variables
+* SMTP/email provider
+* Database connection pooling where required
+* Secure CORS/origin configuration where applicable
+* Production logging and monitoring
+* Image storage configuration
+
+
