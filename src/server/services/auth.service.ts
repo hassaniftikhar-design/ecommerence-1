@@ -17,7 +17,8 @@ export async function signupUserServer(body: unknown) {
     const issueErrors = parsed.error.issues.map(
       (issue) => `${issue.path.join(".")}: ${issue.message}`
     );
-    return { success: false as const, status: 400, errors: issueErrors, message: "Validation failed" };
+    const errorMessage = issueErrors.join(", ") || "Validation failed";
+    return { success: false as const, status: 400, errors: issueErrors, message: errorMessage };
   }
 
   const { fullName, email, mobile, password } = parsed.data;
@@ -60,7 +61,8 @@ export async function forgotPasswordServer(body: unknown) {
     const issueErrors = parsed.error.issues.map(
       (issue) => `${issue.path.join(".")}: ${issue.message}`
     );
-    return { success: false as const, status: 400, errors: issueErrors, message: "Validation failed" };
+    const errorMessage = issueErrors.join(", ") || "Validation failed";
+    return { success: false as const, status: 400, errors: issueErrors, message: errorMessage };
   }
 
   const { email } = parsed.data;
@@ -140,7 +142,8 @@ export async function resetPasswordServer(body: unknown) {
     const issueErrors = parsed.error.issues.map(
       (issue) => `${issue.path.join(".")}: ${issue.message}`
     );
-    return { success: false as const, status: 400, errors: issueErrors, message: "Validation failed" };
+    const errorMessage = issueErrors.join(", ") || "Validation failed";
+    return { success: false as const, status: 400, errors: issueErrors, message: errorMessage };
   }
 
   const { token, password } = parsed.data;
@@ -187,7 +190,8 @@ export async function changePasswordServer(userId: string, body: unknown) {
     const issueErrors = parsed.error.issues.map(
       (issue) => `${issue.path.join(".")}: ${issue.message}`
     );
-    return { success: false as const, status: 400, errors: issueErrors, message: "Validation failed" };
+    const errorMessage = issueErrors.join(", ") || "Validation failed";
+    return { success: false as const, status: 400, errors: issueErrors, message: errorMessage };
   }
 
   const { currentPassword, newPassword } = parsed.data;

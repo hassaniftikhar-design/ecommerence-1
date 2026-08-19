@@ -15,17 +15,24 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
   if (!response.ok || (json && json.success === false)) {
     let errorMsg = "";
 
-    if (json?.message) {
+    const formattedErrors =
+      json?.errors && Array.isArray(json.errors) && json.errors.length > 0
+        ? json.errors
+            .map((err) =>
+              typeof err === "string"
+                ? err
+                : (err as { message?: string })?.message || JSON.stringify(err)
+            )
+            .filter(Boolean)
+            .join(", ")
+        : "";
+
+    if (json?.message && json.message !== "Validation failed") {
       errorMsg = json.message;
-    } else if (json?.errors && Array.isArray(json.errors) && json.errors.length > 0) {
-      errorMsg = json.errors
-        .map((err) =>
-          typeof err === "string"
-            ? err
-            : (err as { message?: string })?.message || JSON.stringify(err)
-        )
-        .filter(Boolean)
-        .join(", ");
+    } else if (formattedErrors) {
+      errorMsg = formattedErrors;
+    } else if (json?.message) {
+      errorMsg = json.message;
     }
 
     if (!errorMsg) {

@@ -281,7 +281,8 @@ export async function createProductServer(body: unknown, adminUserId: string) {
     const issueErrors = parsed.error.issues.map(
       (issue) => `${issue.path.join(".")}: ${issue.message}`
     );
-    return { success: false as const, status: 400, errors: issueErrors, message: "Validation failed" };
+    const errorMessage = issueErrors.join(", ") || "Validation failed";
+    return { success: false as const, status: 400, errors: issueErrors, message: errorMessage };
   }
 
   const {
@@ -516,7 +517,8 @@ export async function updateProductServer(id: string, body: unknown) {
     const issueErrors = parsed.error.issues.map(
       (issue) => `${issue.path.join(".")}: ${issue.message}`
     );
-    return { success: false as const, status: 400, errors: issueErrors, message: "Validation failed" };
+    const errorMessage = issueErrors.join(", ") || "Validation failed";
+    return { success: false as const, status: 400, errors: issueErrors, message: errorMessage };
   }
 
   const {

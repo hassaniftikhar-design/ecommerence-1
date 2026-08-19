@@ -307,6 +307,14 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
       setSubmitting(true);
       if (data.price < 0) {
         showError("Price cannot be negative", "Error");
+        setSubmitting(false);
+        return;
+      }
+
+      if (totalStock <= 0) {
+        setFormErrorMessages(["Total Quantity cannot be zero"]);
+        showError("Total Quantity cannot be zero", "Error");
+        setSubmitting(false);
         return;
       }
 
@@ -375,7 +383,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         formattedVariants = [
           {
             price: data.price,
-            stock: 10,
+            stock: 1,
             images: [finalDefaultImageUrl],
             attributes: {},
           },
@@ -698,11 +706,6 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
             <VariantImageUpload
               file={colorImages[draftColor]?.file}
               previewUrl={colorImages[draftColor]?.previewUrl}
-              defaultImageUrl={
-                watch("defaultImageFile")
-                  ? URL.createObjectURL(watch("defaultImageFile"))
-                  : watch("defaultImageUrl")
-              }
               onChange={(newFile, newPreviewUrl) => {
                 if (draftColor) {
                   handleColorImageChange(draftColor, newFile, newPreviewUrl);
@@ -822,11 +825,6 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                     <VariantImageUpload
                       file={colorImages[vColor]?.file}
                       previewUrl={colorImages[vColor]?.previewUrl}
-                      defaultImageUrl={
-                        watch("defaultImageFile")
-                          ? URL.createObjectURL(watch("defaultImageFile"))
-                          : watch("defaultImageUrl")
-                      }
                       onChange={(newFile, newPreviewUrl) => {
                         if (vColor) {
                           handleColorImageChange(vColor, newFile, newPreviewUrl);

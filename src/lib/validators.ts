@@ -103,9 +103,7 @@ export const createProductSchema = z
     categoryName: z.string().optional(),
     options: z.array(productOptionSchema).default([]),
     variants: z.array(productVariantSchema).default([]),
-    // Backward-compatibility single variant fields
-    // price: z.number().positive().optional(),
-    price: z.number().positive(),
+    price: z.number().positive("Price must be greater than 0"),
     stock: z.number().int().nonnegative().optional(),
     imageUrl: z.string().optional().or(z.literal("")),
   })
@@ -114,6 +112,19 @@ export const createProductSchema = z
     {
       message: "Category is required",
       path: ["categoryName"],
+    }
+  )
+  .refine(
+    (data) => {
+      const calculatedStock =
+        data.variants && data.variants.length > 0
+          ? data.variants.reduce((acc, v) => acc + (v.stock || 0), 0)
+          : data.stock || 0;
+      return calculatedStock > 0;
+    },
+    {
+      message: "Total Quantity cannot be zero",
+      path: ["stock"],
     }
   );
 
@@ -158,6 +169,19 @@ export const productFormSchema = z
         code: z.ZodIssueCode.custom,
         message: "Default Product Image is required",
         path: ["defaultImageUrl"],
+      });
+    }
+
+    const totalQty = data.variants.reduce((sum, v) => {
+      const q = Number(v.quantity);
+      return sum + (isNaN(q) || q < 0 ? 0 : q);
+    }, 0);
+
+    if (totalQty <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Total Quantity cannot be zero",
+        path: ["variants"],
       });
     }
 

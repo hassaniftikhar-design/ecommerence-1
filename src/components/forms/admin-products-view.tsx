@@ -246,19 +246,17 @@ export function AdminProductsView({
                     >
                       <TableCell className="py-3">
                         <div className="flex items-start gap-3">
-                          <img
-                            src={displayImage}
+                          <Image
+                            src={displayImage || "/placeholder-product.png"}
                             alt={product.name}
                             title="Click to view full image"
+                            width={40}
+                            height={40}
                             onClick={(e) => {
                               e.stopPropagation();
                               setPreviewImage({ url: displayImage || "", title: product.name });
                             }}
                             className="h-10 w-10 shrink-0 rounded object-cover border border-slate-200 cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-2xs"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src =
-                                "/placeholder-product.png";
-                            }}
                           />
                           <div className="min-w-0">
                             <Tooltip content={product.name} side="top">
@@ -471,13 +469,15 @@ export function AdminProductsView({
 
           {/* Full Screen Image View Container */}
           <div
-            className="relative flex items-center justify-center w-full h-full max-w-[96vw] max-h-[95vh] animate-in zoom-in-95 duration-200"
+            className="relative flex items-center justify-center w-[96vw] h-[95vh] max-w-[96vw] max-h-[95vh] animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <img
-              src={previewImage.url}
-              alt="Full size preview"
-              className="w-full h-full max-w-[96vw] max-h-[95vh] object-contain rounded-2xl shadow-2xl"
+            <Image
+              src={previewImage.url || "/placeholder-product.png"}
+              alt={previewImage.title || "Full size preview"}
+              fill
+              unoptimized
+              className="object-contain rounded-2xl shadow-2xl"
             />
           </div>
         </div>
