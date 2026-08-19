@@ -1,6 +1,9 @@
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server-auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
+import {
+  getNotificationsServer,
+  markNotificationReadServer,
+} from "@/server/services/notification.service";
 
 export const dynamic = "force-dynamic";
 
@@ -13,21 +16,8 @@ export async function GET(request: Request) {
       return apiSuccess("Unauthenticated", { notifications: [], unreadCount: 0 });
     }
 
-    const [notifications, unreadCount] = await Promise.all([
-      prisma.notification.findMany({
-        where: { userId },
-        orderBy: { createdAt: "desc" },
-        take: 30,
-      }),
-      prisma.notification.count({
-        where: { userId, isRead: false },
-      }),
-    ]);
-
-    return apiSuccess("Notifications retrieved successfully", {
-      notifications,
-      unreadCount,
-    });
+    const data = await getNotificationsServer(userId);
+    return apiSuccess("Notifications retrieved successfully", data);
   } catch (error) {
     return apiError("Failed to fetch notifications", [(error as Error).message], 500);
   }
@@ -48,21 +38,13 @@ export async function PATCH(request: Request) {
       markAll?: boolean;
     };
 
-    if (markAll) {
-      await prisma.notification.updateMany({
-        where: { userId, isRead: false },
-        data: { isRead: true },
-      });
-    } else if (notificationId) {
-      await prisma.notification.updateMany({
-        where: { id: notificationId, userId },
-        data: { isRead: true },
-      });
-    } else {
-      return apiError("Missing notificationId or markAll flag", [], 400);
+    const result = await markNotificationReadServer(userId, notificationId, markAll);
+
+    if (!result.success) {
+      return apiError(result.message, result.errors, result.status);
     }
 
-    return apiSuccess("Notification status updated", {});
+    return apiSuccess(result.message, {});
   } catch (error) {
     return apiError("Failed to update notification", [(error as Error).message], 500);
   }

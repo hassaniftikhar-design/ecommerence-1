@@ -1,13 +1,13 @@
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser, isAdmin } from "@/lib/server-auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
+import {
+  getCategoriesServer,
+  createCategoryServer,
+} from "@/server/services/category.service";
 
 export async function GET() {
   try {
-    const categories = await prisma.category.findMany({
-      orderBy: { name: "asc" },
-    });
-
+    const categories = await getCategoriesServer();
     return apiSuccess("Categories retrieved successfully", { categories });
   } catch (error) {
     return apiError("Failed to fetch categories", [(error as Error).message], 500);
@@ -25,19 +25,13 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { name } = body as { name?: string };
 
-    if (!name || !name.trim()) {
-      return apiError("Category name is required", [], 400);
+    const result = await createCategoryServer(name || "");
+
+    if (!result.success) {
+      return apiError(result.message, result.errors, result.status);
     }
 
-    const trimmedName = name.trim();
-
-    const category = await prisma.category.upsert({
-      where: { name: trimmedName },
-      update: {},
-      create: { name: trimmedName },
-    });
-
-    return apiSuccess("Category created successfully", { category }, 201);
+    return apiSuccess(result.message, { category: result.category }, result.status);
   } catch (error) {
     return apiError("Failed to create category", [(error as Error).message], 500);
   }

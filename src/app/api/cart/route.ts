@@ -1,178 +1,22 @@
-import { cookies } from "next/headers";
-import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server-auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
-import { TAX_RATE, DEFAULT_PRODUCT_IMAGE } from "@/constants/generalconstants";
-
-async function getOrCreateCart(request: Request): Promise<{ cartId: string; sessionIdCookie?: string }> {
-  const user = await getCurrentUser(request);
-
-  if (!user || (!user.id && !user.sub)) {
-    throw new Error("Unauthorized. You must be logged in to access cart.");
-  }
-
-  const userId = (user.id || user.sub)!;
-  let cart = await prisma.cart.findUnique({
-    where: { userId },
-  });
-
-  if (!cart) {
-    cart = await prisma.cart.create({
-      data: { userId },
-    });
-  }
-  return { cartId: cart.id };
-
-  /*
-  // Guest cart session logic (Commented out per business logic: user must be logged in)
-  const cookieStore = await cookies();
-  let sessionId = cookieStore.get("cart_session_id")?.value;
-  let newSessionId: string | undefined = undefined;
-
-  if (!sessionId) {
-    sessionId = `sess_${randomBytes(16).toString("hex")}`;
-    newSessionId = sessionId;
-  }
-
-  let cart = await prisma.cart.findUnique({
-    where: { sessionId },
-  });
-
-  if (!cart) {
-    cart = await prisma.cart.create({
-      data: { sessionId },
-    });
-  }
-
-  return { cartId: cart.id, sessionIdCookie: newSessionId };
-  */
-}
-
-async function formatCartResponse(cartId: string) {
-  const cart = await prisma.cart.findUnique({
-    where: { id: cartId },
-    include: {
-      items: {
-        include: {
-          product: {
-            include: {
-              variants: {
-                include: {
-                  variantOptions: {
-                    include: {
-                      optionValue: {
-                        include: {
-                          option: true,
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-          variant: {
-            include: {
-              variantOptions: {
-                include: {
-                  optionValue: {
-                    include: {
-                      option: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-        orderBy: { createdAt: "asc" },
-      },
-    },
-  });
-
-  if (!cart) {
-    return {
-      items: [],
-      totals: { subTotal: 0, tax: 0, total: 0 },
-    };
-  }
-
-  const items = cart.items.map((item) => {
-    let colorVal: string | undefined = undefined;
-    let sizeVal: string | undefined = undefined;
-
-    const activeVariant = item.variant;
-
-    if (activeVariant?.variantOptions) {
-      for (const vo of activeVariant.variantOptions) {
-        const optName = vo.optionValue.option.name.toLowerCase();
-        if (optName.includes("color") || optName.includes("colour")) {
-          colorVal = vo.optionValue.value;
-        } else if (optName.includes("size")) {
-          sizeVal = vo.optionValue.value;
-        }
-      }
-    }
-
-    const unitPrice = Number(item.product.price);
-
-    const totalPrice = Math.round(unitPrice * item.quantity * 100) / 100;
-    const imageUrl =
-      item.variant?.images[0] ||
-      DEFAULT_PRODUCT_IMAGE;
-
-    const itemStock = item.variant
-      ? item.variant.stock
-      : 0;
-
-    return {
-      id: item.id,
-      productId: item.productId,
-      variantId: item.variantId,
-      name: item.product.name,
-      imageUrl,
-      color: colorVal ? { name: colorVal } : undefined,
-      size: sizeVal || "-",
-      price: unitPrice,
-      quantity: item.quantity,
-      stock: itemStock,
-      totalPrice,
-    };
-  });
-
-  const subTotal = items.reduce((acc, curr) => acc + curr.totalPrice, 0);
-  const roundedSubTotal = Math.round(subTotal * 100) / 100;
-  const tax = Math.round(roundedSubTotal * TAX_RATE * 100) / 100;
-  const total = Math.round((roundedSubTotal + tax) * 100) / 100;
-
-  return {
-    cartId: cart.id,
-    items,
-    totals: {
-      subTotal: roundedSubTotal,
-      tax,
-      total,
-    },
-  };
-}
+import {
+  getCartServer,
+  addToCartServer,
+  clearCartServer,
+} from "@/server/services/cart.service";
 
 export async function GET(request: Request) {
   try {
-    const { cartId, sessionIdCookie } = await getOrCreateCart(request);
-    const cartData = await formatCartResponse(cartId);
+    const user = await getCurrentUser(request);
+    const userId = user?.id || user?.sub;
 
-    const response = apiSuccess("Cart retrieved successfully", cartData);
-
-    if (sessionIdCookie) {
-      const cookieStore = await cookies();
-      cookieStore.set("cart_session_id", sessionIdCookie, {
-        httpOnly: true,
-        path: "/",
-        maxAge: 60 * 60 * 24 * 30, // 30 days
-      });
+    if (!userId) {
+      return apiError("Unauthorized. You must be logged in to access cart.", [], 401);
     }
 
-    return response;
+    const cartData = await getCartServer(userId);
+    return apiSuccess("Cart retrieved successfully", cartData);
   } catch (error) {
     return apiError("Failed to fetch cart", [(error as Error).message], 500);
   }
@@ -180,7 +24,13 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { cartId, sessionIdCookie } = await getOrCreateCart(request);
+    const user = await getCurrentUser(request);
+    const userId = user?.id || user?.sub;
+
+    if (!userId) {
+      return apiError("Unauthorized. You must be logged in to access cart.", [], 401);
+    }
+
     const body = await request.json();
     const { productId, variantId, quantity = 1 } = body;
 
@@ -188,70 +38,13 @@ export async function POST(request: Request) {
       return apiError("productId is required", [], 400);
     }
 
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-      include: { variants: true },
-    });
+    const result = await addToCartServer(userId, productId, variantId, quantity);
 
-    if (!product) {
-      return apiError("Product not found", [], 404);
+    if (!result.success) {
+      return apiError(result.message, result.errors, result.status);
     }
 
-    if (!product.isActive) {
-      return apiError("This product is inactive and cannot be added to cart.", [], 400);
-    }
-
-    // Default to first variant if variantId not specified
-    let targetVariantId = variantId;
-    if (!targetVariantId && product.variants.length > 0) {
-      targetVariantId = product.variants[0]?.id;
-    }
-
-    const targetVariant = product.variants.find((v) => v.id === targetVariantId) || product.variants[0];
-    const availableStock = targetVariant ? targetVariant.stock : 0;
-
-    const existingItem = await prisma.cartItem.findFirst({
-      where: {
-        cartId,
-        productId,
-        variantId: targetVariantId || null,
-      },
-    });
-
-    let newQty = (existingItem ? existingItem.quantity : 0) + Math.max(1, quantity);
-    if (availableStock > 0 && newQty > availableStock) {
-      newQty = availableStock;
-    }
-
-    if (existingItem) {
-      await prisma.cartItem.update({
-        where: { id: existingItem.id },
-        data: { quantity: newQty },
-      });
-    } else {
-      await prisma.cartItem.create({
-        data: {
-          cartId,
-          productId,
-          variantId: targetVariantId || null,
-          quantity: newQty,
-        },
-      });
-    }
-
-    const cartData = await formatCartResponse(cartId);
-    const response = apiSuccess("Item added to cart successfully", cartData);
-
-    if (sessionIdCookie) {
-      const cookieStore = await cookies();
-      cookieStore.set("cart_session_id", sessionIdCookie, {
-        httpOnly: true,
-        path: "/",
-        maxAge: 60 * 60 * 24 * 30,
-      });
-    }
-
-    return response;
+    return apiSuccess(result.message, result.cartData);
   } catch (error) {
     return apiError("Failed to add item to cart", [(error as Error).message], 500);
   }
@@ -259,14 +52,15 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const { cartId } = await getOrCreateCart(request);
+    const user = await getCurrentUser(request);
+    const userId = user?.id || user?.sub;
 
-    await prisma.cartItem.deleteMany({
-      where: { cartId },
-    });
+    if (!userId) {
+      return apiError("Unauthorized. You must be logged in to access cart.", [], 401);
+    }
 
-    const cartData = await formatCartResponse(cartId);
-    return apiSuccess("Cart cleared successfully", cartData);
+    const result = await clearCartServer(userId);
+    return apiSuccess(result.message, result.cartData);
   } catch (error) {
     return apiError("Failed to clear cart", [(error as Error).message], 500);
   }
