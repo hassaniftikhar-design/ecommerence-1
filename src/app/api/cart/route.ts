@@ -2,9 +2,7 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server-auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
-import { TAX_RATE } from "@/constants/generalconstants";
-
-const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
+import { TAX_RATE, DEFAULT_PRODUCT_IMAGE } from "@/constants/generalconstants";
 
 async function getOrCreateCart(request: Request): Promise<{ cartId: string; sessionIdCookie?: string }> {
   const user = await getCurrentUser(request);
@@ -103,7 +101,7 @@ async function formatCartResponse(cartId: string) {
     let colorVal: string | undefined = undefined;
     let sizeVal: string | undefined = undefined;
 
-    const activeVariant = item.variant || item.product.variants[0];
+    const activeVariant = item.variant;
 
     if (activeVariant?.variantOptions) {
       for (const vo of activeVariant.variantOptions) {
@@ -121,14 +119,11 @@ async function formatCartResponse(cartId: string) {
     const totalPrice = Math.round(unitPrice * item.quantity * 100) / 100;
     const imageUrl =
       item.variant?.images[0] ||
-      item.product.variants[0]?.images[0] ||
       DEFAULT_PRODUCT_IMAGE;
 
     const itemStock = item.variant
       ? item.variant.stock
-      : item.product.variants[0]
-        ? item.product.variants[0].stock
-        : 0;
+      : 0;
 
     return {
       id: item.id,

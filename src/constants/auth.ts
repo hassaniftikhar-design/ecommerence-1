@@ -5,17 +5,17 @@ export const SESSION_DURATION_DEFAULT_MS = 1 * 24 * 60 * 60 * 1000; // 1 Day
 // this tell at how much long jwt exists in cookie 
 export const SESSION_COOKIE_MAX_AGE_SECONDS = 5 * 24 * 60 * 60; // 5 Days
 
-export const PASSWORD_RESET_EXPIRATION_MINUTES = 5;
+export const PASSWORD_RESET_EXPIRATION_MINUTES = 1;
 
 /**
  * Single source of truth helper to check if a session has expired.
  */
 export function isSessionExpired(sessionExpiresAt?: number): boolean {
-    return (
-        typeof sessionExpiresAt !== "number" ||
-        !Number.isFinite(sessionExpiresAt) ||
-        Date.now() >= sessionExpiresAt
-    );
+        return (
+                typeof sessionExpiresAt !== "number" ||
+                !Number.isFinite(sessionExpiresAt) ||
+                Date.now() >= sessionExpiresAt
+        );
 }
 
 

@@ -4,8 +4,7 @@ import { Prisma } from "@prisma/client";
 import { getCurrentUser, isAdmin } from "@/lib/server-auth";
 import { createProductSchema } from "@/lib/validators";
 import { apiSuccess, apiError } from "@/lib/api-response";
-
-const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
+import { DEFAULT_PRODUCT_IMAGE } from "@/constants/generalconstants";
 
 function generateSku(): string {
   return `SKU-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`;
@@ -236,10 +235,11 @@ export async function POST(request: Request) {
     const createdProduct = await prisma.$transaction(async (tx) => {
       const targetPrice = price || 0;
 
-      // 1. Check if a product with the exact same name already exists
-      const matchingProducts = await tx.product.findMany({
+      // 1. Check if a product with matching title (name), category, AND price already exists
+      const candidates = await tx.product.findMany({
         where: {
           name: { equals: name.trim(), mode: "insensitive" },
+          categoryId: category.id,
         },
         include: {
           options: { include: { values: true } },
@@ -253,10 +253,12 @@ export async function POST(request: Request) {
         },
       });
 
-      let product = matchingProducts[0] || null;
+      // Match exact price as well (all 3: name, category, and price must match)
+      let product =
+        candidates.find((p) => Number(p.price) === Number(targetPrice)) || null;
 
       if (!product) {
-        // Create new base product if none exists
+        // Create new base product if any of title, category, or price do not match
         product = await tx.product.create({
           data: {
             name: name.trim(),
@@ -274,12 +276,6 @@ export async function POST(request: Request) {
               },
             },
           },
-        });
-      } else {
-        // Update category and price if needed
-        await tx.product.update({
-          where: { id: product.id },
-          data: { categoryId: category.id, price: targetPrice },
         });
       }
 

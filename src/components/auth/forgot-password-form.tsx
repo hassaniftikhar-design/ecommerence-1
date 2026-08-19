@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from "react";
 
-import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AuthFooterLink } from "@/components/auth/auth-footer-link";
 import { FormField } from "@/components/forms/form-field";
@@ -10,8 +9,10 @@ import { ROUTES } from "@/constants/routes";
 import { isValidEmail } from "@/utils/validation";
 
 import { forgotPassword } from "@/services/auth.service";
+import { useToast } from "@/components/ui/toast";
 
 export function ForgotPasswordForm() {
+  const { showSuccess, showError } = useToast();
   const [email, setEmail] = useState("");
   const [touched, setTouched] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -34,9 +35,13 @@ export function ForgotPasswordForm() {
     try {
       setLoading(true);
       await forgotPassword({ email });
-      setMessage("If an account exists, reset instructions have been sent.");
+      const successMsg = "Password reset link has been sent to your email!";
+      setMessage(successMsg);
+      showSuccess(successMsg, "Email Sent");
     } catch (err) {
-      setError((err as Error).message);
+      const errMsg = (err as Error).message || "This email does not exist in our Store.";
+      setError(errMsg);
+      showError(errMsg, "Email Not Found");
     } finally {
       setLoading(false);
     }
@@ -44,19 +49,6 @@ export function ForgotPasswordForm() {
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      {error && (
-        <div className="mb-4 rounded-xl bg-red-50 p-3.5 border border-red-200 text-xs sm:text-sm font-medium text-red-700 flex items-start gap-2.5 shadow-2xs">
-          <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
-          <span className="flex-1 leading-snug">{error}</span>
-        </div>
-      )}
-      {message && (
-        <div className="mb-4 rounded-xl bg-emerald-50 p-3.5 border border-emerald-200 text-xs sm:text-sm font-medium text-emerald-700 flex items-start gap-2.5 shadow-2xs">
-          <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 mt-0.5" />
-          <span className="flex-1 leading-snug">{message}</span>
-        </div>
-      )}
-
       <FormField
         label="Enter email address"
         name="email"

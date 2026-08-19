@@ -9,7 +9,7 @@ export function ProductGridSkeleton({ count = 8 }: { count?: number }) {
           className="flex h-full w-full flex-col rounded-xl border border-slate-200 bg-white p-3 shadow-xs sm:p-4 space-y-3"
         >
           {/* Product Image Placeholder */}
-          <Skeleton className="aspect-square w-full rounded-lg bg-slate-200" />
+          <Skeleton className="aspect-square w-full rounded-none bg-slate-200" />
 
           {/* Title Placeholder */}
           <Skeleton className="h-4 w-3/4" />

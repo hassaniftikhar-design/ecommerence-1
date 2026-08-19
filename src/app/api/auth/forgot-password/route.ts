@@ -23,10 +23,7 @@ export async function POST(request: Request) {
     const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
 
     if (!user) {
-      // Return success response to prevent email enumeration
-      return apiSuccess(
-        "If an account exists with that email, password reset instructions have been sent."
-      );
+      return apiError("This email does not exist in our Store.", [], 404);
     }
 
     const token = randomBytes(32).toString("hex");
@@ -46,10 +43,11 @@ export async function POST(request: Request) {
       await sendResetPasswordEmail(user.email, token);
     } catch (emailErr) {
       console.error("Failed to send reset email:", emailErr);
+      return apiError("Failed to send password reset email. Please try again later.", [], 500);
     }
 
     return apiSuccess(
-      "If an account exists with that email, password reset instructions have been sent."
+      "Password reset instructions have been sent to your email."
     );
   } catch (error) {
     return apiError("An internal server error occurred", [(error as Error).message], 500);

@@ -29,7 +29,7 @@ export function AdminOrdersView({
   initialOrderId = null,
   onCloseDrawer,
 }: AdminOrdersViewProps = {}) {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -63,8 +63,10 @@ export function AdminOrdersView({
   };
 
   useEffect(() => {
-    loadOrders();
-  }, [currentPage, debouncedSearchQuery]);
+    if (status === "authenticated") {
+      loadOrders();
+    }
+  }, [currentPage, debouncedSearchQuery, status]);
 
   useEffect(() => {
     if (initialOrderId) {
@@ -88,11 +90,34 @@ export function AdminOrdersView({
     setSearchQuery(e.target.value);
   };
 
+  if (status === "loading") {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="h-9 w-64 rounded-lg" />
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-12 w-full" />
+        </div>
+      </div>
+    );
+  }
+
   if (session?.user?.role !== "ADMIN") {
     return (
-      <div className="py-12 text-center text-slate-600 font-medium">
-        Access Denied. Please login again.
-        <Link href={ROUTES.login} className="mt-4 inline-block font-semibold text-primary underline">
+      <div className="mx-auto max-w-lg py-16 text-center">
+        <h1 className="text-2xl font-bold text-red-600">Access Denied</h1>
+        <p className="mt-2 text-slate-600">You must be logged in as an Admin to view this page.</p>
+        <Link href={ROUTES.login} className="mt-4 inline-block font-semibold text-[#007BFF] underline">
           Go to Login
         </Link>
       </div>

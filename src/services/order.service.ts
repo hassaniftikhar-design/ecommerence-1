@@ -1,11 +1,5 @@
 import type { OrderDetail, OrderListItem } from "@/types/order.types";
-
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  message: string;
-  data?: T;
-  errors?: string[];
-}
+import type { ApiResponse } from "@/lib/api-response";
 
 async function parseApiResponse<T>(response: Response): Promise<T> {
   let json: ApiResponse<T> | null = null;
@@ -20,7 +14,9 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
   if (!response.ok || (json && json.success === false)) {
     let errorMsg = "";
 
-    if (json?.errors && Array.isArray(json.errors) && json.errors.length > 0) {
+    if (json?.message) {
+      errorMsg = json.message;
+    } else if (json?.errors && Array.isArray(json.errors) && json.errors.length > 0) {
       errorMsg = json.errors
         .map((err) =>
           typeof err === "string"
@@ -29,10 +25,6 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
         )
         .filter(Boolean)
         .join(", ");
-    }
-
-    if (!errorMsg && json?.message) {
-      errorMsg = json.message;
     }
 
     if (!errorMsg) {

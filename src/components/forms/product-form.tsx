@@ -120,7 +120,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
         if (color && v.images && v.images.length > 0) {
           const imgUrl = v.images[0];
-          if (imgUrl && imgUrl !== primaryUrl && !extracted[color]) {
+          if (imgUrl && !extracted[color]) {
             extracted[color] = { previewUrl: imgUrl };
           }
         }
@@ -160,7 +160,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
           : [
             {
               color: "Black",
-              size: "Medium",
+              size: "M",
               quantity: initialData.stock || 5,
             },
           ];

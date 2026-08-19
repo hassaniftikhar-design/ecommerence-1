@@ -3,7 +3,8 @@ export const MAX_VISIBLE_SIZES_MOBILE = 2;
 
 export const MAX_VISIBLE_COLORS_DESKTOP = 4;
 export const MAX_VISIBLE_COLORS_MOBILE = 3;
-export const TAX_RATE = 0.08; // 8% Tax
+export const TAX_RATE = 0.10; // 10% Tax
+export const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
 // Backward compatibility constants
 export const MAX_VISIBLE_SIZES = MAX_VISIBLE_SIZES_DESKTOP;
 export const MAX_VISIBLE_COLORS = MAX_VISIBLE_COLORS_DESKTOP;
@@ -50,9 +51,9 @@ export const COLOR_OPTIONS = [
 ];
 
 export const SIZE_OPTIONS = [
-  "Small",
-  "Medium",
-  "Large",
+  "S",
+  "M",
+  "L",
   "XL",
   "XXL",
   "3XL",

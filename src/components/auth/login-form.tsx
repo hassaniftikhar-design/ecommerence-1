@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { getSession } from "next-auth/react";
 
-import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AuthFooterLink } from "@/components/auth/auth-footer-link";
 import { FormField } from "@/components/forms/form-field";
@@ -14,33 +13,30 @@ import { ROUTES } from "@/constants/routes";
 import { isValidEmail } from "@/utils/validation";
 import type { LoginPayload } from "@/types/auth.types";
 import { login } from "@/services/auth.service";
+import { useToast } from "@/components/ui/toast";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
   const oauthErrorParam = searchParams.get("error");
   const registeredParam = searchParams.get("registered");
+  const { showSuccess, showError } = useToast();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
-
-  const [successMessage, setSuccessMessage] = useState<string | null>(
-    registeredParam === "true"
-      ? "Account created successfully! Please log in with your credentials."
-      : null
-  );
-
-  const [error, setError] = useState<string | null>(() => {
-    if (oauthErrorParam === "CredentialsSignin") {
-      return "Wrong username password, please enter correct credentials";
-    }
-    if (oauthErrorParam === "OAuthSignin" || oauthErrorParam === "Configuration") {
-      return "Google OAuth Fails, Please try again!";
-    }
-    return null;
-  });
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (registeredParam === "true") {
+      showSuccess("Account created successfully! Please log in with your credentials.", "Registration Successful");
+    }
+    if (oauthErrorParam === "CredentialsSignin") {
+      showError("Wrong Email & password, please enter correct credentials", "Login Failed");
+    } else if (oauthErrorParam === "OAuthSignin" || oauthErrorParam === "Configuration") {
+      showError("Google OAuth Failed, Please try again!", "Google Login Failed");
+    }
+  }, [registeredParam, oauthErrorParam]);
 
   const emailError =
     emailTouched && !isValidEmail(email)
@@ -50,8 +46,6 @@ export function LoginForm() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setEmailTouched(true);
-    setError(null);
-    setSuccessMessage(null);
 
     const payload: LoginPayload = { email, password, rememberMe };
 
@@ -60,6 +54,8 @@ export function LoginForm() {
       await login(payload);
       const session = await getSession();
 
+      showSuccess("Login successful!", "Welcome Back");
+
       if (session?.user?.role === "ADMIN") {
         window.location.href = ROUTES.adminProducts;
       } else {
@@ -67,11 +63,11 @@ export function LoginForm() {
       }
     } catch (err) {
       const msg = (err as Error).message;
-      if (msg === "CredentialsSignin" || msg.includes("CredentialsSignin")) {
-        setError("Wrong Email & password, please enter correct credentials");
-      } else {
-        setError(msg || "Failed to log in. Please try again.");
-      }
+      const displayMsg =
+        msg === "CredentialsSignin" || msg.includes("CredentialsSignin")
+          ? "Wrong Email & password, please enter correct credentials"
+          : msg || "Failed to log in. Please try again.";
+      showError(displayMsg, "Login Failed");
     } finally {
       setLoading(false);
     }
@@ -135,34 +131,6 @@ export function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      {error && (
-        <div className="mb-4 rounded-md bg-[#f8d7da] border border-[#f5c6cb] px-4 py-3 text-sm text-[#721c24] flex items-center justify-between gap-3 shadow-2xs">
-          <span className="flex-1 font-medium">{error}</span>
-          <button
-            type="button"
-            onClick={() => setError(null)}
-            className="text-[#721c24] hover:opacity-75 transition-opacity cursor-pointer shrink-0 font-bold p-0.5 text-base leading-none"
-            aria-label="Dismiss error"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-
-      {successMessage && (
-        <div className="mb-4 rounded-md bg-[#d4edda] border border-[#c3e6cb] px-4 py-3 text-sm text-[#155724] flex items-center justify-between gap-3 shadow-2xs">
-          <span className="flex-1 font-medium">{successMessage}</span>
-          <button
-            type="button"
-            onClick={() => setSuccessMessage(null)}
-            className="text-[#155724] hover:opacity-75 transition-opacity cursor-pointer shrink-0 font-bold p-0.5 text-base leading-none"
-            aria-label="Dismiss message"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-
       <FormField
         label="Enter email address"
         name="email"

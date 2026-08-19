@@ -22,16 +22,18 @@ export function apiSuccess<T>(
   );
 }
 
-export function apiError(
+export function apiError<T = unknown>(
   message: string,
   errors: unknown[] = [],
-  status = 400
-): NextResponse<ApiResponse> {
+  status = 400,
+  data?: T
+): NextResponse<ApiResponse<T>> {
   return NextResponse.json(
     {
       success: false,
       message,
       errors,
+      ...(data !== undefined ? { data } : {}),
     },
     { status }
   );

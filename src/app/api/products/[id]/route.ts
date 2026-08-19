@@ -3,8 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser, isAdmin } from "@/lib/server-auth";
 import { updateProductSchema } from "@/lib/validators";
 import { apiSuccess, apiError } from "@/lib/api-response";
-
-const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
+import { DEFAULT_PRODUCT_IMAGE } from "@/constants/generalconstants";
 
 function generateSku(): string {
   return `SKU-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`;
@@ -228,7 +227,9 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
           for (let i = 0; i < variants.length; i++) {
             const v = variants[i];
             if (!v) continue;
-            const existingVar = oldVariants[i];
+            const existingVar = oldVariants.find(
+              (ov) => (v.id && ov.id === v.id) || (v.sku && ov.sku === v.sku)
+            );
             let targetVariantId: string;
 
             if (existingVar) {
@@ -273,15 +274,8 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
             }
           }
 
-          const primaryVariantId = newVariantIds[0];
           const unusedOldVariants = oldVariants.filter((ov) => !newVariantIds.includes(ov.id));
           for (const unusedVar of unusedOldVariants) {
-            if (primaryVariantId) {
-              await tx.cartItem.updateMany({
-                where: { variantId: unusedVar.id },
-                data: { variantId: primaryVariantId },
-              });
-            }
             await tx.productVariant.delete({
               where: { id: unusedVar.id },
             });
@@ -295,7 +289,9 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
         for (let i = 0; i < variants.length; i++) {
           const v = variants[i];
           if (!v) continue;
-          const existingVar = oldVariants[i];
+          const existingVar = oldVariants.find(
+            (ov) => (v.id && ov.id === v.id) || (v.sku && ov.sku === v.sku)
+          );
           let targetVariantId: string;
 
           if (existingVar) {
@@ -323,15 +319,8 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
           newVariantIds.push(targetVariantId);
         }
 
-        const primaryVariantId = newVariantIds[0];
         const unusedOldVariants = oldVariants.filter((ov) => !newVariantIds.includes(ov.id));
         for (const unusedVar of unusedOldVariants) {
-          if (primaryVariantId) {
-            await tx.cartItem.updateMany({
-              where: { variantId: unusedVar.id },
-              data: { variantId: primaryVariantId },
-            });
-          }
           await tx.productVariant.delete({
             where: { id: unusedVar.id },
           });

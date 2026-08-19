@@ -1,11 +1,5 @@
 import type { CartItem, CartTotals } from "@/types/cart.types";
-
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  message: string;
-  data?: T;
-  errors?: string[];
-}
+import type { ApiResponse } from "@/lib/api-response";
 
 async function parseApiResponse<T>(response: Response): Promise<T> {
   let json: ApiResponse<T> | null = null;
@@ -20,7 +14,9 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
   if (!response.ok || (json && json.success === false)) {
     let errorMsg = "";
 
-    if (json?.errors && Array.isArray(json.errors) && json.errors.length > 0) {
+    if (json?.message) {
+      errorMsg = json.message;
+    } else if (json?.errors && Array.isArray(json.errors) && json.errors.length > 0) {
       errorMsg = json.errors
         .map((err) =>
           typeof err === "string"
@@ -29,10 +25,6 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
         )
         .filter(Boolean)
         .join(", ");
-    }
-
-    if (!errorMsg && json?.message) {
-      errorMsg = json.message;
     }
 
     if (!errorMsg) {
@@ -111,12 +103,28 @@ export async function clearCart(): Promise<CartResponseData> {
   return data;
 }
 
-export async function placeOrder(itemIds?: string[]): Promise<{ orderId: string; orderNumber: string }> {
+export class PriceChangedError extends Error {
+  constructor(message: string, public newTotal: number) {
+    super(message);
+    this.name = "PriceChangedError";
+  }
+}
+
+export async function placeOrder(itemIds?: string[], expectedTotal?: number): Promise<{ orderId: string; orderNumber: string }> {
   const response = await fetch("/api/orders", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ itemIds }),
+    body: JSON.stringify({ itemIds, expectedTotal }),
   });
+  
+  if (response.status === 409) {
+    const json = await response.json();
+    if (json.errors?.includes("PRICE_CHANGED")) {
+      throw new PriceChangedError("Prices have updated. Please review your new total.", json.data?.newTotal || 0);
+    }
+    throw new Error(json.message || "Request failed");
+  }
+
   const data = await parseApiResponse<{ orderId: string; orderNumber: string }>(response);
   notifyCartUpdated();
   return data;

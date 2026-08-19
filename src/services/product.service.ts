@@ -1,13 +1,6 @@
 import type { Product } from "@/types/product.types";
-
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  message: string;
-  data?: T;
-  errors?: string[];
-}
-
-const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
+import { DEFAULT_PRODUCT_IMAGE } from "@/constants/generalconstants";
+import type { ApiResponse } from "@/lib/api-response";
 
 async function parseApiResponse<T>(response: Response): Promise<T> {
   let json: ApiResponse<T> | null = null;
@@ -22,7 +15,9 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
   if (!response.ok || (json && json.success === false)) {
     let errorMsg = "";
 
-    if (json?.errors && Array.isArray(json.errors) && json.errors.length > 0) {
+    if (json?.message) {
+      errorMsg = json.message;
+    } else if (json?.errors && Array.isArray(json.errors) && json.errors.length > 0) {
       errorMsg = json.errors
         .map((err) =>
           typeof err === "string"
@@ -31,10 +26,6 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
         )
         .filter(Boolean)
         .join(", ");
-    }
-
-    if (!errorMsg && json?.message) {
-      errorMsg = json.message;
     }
 
     if (!errorMsg) {
@@ -191,7 +182,8 @@ export async function getProducts(
       const productPrice = Number(product.price);
       const totalStock = variantsFormatted.reduce((acc, v) => acc + v.stock, 0);
       const primaryImage =
-        variantsFormatted[0]?.images?.[0] || DEFAULT_PRODUCT_IMAGE;
+        variantsFormatted.find((v) => v.images && v.images.length > 0)?.images[0] ||
+        DEFAULT_PRODUCT_IMAGE;
 
       return {
         id: product.id,
@@ -442,7 +434,8 @@ export async function getProductById(id: string): Promise<Product> {
     const productPrice = Number(product.price);
     const totalStock = variantsFormatted.reduce((acc, v) => acc + v.stock, 0);
     const primaryImage =
-      variantsFormatted[0]?.images?.[0] || DEFAULT_PRODUCT_IMAGE;
+      variantsFormatted.find((v) => v.images && v.images.length > 0)?.images[0] ||
+      DEFAULT_PRODUCT_IMAGE;
 
     return {
       id: product.id,

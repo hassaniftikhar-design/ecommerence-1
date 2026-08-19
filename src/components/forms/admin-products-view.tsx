@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Edit2, Search, ChevronDown, ChevronUp, X } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -22,6 +23,7 @@ import { VariantBadge } from "@/components/common/variant-badge";
 import type { Product, ProductStatusFilter } from "@/types/product.types";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useToast } from "@/components/ui/toast";
+import { WelcomeToast } from "@/components/common/welcome-toast";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
@@ -361,6 +363,21 @@ export function AdminProductsView({
                                       className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200/80"
                                     >
                                       <div className="flex items-center gap-2.5">
+                                        <Image
+                                           src={variant.images?.[0] || displayImage || "/placeholder-product.png"}
+                                           alt={`${product.name} variant`}
+                                           title="Click to view full image"
+                                           width={36}
+                                           height={36}
+                                           onClick={(e) => {
+                                             e.stopPropagation();
+                                             setPreviewImage({
+                                               url: variant.images?.[0] || displayImage || "",
+                                               title: `${product.name} - ${color} ${size}`,
+                                             });
+                                           }}
+                                           className="h-9 w-9 shrink-0 rounded object-cover border border-slate-200 cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-2xs"
+                                        />
                                         <VariantBadge
                                           color={color !== "Standard" ? color : undefined}
                                           size={size !== "Standard" ? size : undefined}
@@ -487,6 +504,7 @@ export function AdminProductsView({
         productId={editProductId}
         onSuccess={fetchProductsList}
       />
+      <WelcomeToast />
     </div>
   );
 }

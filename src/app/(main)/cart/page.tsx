@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { AlertCircle } from "lucide-react";
 import { BackHeading } from "@/components/common/back-heading";
@@ -14,12 +14,22 @@ import {
   removeCartItem,
 } from "@/services/cart.service";
 import { ROUTES } from "@/constants/routes";
+import { TAX_RATE } from "@/constants/generalconstants";
 import type { CartItem, CartTotals } from "@/types/cart.types";
 
 import { useRouter } from "next/navigation";
 import { OrderSuccessModal } from "@/components/orders/order-success-modal";
 import { OrdersModal } from "@/components/orders/orders-modal";
 import { OutOfStockModal } from "@/components/cart/out-of-stock-modal";
+
+const computeTotals = (itemList: CartItem[], selectedIds: string[]): CartTotals => {
+  const selectedItems = itemList.filter((item) => selectedIds.includes(item.id));
+  const subTotal = selectedItems.reduce((acc, i) => acc + i.totalPrice, 0);
+  const roundedSub = Math.round(subTotal * 100) / 100;
+  const tax = Math.round(roundedSub * TAX_RATE * 100) / 100;
+  const total = Math.round((roundedSub + tax) * 100) / 100;
+  return { subTotal: roundedSub, tax, total };
+};
 
 export default function CartPage() {
   const router = useRouter();
@@ -43,16 +53,9 @@ export default function CartPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const computeTotals = (itemList: CartItem[], selectedIds: string[]): CartTotals => {
-    const selectedItems = itemList.filter((item) => selectedIds.includes(item.id));
-    const subTotal = selectedItems.reduce((acc, i) => acc + i.totalPrice, 0);
-    const roundedSub = Math.round(subTotal * 100) / 100;
-    const tax = Math.round(roundedSub * 0.08 * 100) / 100;
-    const total = Math.round((roundedSub + tax) * 100) / 100;
-    return { subTotal: roundedSub, tax, total };
-  };
 
-  const fetchCartData = async () => {
+
+  const fetchCartData = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
       setLoading(true);
@@ -67,7 +70,7 @@ export default function CartPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -75,7 +78,7 @@ export default function CartPage() {
     } else if (status === "unauthenticated") {
       setLoading(false);
     }
-  }, [status]);
+  }, [status, fetchCartData]);
 
   const handleSelectionChange = (newSelectedIds: string[]) => {
     setSelectedItemIds(newSelectedIds);
@@ -88,10 +91,10 @@ export default function CartPage() {
       const updatedItems = items.map((item) =>
         item.id === itemId
           ? {
-              ...item,
-              quantity: newQuantity,
-              totalPrice: Math.round(item.price * newQuantity * 100) / 100,
-            }
+            ...item,
+            quantity: newQuantity,
+            totalPrice: Math.round(item.price * newQuantity * 100) / 100,
+          }
           : item
       );
       setItems(updatedItems);
@@ -101,7 +104,7 @@ export default function CartPage() {
       const response = await updateCartItemQuantity(itemId, newQuantity);
       setItems(response.items);
       setTotals(computeTotals(response.items, selectedItemIds));
-    } catch (err) {
+    } catch {
       // Fallback on error
       fetchCartData();
     }
@@ -120,13 +123,13 @@ export default function CartPage() {
       const newSelected = updatedSelected.filter((id) => response.items.some((i) => i.id === id));
       setSelectedItemIds(newSelected);
       setTotals(computeTotals(response.items, newSelected));
-    } catch (err) {
+    } catch {
       fetchCartData();
     }
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12">
+    <div className="space-y-6 mx-auto px-2 sm:px-4 md:px-[56px] lg:px-[60px] pb-12">
       <BackHeading title="Your Shopping Bag" href={ROUTES.home} />
 
       {error && (

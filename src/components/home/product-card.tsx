@@ -238,7 +238,7 @@ export function ProductCard({ product }: { product: Product }) {
     <>
       <Card className="@container flex h-full w-full flex-col rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md @xs:p-4">
         {/* Top Image Container */}
-        <div className="relative mb-3 aspect-square w-full overflow-hidden rounded-lg bg-[#F8F9FA] @xs:mb-4">
+        <div className="relative mb-3 aspect-square w-full overflow-hidden rounded-none bg-[#F8F9FA] @xs:mb-4">
           {isOutOfStock && (
             <span className="absolute right-2.5 top-2.5 z-10 rounded-md bg-[#DC2626] px-2.5 py-1 text-[10px] font-bold text-white shadow-sm @xs:text-xs">
               Out Of Stock

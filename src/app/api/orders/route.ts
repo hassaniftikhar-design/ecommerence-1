@@ -2,8 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/server-auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
 
-const TAX_RATE = 0.08;
-const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
+import { TAX_RATE, DEFAULT_PRODUCT_IMAGE } from "@/constants/generalconstants";
 
 function generateOrderNumber(): string {
   const randNum = Math.floor(100000 + Math.random() * 900000);
@@ -138,13 +137,13 @@ export async function POST(request: Request) {
       return apiError("Cannot place order with an empty cart", [], 400);
     }
 
-    let body: { itemIds?: string[] } = {};
+    let body: { itemIds?: string[], expectedTotal?: number } = {};
     try {
       body = await request.json();
     } catch {
       // Optional body
     }
-    const { itemIds } = body;
+    const { itemIds, expectedTotal } = body;
 
     let targetItems = cart.items;
     if (Array.isArray(itemIds) && itemIds.length > 0) {
@@ -180,26 +179,34 @@ export async function POST(request: Request) {
     const tax = Math.round(subTotal * TAX_RATE * 100) / 100;
     const totalAmount = Math.round((subTotal + tax) * 100) / 100;
 
+    if (typeof expectedTotal === "number" && Math.abs(expectedTotal - totalAmount) > 0.01) {
+      return apiError(
+        "Prices have updated. Please review your new total.",
+        ["PRICE_CHANGED"],
+        409,
+        { newTotal: totalAmount }
+      );
+    }
+
     const orderNumber = generateOrderNumber();
 
     const createdOrder = await prisma.$transaction(async (tx) => {
-      // 1. Real-time active status & stock verification against current DB
+      // 1. Real-time active status & variant verification against current DB
       for (const line of cartLines) {
         const prod = await tx.product.findUnique({
           where: { id: line.productId },
-          select: { isActive: true, name: true },
+          select: { isActive: true, name: true, variants: { select: { id: true } } },
         });
         if (!prod || !prod.isActive) {
           throw new Error(`INACTIVE_PRODUCT: ${line.title}`);
         }
 
-        if (line.variantId) {
-          const variant = await tx.productVariant.findUnique({
-            where: { id: line.variantId },
-          });
-          if (!variant || variant.stock < line.quantity || variant.stock <= 0) {
-            throw new Error(`OUT_OF_STOCK: ${line.title}`);
-          }
+        const isVariantDeleted =
+          (line.variantId && !prod.variants.some((v) => v.id === line.variantId)) ||
+          (!line.variantId && prod.variants.length > 0);
+
+        if (isVariantDeleted) {
+          throw new Error(`VARIANT_DELETED: ${line.title}`);
         }
       }
 
@@ -220,14 +227,27 @@ export async function POST(request: Request) {
         if (line.variantId) {
           const variant = await tx.productVariant.findUnique({
             where: { id: line.variantId },
+            select: { stock: true }
           });
+          
           if (variant) {
             currentStock = variant.stock;
-            const newVariantStock = variant.stock - line.quantity;
-            await tx.productVariant.update({
-              where: { id: line.variantId },
-              data: { stock: newVariantStock },
-            });
+          }
+
+          // Atomic decrement to prevent race conditions
+          // This will affect 0 rows if stock is less than line.quantity
+          const updateResult = await tx.productVariant.updateMany({
+            where: { 
+              id: line.variantId,
+              stock: { gte: line.quantity }
+            },
+            data: { 
+              stock: { decrement: line.quantity } 
+            },
+          });
+
+          if (updateResult.count === 0) {
+            throw new Error(`OUT_OF_STOCK: ${line.title}`);
           }
         }
 
@@ -274,8 +294,16 @@ export async function POST(request: Request) {
     if (errorMsg.startsWith("INACTIVE_PRODUCT")) {
       const prodName = errorMsg.split(":")[1]?.trim() || "Product";
       return apiError(
-        `Order cannot be placed because "${prodName}" is currently inactive.`,
+        `Order cannot be placed because '${prodName}' is currently inactive.`,
         ["INACTIVE_PRODUCT"],
+        400
+      );
+    }
+    if (errorMsg.startsWith("VARIANT_DELETED")) {
+      const prodName = errorMsg.split(":")[1]?.trim() || "Item";
+      return apiError(
+        `Item '${prodName}' does not exist anymore and was removed by the seller. Please update your cart.`,
+        ["VARIANT_DELETED"],
         400
       );
     }

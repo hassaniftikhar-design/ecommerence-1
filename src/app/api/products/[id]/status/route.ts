@@ -1,8 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, isAdmin } from "@/lib/server-auth";
 import { apiSuccess, apiError } from "@/lib/api-response";
-
-const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
+import { DEFAULT_PRODUCT_IMAGE } from "@/constants/generalconstants";
 
 export async function PATCH(
   request: Request,

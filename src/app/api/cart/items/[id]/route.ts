@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { apiSuccess, apiError } from "@/lib/api-response";
-import { TAX_RATE } from "@/constants/generalconstants";
-const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
+import { TAX_RATE, DEFAULT_PRODUCT_IMAGE } from "@/constants/generalconstants";
 
 async function formatCartResponse(cartId: string) {
   const cart = await prisma.cart.findUnique({

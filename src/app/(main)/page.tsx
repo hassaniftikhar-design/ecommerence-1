@@ -5,6 +5,7 @@ import { CategoryDropdown } from "@/components/home/category-dropdown";
 import { SortDropdown } from "@/components/home/sort-dropdown";
 import { ProductGrid } from "@/components/home/product-grid";
 import { HomeOrdersModal } from "@/components/orders/home-orders-modal";
+import { WelcomeToast } from "@/components/common/welcome-toast";
 import { getProducts, getCategories } from "@/services/product.service";
 
 export const metadata: Metadata = {
@@ -71,6 +72,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
         openOrders={Boolean(ordersParam)}
         initialOrderId={orderIdParam}
       />
+      <WelcomeToast />
     </div>
   );
 }
