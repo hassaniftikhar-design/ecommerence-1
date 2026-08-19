@@ -1,18 +1,30 @@
 # Full-Stack Production E-Commerce Application
 
-## Tech Stack
-- Next.js 15
-- TypeScript
-- PostgreSQL
-- Prisma
-- NextAuth.js
-- Tailwind CSS
 
 ## Description
 
 The application is designed around a layered architecture that separates the **HTTP/API layer**, **backend business logic**, **frontend API clients**, and **database access**. It includes variant-aware inventory management, transactional order processing, role-based administration, authentication, price-change protection, and defensive cart/order handling.
 
 ---
+
+# 🛠️ Technology Stack
+
+| Technology         | Purpose                    |
+| ------------------ | -------------------------- |
+| **Next.js 15**     | Full-stack React framework |
+| **React**          | User interface             |
+| **TypeScript**     | Type safety                |
+| **Tailwind CSS**   | Styling                    |
+| **Prisma ORM**     | Database access            |
+| **PostgreSQL**     | Relational database        |
+| **NextAuth.js**    | Authentication             |
+| **bcryptjs**       | Password hashing           |
+| **Zod**            | Runtime validation         |
+| **Lucide React**   | Icons                      |
+| **Prisma Migrate** | Database migrations        |
+
+---
+
 
 ## ✨ Features
 
@@ -87,24 +99,6 @@ The application follows a layered three-tier architecture:
 └──────────────────────────────────────────────┘
 ```
 
-
-# 🛠️ Technology Stack
-
-| Technology         | Purpose                    |
-| ------------------ | -------------------------- |
-| **Next.js 15**     | Full-stack React framework |
-| **React**          | User interface             |
-| **TypeScript**     | Type safety                |
-| **Tailwind CSS**   | Styling                    |
-| **Prisma ORM**     | Database access            |
-| **PostgreSQL**     | Relational database        |
-| **NextAuth.js**    | Authentication             |
-| **bcryptjs**       | Password hashing           |
-| **Zod**            | Runtime validation         |
-| **Lucide React**   | Icons                      |
-| **Prisma Migrate** | Database migrations        |
-
----
 
 # ⚙️ Getting Started
 
