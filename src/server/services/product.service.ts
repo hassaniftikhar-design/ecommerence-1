@@ -56,6 +56,17 @@ export interface RawProduct {
 }
 
 export function formatProductResponse(product: RawProduct) {
+  let primaryImage = DEFAULT_PRODUCT_IMAGE;
+  const variantWithDefault = (product.variants || []).find((v) => v.images && v.images.length > 1);
+  if (variantWithDefault && variantWithDefault.images[1]) {
+    primaryImage = variantWithDefault.images[1];
+  } else {
+    const firstImage = (product.variants || []).find((v) => v.images && v.images.length > 0)?.images[0];
+    if (firstImage) {
+      primaryImage = firstImage;
+    }
+  }
+
   const variantsFormatted = (product.variants || []).map((v) => {
     const attributes: Record<string, string> = {};
     const variantOptionsInfo = (v.variantOptions || []).map((vo) => {
@@ -65,12 +76,14 @@ export function formatProductResponse(product: RawProduct) {
       return { optionName, value };
     });
 
+    const variantImages = v.images && v.images.length > 0 ? v.images : [primaryImage];
+
     return {
       id: v.id,
       productId: v.productId,
       sku: v.sku,
       stock: v.stock,
-      images: v.images,
+      images: variantImages,
       attributes,
       variantOptions: variantOptionsInfo,
       createdAt: v.createdAt instanceof Date ? v.createdAt.toISOString() : v.createdAt,
@@ -80,9 +93,6 @@ export function formatProductResponse(product: RawProduct) {
 
   const productPrice = Number(product.price);
   const totalStock = variantsFormatted.reduce((acc: number, v) => acc + v.stock, 0);
-  const primaryImage =
-    variantsFormatted.find((v) => v.images && v.images.length > 0)?.images[0] ||
-    DEFAULT_PRODUCT_IMAGE;
 
   return {
     id: product.id,
@@ -193,9 +203,9 @@ export async function getProductsServer(params: GetProductsServerParams) {
     orderBy: orderByClause,
     ...(isPaginatedCall
       ? {
-          skip: (pageNumber - 1) * limitNumber,
-          take: limitNumber,
-        }
+        skip: (pageNumber - 1) * limitNumber,
+        take: limitNumber,
+      }
       : {}),
   });
 

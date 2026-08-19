@@ -109,7 +109,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   // Initialize color images when editing
   useEffect(() => {
     if (mode === "edit" && initialData && initialData.variants) {
-      const primaryUrl = initialData.imageUrl || initialData.variants[0]?.images?.[0] || "";
+      const primaryUrl = initialData.imageUrl || "";
       const extracted: Record<string, ColorImageItem> = {};
 
       for (const v of initialData.variants) {
@@ -120,7 +120,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
         if (color && v.images && v.images.length > 0) {
           const imgUrl = v.images[0];
-          if (imgUrl && !extracted[color]) {
+          if (imgUrl && imgUrl !== primaryUrl && !extracted[color]) {
             extracted[color] = { previewUrl: imgUrl };
           }
         }
@@ -354,13 +354,20 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
           if (colorKey) attributes.Color = colorKey;
           if (v.size?.trim()) attributes.Size = v.size.trim();
 
-          const variantImageUrl = finalColorImageUrls[colorKey] || finalDefaultImageUrl;
+          const customColorUrl = finalColorImageUrls[colorKey];
+          let variantImages: string[] = [];
+
+          if (customColorUrl && customColorUrl.trim() && customColorUrl.trim() !== finalDefaultImageUrl) {
+            variantImages = [customColorUrl.trim(), finalDefaultImageUrl];
+          } else {
+            variantImages = [finalDefaultImageUrl];
+          }
 
           return {
             id: v.id,
             price: data.price,
             stock: v.quantity,
-            images: [variantImageUrl],
+            images: variantImages,
             attributes,
           };
         });
@@ -691,6 +698,11 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
             <VariantImageUpload
               file={colorImages[draftColor]?.file}
               previewUrl={colorImages[draftColor]?.previewUrl}
+              defaultImageUrl={
+                watch("defaultImageFile")
+                  ? URL.createObjectURL(watch("defaultImageFile"))
+                  : watch("defaultImageUrl")
+              }
               onChange={(newFile, newPreviewUrl) => {
                 if (draftColor) {
                   handleColorImageChange(draftColor, newFile, newPreviewUrl);
@@ -810,6 +822,11 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                     <VariantImageUpload
                       file={colorImages[vColor]?.file}
                       previewUrl={colorImages[vColor]?.previewUrl}
+                      defaultImageUrl={
+                        watch("defaultImageFile")
+                          ? URL.createObjectURL(watch("defaultImageFile"))
+                          : watch("defaultImageUrl")
+                      }
                       onChange={(newFile, newPreviewUrl) => {
                         if (vColor) {
                           handleColorImageChange(vColor, newFile, newPreviewUrl);
