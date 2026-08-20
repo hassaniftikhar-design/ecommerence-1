@@ -125,12 +125,16 @@ export async function getProducts(
     }
 
     let orderByClause: Record<string, unknown> = { createdAt: "desc" };
-    if (sort === "name-asc") {
-      orderByClause = { name: "asc" };
-    } else if (sort === "price-asc") {
+    if (sort === "price-asc") {
       orderByClause = { price: "asc" };
     } else if (sort === "price-desc") {
       orderByClause = { price: "desc" };
+    } else if (sort === "name-asc") {
+      orderByClause = { name: "asc" };
+    } else if (sort === "name-desc") {
+      orderByClause = { name: "desc" };
+    } else if (sort === "newest") {
+      orderByClause = { createdAt: "desc" };
     }
 
     const total = await prisma.product.count({ where: whereClause });
@@ -220,12 +224,6 @@ export async function getProducts(
         updatedAt: product.updatedAt.toISOString(),
       };
     });
-
-    if (sort === "price-asc") {
-      formatted.sort((a, b) => a.price - b.price);
-    } else if (sort === "price-desc") {
-      formatted.sort((a, b) => b.price - a.price);
-    }
 
     const hasMore = page * limit < total;
 

@@ -170,8 +170,16 @@ export async function getProductsServer(params: GetProductsServerParams) {
   }
 
   let orderByClause: Prisma.ProductOrderByWithRelationInput = { createdAt: "desc" };
-  if (sortQuery === "name-asc") {
+  if (sortQuery === "price-asc") {
+    orderByClause = { price: "asc" };
+  } else if (sortQuery === "price-desc") {
+    orderByClause = { price: "desc" };
+  } else if (sortQuery === "name-asc") {
     orderByClause = { name: "asc" };
+  } else if (sortQuery === "name-desc") {
+    orderByClause = { name: "desc" };
+  } else if (sortQuery === "newest") {
+    orderByClause = { createdAt: "desc" };
   }
 
   const totalCount = await prisma.product.count({ where: whereClause });
@@ -210,12 +218,6 @@ export async function getProductsServer(params: GetProductsServerParams) {
   });
 
   const formattedProducts = products.map(formatProductResponse);
-
-  if (sortQuery === "price-asc") {
-    formattedProducts.sort((a, b) => a.price - b.price);
-  } else if (sortQuery === "price-desc") {
-    formattedProducts.sort((a, b) => b.price - a.price);
-  }
 
   const effectiveLimit = isPaginatedCall ? limitNumber : totalCount || 1;
   const totalPages = Math.max(1, Math.ceil(totalCount / effectiveLimit));

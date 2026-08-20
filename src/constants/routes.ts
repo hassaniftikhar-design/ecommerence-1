@@ -1,6 +1,4 @@
-// Central route map. Every <Link> / redirect in the app should import
-// from here instead of hardcoding strings, so if a route ever moves
-// (e.g. "/login" -> "/auth/login") there is exactly one place to change it.
+
 export const ROUTES = {
   home: "/",
   login: "/login",

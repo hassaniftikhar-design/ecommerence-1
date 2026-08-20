@@ -8,6 +8,7 @@ import { ProductCard } from "@/components/home/product-card";
 import { ProductCardSkeleton } from "@/components/home/product-card-skeleton";
 import { Button } from "@/components/ui/button";
 import { getProducts, type PaginatedProductsResponse } from "@/services/product.service";
+import { PRODUCTS_PER_PAGE, LAZY_LOAD_DELAY_MS } from "@/constants/generalconstants";
 import type { Product } from "@/types/product.types";
 
 export interface ProductGridProps {
@@ -20,20 +21,27 @@ export interface ProductGridProps {
 export function ProductGrid({ initialData, q = "", category = "", sort = "" }: ProductGridProps) {
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
+  // Only seed initialData when initial params match default unsorted/unfiltered initial page load
+  const isInitialFilter = !q && !category && (!sort || sort === "newest");
+
   const {
     data,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isLoading,
     status,
     error,
     refetch,
   } = useInfiniteQuery({
     queryKey: ["products", { q, category, sort }],
     queryFn: async ({ pageParam = 1 }) => {
+      if ((pageParam as number) > 1) {
+        await new Promise((resolve) => setTimeout(resolve, LAZY_LOAD_DELAY_MS));
+      }
       return getProducts({
         page: pageParam as number,
-        limit: 12,
+        limit: PRODUCTS_PER_PAGE,
         q,
         category,
         sort,
@@ -43,10 +51,12 @@ export function ProductGrid({ initialData, q = "", category = "", sort = "" }: P
     getNextPageParam: (lastPage) => {
       return lastPage.hasMore ? lastPage.page + 1 : undefined;
     },
-    initialData: {
-      pages: [initialData],
-      pageParams: [1],
-    },
+    initialData: isInitialFilter
+      ? {
+          pages: [initialData],
+          pageParams: [1],
+        }
+      : undefined,
     staleTime: 60 * 1000,
   });
 
@@ -67,7 +77,7 @@ export function ProductGrid({ initialData, q = "", category = "", sort = "" }: P
     return list;
   }, [data]);
 
-  // IntersectionObserver to auto-fetch next page when sentinel comes into view
+
   useEffect(() => {
     const sentinelEl = sentinelRef.current;
     if (!sentinelEl) return;
@@ -80,7 +90,7 @@ export function ProductGrid({ initialData, q = "", category = "", sort = "" }: P
         }
       },
       {
-        rootMargin: "250px", // Trigger fetch 250px before reaching the bottom
+        rootMargin: "200px",
       }
     );
 
@@ -88,7 +98,17 @@ export function ProductGrid({ initialData, q = "", category = "", sort = "" }: P
     return () => observer.disconnect();
   }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-  // Error UI state with retry capability
+
+  if (isLoading && products.length === 0) {
+    return (
+      <div className="grid grid-cols-2 gap-4 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-6 my-6">
+        {Array.from({ length: 8 }).map((_, idx) => (
+          <ProductCardSkeleton key={`skeleton-initial-${idx}`} />
+        ))}
+      </div>
+    );
+  }
+
   if (status === "error" && products.length === 0) {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50/50 p-10 text-center shadow-xs my-6 flex flex-col items-center justify-center space-y-3">
@@ -111,7 +131,7 @@ export function ProductGrid({ initialData, q = "", category = "", sort = "" }: P
     );
   }
 
-  // Empty state when no products match search or filter
+
   if (products.length === 0 && !isFetchingNextPage) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center shadow-xs my-6 flex flex-col items-center justify-center">
