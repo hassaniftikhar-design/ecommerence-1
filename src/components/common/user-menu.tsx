@@ -14,12 +14,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { OrdersModal } from "@/components/orders/orders-modal";
 import { ROUTES } from "@/constants/routes";
+import { isSessionExpired } from "@/constants/auth";
 import { logout } from "@/services/auth.service";
 
 export function UserMenu() {
-  const { data: session } = useSession();
-  const isAdmin = session?.user?.role === "ADMIN";
+  const { data: session, status } = useSession();
+  const isExpired = isSessionExpired(session?.user?.sessionExpiresAt);
   const [ordersModalOpen, setOrdersModalOpen] = useState(false);
+
+  if (status !== "authenticated" || isExpired || !session?.user) {
+    return (
+      <Link
+        href={ROUTES.login}
+        className="text-sm font-medium text-[#007BFF] hover:underline"
+      >
+        Login
+      </Link>
+    );
+  }
+
+  const isAdmin = session.user.role === "ADMIN";
 
   const handleLogout = async () => {
     await logout();

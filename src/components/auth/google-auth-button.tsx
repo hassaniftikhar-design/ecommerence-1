@@ -14,7 +14,7 @@ export function GoogleAuthButton({ label = "Continue with Google" }: GoogleAuthB
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
-      await signIn("google", { callbackUrl: "/" });
+      await signIn("google", { callbackUrl: "/?welcome=true" });
     } catch (err) {
       console.error("Google sign in error:", err);
       setLoading(false);

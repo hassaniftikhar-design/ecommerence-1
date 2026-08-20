@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { logout } from "@/services/auth.service";
 
 export function SessionExpiryHandler() {
   const { data: session, status } = useSession();
@@ -14,12 +15,12 @@ export function SessionExpiryHandler() {
     const remainingTime = session.user.sessionExpiresAt - Date.now();
 
     if (remainingTime <= 0) {
-      signOut({ redirect: false });
+      logout();
       return;
     }
 
     const timer = window.setTimeout(() => {
-      signOut({ redirect: false });
+      logout();
     }, remainingTime);
 
     return () => {

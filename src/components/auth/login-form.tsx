@@ -53,13 +53,10 @@ export function LoginForm() {
       setLoading(true);
       await login(payload);
       const session = await getSession();
-
-      showSuccess("Login successful!", "Welcome Back");
-
       if (session?.user?.role === "ADMIN") {
-        window.location.href = ROUTES.adminProducts;
+        window.location.href = `${ROUTES.adminProducts}?welcome=true`;
       } else {
-        window.location.href = ROUTES.home;
+        window.location.href = `${ROUTES.home}?welcome=true`;
       }
     } catch (err) {
       const msg = (err as Error).message;
@@ -72,60 +69,6 @@ export function LoginForm() {
       setLoading(false);
     }
   };
-
-
-  // const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-  //   event.preventDefault();
-
-  //   console.log("🟢 LOGIN FORM SUBMITTED");
-
-  //   setEmailTouched(true);
-  //   setError(null);
-
-  //   const payload: LoginPayload = {
-  //     email,
-  //     password,
-  //     rememberMe,
-  //   };
-
-  //   console.log("📦 LOGIN PAYLOAD:", {
-  //     email,
-  //     rememberMe,
-  //   });
-
-  //   try {
-  //     setLoading(true);
-
-  //     console.log("🔵 BEFORE LOGIN");
-
-  //     await login(payload);
-
-  //     console.log("🟢 LOGIN SUCCESS");
-
-  //     const session = await getSession();
-
-  //     console.log("🔐 SESSION DEBUG:", {
-  //       nextAuthExpires: session?.expires,
-  //       rememberMe: session?.user?.rememberMe,
-  //       customExpires: session?.user?.sessionExpiresAt,
-  //       customExpiresDate: session?.user?.sessionExpiresAt
-  //         ? new Date(session.user.sessionExpiresAt).toISOString()
-  //         : null,
-  //     });
-
-  //     // if (session?.user?.role === "ADMIN") {
-  //     //   window.location.href = ROUTES.adminProducts;
-  //     // } else {
-  //     //   window.location.href = ROUTES.home;
-  //     // }
-  //   } catch (err) {
-  //     console.error("🔴 LOGIN ERROR:", err);
-  //     setError((err as Error).message);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
 
 
 

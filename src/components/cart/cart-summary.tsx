@@ -61,11 +61,7 @@ export function CartSummary({
       }
       setOrderFailed(true);
       const errorMsg = (err as Error).message || "Failed to place order";
-      const formattedMsg =
-        errorMsg.toLowerCase().includes("out of stock") || errorMsg.includes("OUT_OF_STOCK")
-          ? "Order can't be placed due to quantity going out of stock. Please update your cart quantity."
-          : errorMsg;
-      onOutOfStockError?.(formattedMsg);
+      onOutOfStockError?.(errorMsg);
     } finally {
       setLoading(false);
     }

@@ -13,4 +13,6 @@ export interface NotificationItem {
 export interface NotificationsResponse {
   notifications: NotificationItem[];
   unreadCount: number;
+  hasMore?: boolean;
+  total?: number;
 }

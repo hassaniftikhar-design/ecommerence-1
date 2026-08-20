@@ -9,6 +9,9 @@ export const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
 export const PRODUCTS_PER_PAGE = 12;
 export const LAZY_LOAD_DELAY_MS = 1800;
 
+export const NOTIFICATIONS_PER_PAGE = 10;
+export const NOTIFICATIONS_LAZY_LOAD_DELAY_MS = 2000;
+
 // Backward compatibility constants
 export const MAX_VISIBLE_SIZES = MAX_VISIBLE_SIZES_DESKTOP;
 export const MAX_VISIBLE_COLORS = MAX_VISIBLE_COLORS_DESKTOP;

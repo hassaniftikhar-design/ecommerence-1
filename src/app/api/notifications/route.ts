@@ -13,10 +13,14 @@ export async function GET(request: Request) {
     const userId = user?.id || user?.sub;
 
     if (!userId) {
-      return apiSuccess("Unauthenticated", { notifications: [], unreadCount: 0 });
+      return apiSuccess("Unauthenticated", { notifications: [], unreadCount: 0, hasMore: false, total: 0 });
     }
 
-    const data = await getNotificationsServer(userId);
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "10", 10);
+
+    const data = await getNotificationsServer(userId, page, limit);
     return apiSuccess("Notifications retrieved successfully", data);
   } catch (error) {
     return apiError("Failed to fetch notifications", [(error as Error).message], 500);

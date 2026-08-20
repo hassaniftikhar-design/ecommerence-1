@@ -120,7 +120,19 @@ export async function createOrderServer(
       items: {
         include: {
           product: { include: { variants: true } },
-          variant: true,
+          variant: {
+            include: {
+              variantOptions: {
+                include: {
+                  optionValue: {
+                    include: {
+                      option: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -147,11 +159,22 @@ export async function createOrderServer(
       item.product.variants[0]?.images[0] ||
       DEFAULT_PRODUCT_IMAGE;
 
+    let itemTitle = item.product.name;
+    if (item.variant?.variantOptions && item.variant.variantOptions.length > 0) {
+      const optionsStr = item.variant.variantOptions
+        .map((vo) => vo.optionValue.value)
+        .filter(Boolean)
+        .join(", ");
+      if (optionsStr) {
+        itemTitle = `${item.product.name} (${optionsStr})`;
+      }
+    }
+
     return {
       cartItemId: item.id,
       productId: item.productId,
       variantId: item.variantId,
-      title: item.product.name,
+      title: itemTitle,
       price: unitPrice,
       quantity: item.quantity,
       totalPrice: lineTotal,
@@ -230,7 +253,7 @@ export async function createOrderServer(
           });
 
           if (updateResult.count === 0) {
-            throw new Error(`OUT_OF_STOCK: ${line.title}`);
+            throw new Error(`OUT_OF_STOCK:${line.title}:${currentStock}:${line.quantity}`);
           }
         }
 
@@ -293,11 +316,28 @@ export async function createOrderServer(
       };
     }
     if (errorMsg.startsWith("OUT_OF_STOCK")) {
+      const parts = errorMsg.split(":");
+      const itemName = parts[1]?.trim() || "Item";
+      const availableStock = parts[2] !== undefined ? parseInt(parts[2], 10) : null;
+      const requestedQty = parts[3] !== undefined ? parseInt(parts[3], 10) : null;
+
+      let message = `Order can't be placed because '${itemName}' is out of stock.`;
+      if (availableStock !== null && availableStock > 0) {
+        message = `Order can't be placed because only ${availableStock} unit(s) of '${itemName}' remain in stock (you requested ${requestedQty}). Please update your cart quantity.`;
+      } else if (availableStock === 0) {
+        message = `Order can't be placed because '${itemName}' is currently out of stock. Please update your cart quantity.`;
+      }
+
       return {
         success: false as const,
         status: 400,
         errors: ["OUT_OF_STOCK"],
-        message: "Order can't be placed due to quantity going out of stock.",
+        message,
+        data: {
+          outOfStockItem: itemName,
+          availableStock,
+          requestedQty,
+        },
       };
     }
     return { success: false as const, status: 500, errors: [errorMsg], message: "Failed to place order" };

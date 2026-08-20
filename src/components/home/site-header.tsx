@@ -9,12 +9,14 @@ import { UserMenu } from "@/components/common/user-menu";
 import { RequireLoginModal } from "@/components/auth/require-login-modal";
 import { NotificationPopover } from "@/components/notifications/notification-popover";
 import { ROUTES } from "@/constants/routes";
+import { isSessionExpired } from "@/constants/auth";
 import { getCart } from "@/services/cart.service";
 
 export function SiteHeader() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
 
-  const isAuthenticated = status === "authenticated";
+  const isExpired = isSessionExpired(session?.user?.sessionExpiresAt);
+  const isAuthenticated = status === "authenticated" && !isExpired;
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [cartCount, setCartCount] = useState<number>(0);
 

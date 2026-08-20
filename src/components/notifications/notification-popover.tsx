@@ -1,9 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Bell, Package, ShoppingBag } from "lucide-react";
 import { useSession } from "next-auth/react";
 
+import {
+  NOTIFICATIONS_PER_PAGE,
+  NOTIFICATIONS_LAZY_LOAD_DELAY_MS,
+} from "@/constants/generalconstants";
 import { getNotifications, markNotificationAsRead } from "@/services/notification.service";
 import type { NotificationItem } from "@/types/notification.types";
 
@@ -31,34 +35,40 @@ export function NotificationPopover() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
 
   const popoverRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Fetch notifications
-  const fetchNotifications = async () => {
+  // Fetch initial notifications (Page 1)
+  const fetchNotifications = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
       setLoading(true);
-      const data = await getNotifications();
+      const data = await getNotifications(1, NOTIFICATIONS_PER_PAGE);
       setNotifications(data.notifications || []);
       setUnreadCount(data.unreadCount || 0);
+      setHasMore(!!data.hasMore);
+      setPage(1);
     } catch (err) {
       console.error("Failed to load notifications", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (isAuthenticated) {
       fetchNotifications();
-      // Poll every 30 seconds for live notification updates
+
       const interval = setInterval(fetchNotifications, 30000);
       return () => clearInterval(interval);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, fetchNotifications]);
 
-  // Click outside to close
+
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
@@ -68,6 +78,36 @@ export function NotificationPopover() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+
+  const handleScroll = async () => {
+    if (!containerRef.current || loadingMore || !hasMore || loading) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
+    if (scrollTop + clientHeight >= scrollHeight - 15) {
+      setLoadingMore(true);
+      const nextPage = page + 1;
+
+
+      await new Promise((resolve) => setTimeout(resolve, NOTIFICATIONS_LAZY_LOAD_DELAY_MS));
+
+      try {
+        const data = await getNotifications(nextPage, NOTIFICATIONS_PER_PAGE);
+        setNotifications((prev) => {
+          const existingIds = new Set(prev.map((n) => n.id));
+          const newItems = (data.notifications || []).filter((n) => !existingIds.has(n.id));
+          return [...prev, ...newItems];
+        });
+        setUnreadCount(data.unreadCount || 0);
+        setHasMore(!!data.hasMore);
+        setPage(nextPage);
+      } catch (err) {
+        console.error("Failed to load more notifications", err);
+      } finally {
+        setLoadingMore(false);
+      }
+    }
+  };
 
   const handleMarkAllRead = async () => {
     if (unreadCount === 0) return;
@@ -129,11 +169,10 @@ export function NotificationPopover() {
             <button
               type="button"
               onClick={() => setActiveTab("unread")}
-              className={`py-2.5 text-xs font-medium transition-all relative ${
-                activeTab === "unread"
-                  ? "text-[#007BFF] font-semibold"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
+              className={`py-2.5 text-xs font-medium transition-all relative ${activeTab === "unread"
+                ? "text-[#007BFF] font-semibold"
+                : "text-slate-500 hover:text-slate-800"
+                }`}
             >
               Unread
               {activeTab === "unread" && (
@@ -144,11 +183,10 @@ export function NotificationPopover() {
             <button
               type="button"
               onClick={() => setActiveTab("all")}
-              className={`py-2.5 text-xs font-medium transition-all relative ${
-                activeTab === "all"
-                  ? "text-[#007BFF] font-semibold"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
+              className={`py-2.5 text-xs font-medium transition-all relative ${activeTab === "all"
+                ? "text-[#007BFF] font-semibold"
+                : "text-slate-500 hover:text-slate-800"
+                }`}
             >
               All
               {activeTab === "all" && (
@@ -158,7 +196,11 @@ export function NotificationPopover() {
           </div>
 
           {/* Notification List Content */}
-          <div className="max-h-[340px] overflow-y-auto divide-y divide-slate-100">
+          <div
+            ref={containerRef}
+            onScroll={handleScroll}
+            className="max-h-[340px] overflow-y-auto divide-y divide-slate-100"
+          >
             {loading ? (
               <div className="py-10 text-center text-xs text-slate-400 font-medium">
                 Loading notifications...
@@ -170,52 +212,60 @@ export function NotificationPopover() {
                   : "No notifications yet"}
               </div>
             ) : (
-              filteredNotifications.map((item) => {
-                const isStatusUpdate = item.type === "ORDER_STATUS_UPDATED";
+              <>
+                {filteredNotifications.map((item) => {
+                  const isStatusUpdate = item.type === "ORDER_STATUS_UPDATED";
 
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => handleItemClick(item)}
-                    className={`flex items-start gap-3.5 p-4 transition-colors cursor-pointer hover:bg-slate-50/80 ${
-                      !item.isRead ? "bg-blue-50/20" : ""
-                    }`}
-                  >
-                    {/* Left Category Icon */}
-                    <div className="shrink-0 pt-0.5">
-                      {isStatusUpdate ? (
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 shadow-2xs">
-                          <Package className="h-5 w-5 stroke-[1.8]" />
-                        </div>
-                      ) : (
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#007BFF] border border-blue-200/80 shadow-2xs">
-                          <ShoppingBag className="h-5 w-5 stroke-[1.8]" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Content & Metadata */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <h4 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                          {item.title}
-                        </h4>
-                        {!item.isRead && (
-                          <span className="h-2 w-2 rounded-full bg-[#007BFF] shrink-0" />
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => handleItemClick(item)}
+                      className={`flex items-start gap-3.5 p-4 transition-colors cursor-pointer hover:bg-slate-50/80 ${!item.isRead ? "bg-blue-50/20" : ""
+                        }`}
+                    >
+                      {/* Left Category Icon */}
+                      <div className="shrink-0 pt-0.5">
+                        {isStatusUpdate ? (
+                          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/80 shadow-2xs">
+                            <Package className="h-5 w-5 stroke-[1.8]" />
+                          </div>
+                        ) : (
+                          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-[#007BFF] border border-blue-200/80 shadow-2xs">
+                            <ShoppingBag className="h-5 w-5 stroke-[1.8]" />
+                          </div>
                         )}
                       </div>
 
-                      <p className="mt-0.5 text-xs text-slate-600 leading-normal line-clamp-2">
-                        {item.message}
-                      </p>
+                      {/* Content & Metadata */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                            {item.title}
+                          </h4>
+                          {!item.isRead && (
+                            <span className="h-2 w-2 rounded-full bg-[#007BFF] shrink-0" />
+                          )}
+                        </div>
 
-                      <p className="mt-1 text-[11px] font-medium text-slate-400">
-                        {formatRelativeTime(item.createdAt)}
-                      </p>
+                        <p className="mt-0.5 text-xs text-slate-600 leading-normal line-clamp-2">
+                          {item.message}
+                        </p>
+
+                        <p className="mt-1 text-[11px] font-medium text-slate-400">
+                          {formatRelativeTime(item.createdAt)}
+                        </p>
+                      </div>
                     </div>
+                  );
+                })}
+
+                {loadingMore && (
+                  <div className="py-3 text-center text-xs text-slate-500 font-medium flex items-center justify-center gap-2 bg-slate-50/50">
+                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#007BFF] border-t-transparent" />
+                    <span>Loading more notifications...</span>
                   </div>
-                );
-              })
+                )}
+              </>
             )}
           </div>
         </div>
