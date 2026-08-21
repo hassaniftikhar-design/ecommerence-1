@@ -22,12 +22,13 @@ model User {
   emailVerified DateTime?
   isActive      Boolean   @default(true)
 
-  accounts Account[]
-  products Product[]
-  cart     Cart?
-  orders   Order[]
+  resetToken        String?
+  resetTokenExpires DateTime?
 
-  resetTokens   PasswordResetToken[]
+  accounts      Account[]
+  products      Product[]
+  cart          Cart?
+  orders        Order[]
   notifications Notification[]
 
   createdAt DateTime @default(now())
@@ -190,21 +191,6 @@ model CartItem {
   updatedAt DateTime @updatedAt
 
   @@unique([cartId, productId, variantId])
-}
-
-model PasswordResetToken {
-  id String @id @default(cuid())
-
-  token String @unique
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  expiresAt DateTime
-
-  used Boolean @default(false)
-
-  createdAt DateTime @default(now())
 }
 
 model VerificationToken {

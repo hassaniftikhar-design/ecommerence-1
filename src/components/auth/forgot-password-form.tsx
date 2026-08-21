@@ -15,33 +15,46 @@ export function ForgotPasswordForm() {
   const { showSuccess, showError } = useToast();
   const [email, setEmail] = useState("");
   const [touched, setTouched] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(false);
 
-  const fieldError =
-    touched && !isValidEmail(email) ? "Enter a valid email address" : undefined;
+  const validateEmail = (val: string): string | undefined => {
+    if (!val.trim()) return "Email is required";
+    if (!isValidEmail(val)) return "Enter a valid email address";
+    return undefined;
+  };
+
+  const handleBlur = () => {
+    setTouched(true);
+    setError(validateEmail(email));
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setTouched(true);
-    setError(null);
-    setMessage(null);
 
-    if (fieldError) {
+    const err = validateEmail(email);
+    if (err) {
+      setError(err);
       return;
     }
+
+    setError(undefined);
 
     try {
       setLoading(true);
       await forgotPassword({ email });
-      const successMsg = "Password reset link has been sent to your email!";
-      setMessage(successMsg);
-      showSuccess(successMsg, "Email Sent");
+      setEmail("");
+      setTouched(false);
+      setError(undefined);
+      showSuccess(
+        "Password reset instructions have been sent to your email.",
+        "Email Sent"
+      );
     } catch (err) {
-      const errMsg = (err as Error).message || "This email does not exist in our Store.";
-      setError(errMsg);
-      showError(errMsg, "Email Not Found");
+      const errMsg =
+        (err as Error).message || "This email does not exist in our Store.";
+      showError(errMsg, "Password Reset Failed");
     } finally {
       setLoading(false);
     }
@@ -55,9 +68,14 @@ export function ForgotPasswordForm() {
         type="email"
         placeholder="Please enter your email"
         value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        onBlur={() => setTouched(true)}
-        error={fieldError}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          if (touched) {
+            setError(validateEmail(e.target.value));
+          }
+        }}
+        onBlur={handleBlur}
+        error={error}
         autoComplete="email"
         required
       />

@@ -4,21 +4,22 @@ import { useState, useEffect, type FormEvent } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/forms/form-field";
 import { isStrongPassword } from "@/utils/validation";
 import { resetPassword, verifyResetToken } from "@/services/auth.service";
 import { ROUTES } from "@/constants";
+import { useToast } from "@/components/ui/toast";
 
 export function ResetPasswordForm() {
+  const { showError } = useToast();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [touched, setTouched] = useState(false);
+  const [errors, setErrors] = useState<{ password?: string; confirmPassword?: string }>({});
+  const [touched, setTouched] = useState<{ password?: boolean; confirmPassword?: boolean }>({});
   const [tokenStatus, setTokenStatus] = useState<"verifying" | "valid" | "invalid">("verifying");
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const searchParams = useSearchParams();
@@ -53,31 +54,54 @@ export function ResetPasswordForm() {
     };
   }, [token]);
 
-  const passwordError =
-    touched && password && !isStrongPassword(password)
-      ? "Password must contain Capital, small letter, number and symbols"
-      : undefined;
+  const validateField = (
+    name: "password" | "confirmPassword",
+    val: string,
+    pwd = password
+  ): string | undefined => {
+    if (name === "password") {
+      if (!val) return "Password is required";
+      if (val.length < 8) return "Password must be at least 8 characters";
+      if (!isStrongPassword(val)) {
+        return "Password must contain Capital, small letter, number and symbols";
+      }
+      return undefined;
+    }
+    if (name === "confirmPassword") {
+      if (!val) return "Confirm password is required";
+      if (val !== pwd) return "Passwords must match";
+      return undefined;
+    }
+    return undefined;
+  };
 
-  const confirmError =
-    touched && confirmPassword && confirmPassword !== password
-      ? "Passwords do not match"
-      : undefined;
+  const handleBlur = (name: "password" | "confirmPassword") => {
+    setTouched((prev) => ({ ...prev, [name]: true }));
+    const errorMsg = validateField(name, name === "password" ? password : confirmPassword);
+    setErrors((prev) => ({ ...prev, [name]: errorMsg }));
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setTouched(true);
-    setError(null);
+    setTouched({ password: true, confirmPassword: true });
 
-    if (passwordError || confirmError) {
+    const pwdErr = validateField("password", password);
+    const confirmErr = validateField("confirmPassword", confirmPassword, password);
+
+    if (pwdErr || confirmErr) {
+      setErrors({ password: pwdErr, confirmPassword: confirmErr });
       return;
     }
+
+    setErrors({});
 
     try {
       setLoading(true);
       await resetPassword({ password, confirmPassword, token });
       setIsSuccess(true);
     } catch (err) {
-      setError((err as Error).message);
+      const errMsg = (err as Error).message || "Failed to reset password. Please try again.";
+      showError(errMsg, "Password Reset Failed");
     } finally {
       setLoading(false);
     }
@@ -122,21 +146,27 @@ export function ResetPasswordForm() {
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      {error && (
-        <div className="mb-4 rounded-xl bg-red-50 p-3.5 border border-red-200 text-xs sm:text-sm font-medium text-red-700 flex items-start gap-2.5 shadow-2xs">
-          <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
-          <span className="flex-1 leading-snug">{error}</span>
-        </div>
-      )}
-
       <FormField
         label="Enter new password"
         name="password"
         type="password"
         placeholder="enter password"
         value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        error={passwordError}
+        onChange={(e) => {
+          const val = e.target.value;
+          setPassword(val);
+          if (touched.password) {
+            setErrors((prev) => ({ ...prev, password: validateField("password", val) }));
+          }
+          if (touched.confirmPassword) {
+            setErrors((prev) => ({
+              ...prev,
+              confirmPassword: validateField("confirmPassword", confirmPassword, val),
+            }));
+          }
+        }}
+        onBlur={() => handleBlur("password")}
+        error={errors.password}
         autoComplete="new-password"
         required
       />
@@ -146,8 +176,18 @@ export function ResetPasswordForm() {
         type="password"
         placeholder="confirm password"
         value={confirmPassword}
-        onChange={(e) => setConfirmPassword(e.target.value)}
-        error={confirmError}
+        onChange={(e) => {
+          const val = e.target.value;
+          setConfirmPassword(val);
+          if (touched.confirmPassword) {
+            setErrors((prev) => ({
+              ...prev,
+              confirmPassword: validateField("confirmPassword", val, password),
+            }));
+          }
+        }}
+        onBlur={() => handleBlur("confirmPassword")}
+        error={errors.confirmPassword}
         autoComplete="new-password"
         required
       />

@@ -4,6 +4,7 @@ import { ProductSearchBar } from "@/components/home/product-search-bar";
 import { CategoryDropdown } from "@/components/home/category-dropdown";
 import { SortDropdown } from "@/components/home/sort-dropdown";
 import { ProductGrid } from "@/components/home/product-grid";
+import { HomeFiltersReset } from "@/components/home/home-filters-reset";
 import { WelcomeToast } from "@/components/common/welcome-toast";
 import { getProducts, getCategories } from "@/services/product.service";
 import { PRODUCTS_PER_PAGE } from "@/constants/generalconstants";
@@ -64,6 +65,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
       <ProductGrid initialData={initialProducts} q={q} category={category} sort={sort} />
       <WelcomeToast />
+      <HomeFiltersReset />
     </div>
   );
 }

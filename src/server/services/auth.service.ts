@@ -38,7 +38,7 @@ export async function signupUserServer(body: unknown) {
     data: {
       name: fullName,
       email: normalizedEmail,
-      phone: mobile,
+      phone: mobile || null,
       password: hashedPassword,
     },
     select: {
@@ -79,11 +79,11 @@ export async function forgotPasswordServer(body: unknown) {
     Date.now() + PASSWORD_RESET_EXPIRATION_MINUTES * 60 * 1000
   );
 
-  await prisma.passwordResetToken.create({
+  await prisma.user.update({
+    where: { id: user.id },
     data: {
-      token,
-      userId: user.id,
-      expiresAt,
+      resetToken: token,
+      resetTokenExpires: expiresAt,
     },
   });
 
@@ -111,24 +111,19 @@ export async function validateResetTokenServer(token: string) {
     return { success: false as const, status: 400, errors: [], message: "Missing reset token" };
   }
 
-  const resetToken = await prisma.passwordResetToken.findUnique({
-    where: { token },
-    include: { user: true },
+  const user = await prisma.user.findFirst({
+    where: { resetToken: token },
   });
 
-  if (!resetToken) {
+  if (!user) {
     return { success: false as const, status: 400, errors: [], message: "This password reset link is invalid." };
   }
 
-  if (resetToken.used) {
-    return { success: false as const, status: 400, errors: [], message: "This password reset link has already been used." };
-  }
-
-  if (resetToken.expiresAt.getTime() < Date.now()) {
+  if (!user.resetTokenExpires || user.resetTokenExpires.getTime() < Date.now()) {
     return { success: false as const, status: 400, errors: [], message: "This password reset link has expired." };
   }
 
-  if (!resetToken.user.isActive) {
+  if (!user.isActive) {
     return { success: false as const, status: 400, errors: [], message: "User account is inactive." };
   }
 
@@ -148,16 +143,15 @@ export async function resetPasswordServer(body: unknown) {
 
   const { token, password } = parsed.data;
 
-  const resetToken = await prisma.passwordResetToken.findUnique({
-    where: { token },
-    include: { user: true },
+  const user = await prisma.user.findFirst({
+    where: { resetToken: token },
   });
 
   if (
-    !resetToken ||
-    resetToken.used ||
-    resetToken.expiresAt.getTime() < Date.now() ||
-    !resetToken.user.isActive
+    !user ||
+    !user.resetTokenExpires ||
+    user.resetTokenExpires.getTime() < Date.now() ||
+    !user.isActive
   ) {
     return {
       success: false as const,
@@ -169,16 +163,14 @@ export async function resetPasswordServer(body: unknown) {
 
   const hashedPassword = await hash(password, 12);
 
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: resetToken.userId },
-      data: { password: hashedPassword },
-    }),
-    prisma.passwordResetToken.update({
-      where: { id: resetToken.id },
-      data: { used: true },
-    }),
-  ]);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      password: hashedPassword,
+      resetToken: null,
+      resetTokenExpires: null,
+    },
+  });
 
   return { success: true as const, status: 200, message: "Password changed successfully" };
 }
