@@ -4,7 +4,6 @@ import { ProductSearchBar } from "@/components/home/product-search-bar";
 import { CategoryDropdown } from "@/components/home/category-dropdown";
 import { SortDropdown } from "@/components/home/sort-dropdown";
 import { ProductGrid } from "@/components/home/product-grid";
-import { HomeOrdersModal } from "@/components/orders/home-orders-modal";
 import { WelcomeToast } from "@/components/common/welcome-toast";
 import { getProducts, getCategories } from "@/services/product.service";
 import { PRODUCTS_PER_PAGE } from "@/constants/generalconstants";
@@ -21,8 +20,6 @@ interface HomePageProps {
     search?: string;
     category?: string;
     sort?: string;
-    orders?: string;
-    orderId?: string;
   }>;
 }
 
@@ -31,8 +28,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const q = params?.q || params?.search || "";
   const category = params?.category || "";
   const sort = params?.sort || "";
-  const ordersParam = params?.orders;
-  const orderIdParam = params?.orderId;
 
   const [initialProducts, categories] = await Promise.all([
     getProducts({
@@ -68,11 +63,6 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       </div>
 
       <ProductGrid initialData={initialProducts} q={q} category={category} sort={sort} />
-
-      <HomeOrdersModal
-        openOrders={Boolean(ordersParam)}
-        initialOrderId={orderIdParam}
-      />
       <WelcomeToast />
     </div>
   );
