@@ -19,6 +19,24 @@ interface AdminOrderDrawerProps {
   onStatusUpdated?: () => void;
 }
 
+const ALLOWED_STATUS_OPTIONS: Record<
+  OrderStatusType,
+  { value: OrderStatusType; label: string }[]
+> = {
+  IN_PROGRESS: [
+    { value: "IN_PROGRESS", label: "In Progress" },
+    { value: "DISPATCHED", label: "Dispatched" },
+    { value: "REJECTED", label: "Rejected" },
+  ],
+  DISPATCHED: [
+    { value: "DISPATCHED", label: "Dispatched" },
+    { value: "DELIVERED", label: "Delivered" },
+    { value: "REJECTED", label: "Rejected" },
+  ],
+  DELIVERED: [{ value: "DELIVERED", label: "Delivered" }],
+  REJECTED: [{ value: "REJECTED", label: "Rejected" }],
+};
+
 export function AdminOrderDrawer({
   isOpen,
   onClose,
@@ -32,6 +50,9 @@ export function AdminOrderDrawer({
   const [statusValue, setStatusValue] = useState<OrderStatusType>("IN_PROGRESS");
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const currentOptions = order ? ALLOWED_STATUS_OPTIONS[order.status] || [] : [];
+  const isTerminalStatus = order?.status === "DELIVERED" || order?.status === "REJECTED";
 
   useEffect(() => {
     setMounted(true);
@@ -124,17 +145,24 @@ export function AdminOrderDrawer({
               value={statusValue}
               onChange={(e) => setStatusValue(e.target.value as OrderStatusType)}
               className="w-36 sm:w-40 h-9 text-xs"
-              disabled={loading || !order}
+              disabled={loading || !order || isTerminalStatus}
             >
-              <option value="IN_PROGRESS">In Progress</option>
-              <option value="DISPATCHED">Dispatched</option>
-              <option value="DELIVERED">Delivered</option>
-              <option value="REJECTED">Rejected</option>
+              {currentOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </Select>
             <Button
               onClick={handleUpdateStatus}
-              disabled={updating || loading || !order || statusValue === order?.status}
-              className="bg-[#007BFF] hover:bg-blue-600 text-white text-xs h-9 px-4 font-semibold"
+              disabled={
+                updating ||
+                loading ||
+                !order ||
+                isTerminalStatus ||
+                statusValue === order?.status
+              }
+              className="bg-[#007BFF] hover:bg-blue-600 text-white text-xs h-9 px-4 font-semibold disabled:opacity-50"
             >
               {updating ? "Updating..." : "Update Status"}
             </Button>

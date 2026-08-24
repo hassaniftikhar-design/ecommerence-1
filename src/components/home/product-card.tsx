@@ -13,12 +13,14 @@ import { ProductSizeSelector } from "@/components/home/product-size-selector";
 import { useToast } from "@/components/ui/toast";
 import { addToCart } from "@/services/cart.service";
 import { RequireLoginModal } from "@/components/auth/require-login-modal";
+import { useCart } from "@/providers/cart-provider";
 import { cn } from "@/lib/utils";
 import type { Product } from "@/types/product.types";
 
 export function ProductCard({ product }: { product: Product }) {
   const { status } = useSession();
   const isAuthenticated = status === "authenticated";
+  const { getCartQuantity, getCartQuantityForProduct } = useCart();
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   // Extract unique sizes from variants and options
@@ -163,11 +165,13 @@ export function ProductCard({ product }: { product: Product }) {
     return match?.images?.[0] || null;
   }, [product.variants, selectedColor]);
 
-  // Compute current stock based on selection
+  // Compute effective remaining stock for the current user (Database Stock minus Quantity already in Cart)
   const currentStock = useMemo(() => {
     if (product.variants && product.variants.length > 0) {
       if (selectedColor && selectedSize) {
-        return matchingVariant ? matchingVariant.stock : 0;
+        const rawStock = matchingVariant ? matchingVariant.stock : 0;
+        const inCart = getCartQuantity(product.id, matchingVariant?.id);
+        return Math.max(0, rawStock - inCart);
       }
       if (selectedColor || selectedSize) {
         const filtered = product.variants.filter((v) => {
@@ -194,12 +198,18 @@ export function ProductCard({ product }: { product: Product }) {
             !selectedSize || sizeAttr === selectedSize.toLowerCase();
           return matchColor && matchSize;
         });
-        return filtered.reduce((acc, v) => acc + v.stock, 0);
+        const rawStock = filtered.reduce((acc, v) => acc + v.stock, 0);
+        const inCart = filtered.reduce((acc, v) => acc + getCartQuantity(product.id, v.id), 0);
+        return Math.max(0, rawStock - inCart);
       }
-      return product.totalStock ?? product.variants.reduce((acc, v) => acc + v.stock, 0);
+      const rawStock = product.totalStock ?? product.variants.reduce((acc, v) => acc + v.stock, 0);
+      const inCart = getCartQuantityForProduct(product.id);
+      return Math.max(0, rawStock - inCart);
     }
-    return product.totalStock ?? product.stock ?? 0;
-  }, [product, selectedColor, selectedSize, matchingVariant]);
+    const rawStock = product.totalStock ?? product.stock ?? 0;
+    const inCart = getCartQuantity(product.id, null);
+    return Math.max(0, rawStock - inCart);
+  }, [product, selectedColor, selectedSize, matchingVariant, getCartQuantity, getCartQuantityForProduct]);
 
   const currentPrice = product.price ?? product.lowestPrice ?? 0;
 

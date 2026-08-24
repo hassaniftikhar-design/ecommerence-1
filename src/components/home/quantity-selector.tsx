@@ -23,10 +23,19 @@ export function QuantitySelector({
   // Sync state with initialValue prop when not actively focused
   useEffect(() => {
     if (!isFocused) {
-      setQuantity(initialValue);
-      setInputValue(String(initialValue));
+      if (max !== undefined && max <= 0) {
+        setQuantity(1);
+        setInputValue("1");
+      } else if (max !== undefined && quantity > max) {
+        setQuantity(max);
+        setInputValue(String(max));
+        onChange?.(max);
+      } else {
+        setQuantity(initialValue);
+        setInputValue(String(initialValue));
+      }
     }
-  }, [initialValue, isFocused]);
+  }, [initialValue, isFocused, max, quantity, onChange]);
 
   // Clean up timer on unmount
   useEffect(() => {
@@ -119,7 +128,8 @@ export function QuantitySelector({
     }
   };
 
-  const isMaxReached = max !== undefined && quantity >= max;
+  const isZeroStock = max !== undefined && max <= 0;
+  const isMaxReached = isZeroStock || (max !== undefined && quantity >= max);
 
   return (
     <div className="relative flex w-auto items-center gap-0.5 max-[395px]:w-full max-[395px]:justify-between max-[395px]:gap-1 @xs:gap-1">
@@ -145,7 +155,7 @@ export function QuantitySelector({
       <button
         type="button"
         onClick={handleDecrement}
-        disabled={quantity <= 1}
+        disabled={quantity <= 1 || isZeroStock}
         aria-label="Decrease quantity"
         className="flex h-7 w-7 shrink-0 items-center justify-center rounded border border-[#E2E8F0] text-[#007BFF] transition-colors hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed max-[395px]:h-8 max-[395px]:w-8 @xs:h-8 @xs:w-8"
       >
@@ -157,11 +167,12 @@ export function QuantitySelector({
         inputMode="numeric"
         pattern="[0-9]*"
         value={inputValue}
+        disabled={isZeroStock}
         onChange={handleInputChange}
         onFocus={handleFocus}
         onBlur={handleBlur}
         aria-label="Quantity"
-        className="h-7 w-8 sm:w-10 rounded border border-[#E2E8F0] bg-white text-center text-[11px] sm:text-xs font-medium text-gray-900 focus:border-[#007BFF] focus:outline-none focus:ring-1 focus:ring-[#007BFF] transition-all max-[395px]:h-8 max-[395px]:flex-1"
+        className="h-7 w-8 sm:w-10 rounded border border-[#E2E8F0] bg-white text-center text-[11px] sm:text-xs font-medium text-gray-900 focus:border-[#007BFF] focus:outline-none focus:ring-1 focus:ring-[#007BFF] transition-all disabled:opacity-50 disabled:bg-slate-100 max-[395px]:h-8 max-[395px]:flex-1"
       />
 
       <button
