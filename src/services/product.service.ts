@@ -1,5 +1,5 @@
 import type { Product } from "@/types/product.types";
-import { DEFAULT_PRODUCT_IMAGE } from "@/constants/generalconstants";
+import { DEFAULT_PRODUCT_IMAGE, PRODUCT_FETCH_BATCH_SIZE } from "@/constants/generalconstants";
 import type { ApiResponse } from "@/lib/api-response";
 
 async function parseApiResponse<T>(response: Response): Promise<T> {
@@ -82,7 +82,7 @@ export async function getProducts(
   statusArg?: string
 ): Promise<PaginatedProductsResponse> {
   let page = 1;
-  let limit = 12;
+  let limit = PRODUCT_FETCH_BATCH_SIZE;
   let q = "";
   let category = "";
   let sort = "";
@@ -90,7 +90,7 @@ export async function getProducts(
 
   if (typeof paramsOrQuery === "object" && paramsOrQuery !== null) {
     page = paramsOrQuery.page || 1;
-    limit = paramsOrQuery.limit || 12;
+    limit = paramsOrQuery.limit || PRODUCT_FETCH_BATCH_SIZE;
     q = paramsOrQuery.q || "";
     category = paramsOrQuery.category || "";
     sort = paramsOrQuery.sort || "";

@@ -4,6 +4,7 @@ import {
   getProductsServer,
   createProductServer,
 } from "@/server/services/product.service";
+import { PRODUCT_FETCH_BATCH_SIZE } from "@/constants/generalconstants";
 
 export async function GET(request: Request) {
   try {
@@ -21,7 +22,10 @@ export async function GET(request: Request) {
     const isPaginatedCall = Boolean(pageParam || limitParam || (userIsAdmin && searchParams.has("page")));
 
     const pageNumber = Math.max(1, parseInt(pageParam || "1", 10) || 1);
-    const limitNumber = Math.max(1, Math.min(100, parseInt(limitParam || "12", 10) || 12));
+    const limitNumber = Math.max(
+      1,
+      Math.min(100, parseInt(limitParam || String(PRODUCT_FETCH_BATCH_SIZE), 10) || PRODUCT_FETCH_BATCH_SIZE)
+    );
 
     const result = await getProductsServer({
       searchQuery,

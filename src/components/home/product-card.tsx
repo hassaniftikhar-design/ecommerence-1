@@ -246,7 +246,10 @@ export function ProductCard({ product }: { product: Product }) {
 
   return (
     <>
-      <Card className="@container flex h-full w-full flex-col rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md @xs:p-4">
+      <Card
+        data-product-card="true"
+        className="@container flex h-full w-full flex-col rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md @xs:p-4"
+      >
         {/* Top Image Container */}
         <div className="relative mb-3 aspect-square w-full overflow-hidden rounded-none bg-[#F8F9FA] @xs:mb-4">
           {isOutOfStock && (

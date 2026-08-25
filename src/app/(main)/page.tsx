@@ -7,7 +7,7 @@ import { ProductGrid } from "@/components/home/product-grid";
 import { HomeFiltersReset } from "@/components/home/home-filters-reset";
 import { WelcomeToast } from "@/components/common/welcome-toast";
 import { getProducts, getCategories } from "@/services/product.service";
-import { PRODUCTS_PER_PAGE } from "@/constants/generalconstants";
+import { PRODUCT_FETCH_BATCH_SIZE } from "@/constants/generalconstants";
 
 export const metadata: Metadata = {
   title: "ShopFastStore",
@@ -33,7 +33,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const [initialProducts, categories] = await Promise.all([
     getProducts({
       page: 1,
-      limit: PRODUCTS_PER_PAGE,
+      limit: PRODUCT_FETCH_BATCH_SIZE,
       q,
       category,
       sort,
