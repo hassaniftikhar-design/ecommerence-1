@@ -19,7 +19,14 @@ export const FormField = React.forwardRef<HTMLInputElement, FormFieldProps>(
 
     return (
       <div className={cn("mb-5", className)}>
-        <Label htmlFor={inputId}>{label}</Label>
+        <Label htmlFor={inputId}>
+          {label}
+          {props.required && (
+            <span className="text-danger font-semibold ml-1" aria-hidden="true">
+              *
+            </span>
+          )}
+        </Label>
         <div className="relative">
           <Input
             id={inputId}
@@ -27,7 +34,11 @@ export const FormField = React.forwardRef<HTMLInputElement, FormFieldProps>(
             type={isPasswordType ? (showPassword ? "text" : "password") : type}
             aria-invalid={!!error}
             aria-describedby={errorId}
-            className={cn(isPasswordType && "pr-10", className)}
+            className={cn(
+              isPasswordType && "pr-10",
+              error && "border-danger focus-visible:ring-danger",
+              className
+            )}
             {...props}
           />
           {isPasswordType && (
@@ -47,7 +58,7 @@ export const FormField = React.forwardRef<HTMLInputElement, FormFieldProps>(
           )}
         </div>
         {error && (
-          <p id={errorId} role="alert" className="mt-1.5 text-sm text-danger">
+          <p id={errorId} role="alert" className="mt-1.5 text-xs text-danger font-medium">
             {error}
           </p>
         )}

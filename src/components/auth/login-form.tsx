@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { getSession } from "next-auth/react";
 
@@ -20,14 +20,20 @@ export function LoginForm() {
   const oauthErrorParam = searchParams.get("error");
   const registeredParam = searchParams.get("registered");
   const { showSuccess, showError } = useToast();
+  const processedParamRef = useRef<string | null>(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
-  const [emailTouched, setEmailTouched] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [touched, setTouched] = useState<{ email?: boolean; password?: boolean }>({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    const currentParamKey = `${registeredParam}-${oauthErrorParam}`;
+    if (processedParamRef.current === currentParamKey) return;
+    processedParamRef.current = currentParamKey;
+
     if (registeredParam === "true") {
       showSuccess("Account created successfully! Please log in with your credentials.", "Registration Successful");
     }
@@ -36,17 +42,38 @@ export function LoginForm() {
     } else if (oauthErrorParam === "OAuthSignin" || oauthErrorParam === "Configuration") {
       showError("Google OAuth Failed, Please try again!", "Google Login Failed");
     }
-  }, [registeredParam, oauthErrorParam]);
+  }, [registeredParam, oauthErrorParam, showSuccess, showError]);
 
-  const emailError =
-    emailTouched && !isValidEmail(email)
-      ? "Enter a valid email address"
-      : undefined;
+  const validateField = (name: "email" | "password", val: string): string | undefined => {
+    if (name === "email") {
+      if (!val.trim()) return "Email is required";
+      if (!isValidEmail(val)) return "Enter a valid email address";
+    }
+    if (name === "password") {
+      if (!val) return "Password is required";
+    }
+    return undefined;
+  };
+
+  const handleBlur = (name: "email" | "password") => {
+    setTouched((prev) => ({ ...prev, [name]: true }));
+    const errorMsg = validateField(name, name === "email" ? email : password);
+    setErrors((prev) => ({ ...prev, [name]: errorMsg }));
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setEmailTouched(true);
+    setTouched({ email: true, password: true });
 
+    const emailErr = validateField("email", email);
+    const passwordErr = validateField("password", password);
+
+    if (emailErr || passwordErr) {
+      setErrors({ email: emailErr, password: passwordErr });
+      return;
+    }
+
+    setErrors({});
     const payload: LoginPayload = { email, password, rememberMe };
 
     try {
@@ -70,8 +97,6 @@ export function LoginForm() {
     }
   };
 
-
-
   return (
     <form onSubmit={handleSubmit} noValidate>
       <FormField
@@ -80,9 +105,17 @@ export function LoginForm() {
         type="email"
         placeholder="Please enter your email"
         value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        onBlur={() => setEmailTouched(true)}
-        error={emailError}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          if (touched.email) {
+            setErrors((prev) => ({
+              ...prev,
+              email: validateField("email", e.target.value),
+            }));
+          }
+        }}
+        onBlur={() => handleBlur("email")}
+        error={errors.email}
         autoComplete="email"
         required
       />
@@ -92,7 +125,17 @@ export function LoginForm() {
         type="password"
         placeholder="Please enter password"
         value={password}
-        onChange={(e) => setPassword(e.target.value)}
+        onChange={(e) => {
+          setPassword(e.target.value);
+          if (touched.password) {
+            setErrors((prev) => ({
+              ...prev,
+              password: validateField("password", e.target.value),
+            }));
+          }
+        }}
+        onBlur={() => handleBlur("password")}
+        error={errors.password}
         autoComplete="current-password"
         required
       />

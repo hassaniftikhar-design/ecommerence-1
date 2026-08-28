@@ -12,7 +12,7 @@ export interface LoginPayload {
 export interface SignupPayload {
   fullName: string;
   email: string;
-  mobile: string;
+  mobile?: string;
   password: string;
   confirmPassword: string;
 }

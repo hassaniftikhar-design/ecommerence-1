@@ -6,8 +6,22 @@ export const MAX_VISIBLE_COLORS_MOBILE = 3;
 export const TAX_RATE = 0.10; // 10% Tax
 export const DEFAULT_PRODUCT_IMAGE = "/placeholder-product.png";
 
-export const PRODUCTS_PER_PAGE = 12;
-export const LAZY_LOAD_DELAY_MS = 1800;
+// Product Catalog Virtualization & Data Fetching Constants
+export const PRODUCT_FETCH_BATCH_SIZE = 10;
+export const PRODUCT_RENDER_WINDOW_SIZE = 12;
+export const PRODUCT_CACHE_SIZE = 100;
+export const PRODUCT_CACHE_MAX_PAGES = Math.floor(PRODUCT_CACHE_SIZE / PRODUCT_FETCH_BATCH_SIZE); // 10 pages
+
+// Responsive Grid Virtualization Geometry Constants
+export const PRODUCT_ESTIMATED_ROW_HEIGHT_PX = 420;
+export const PRODUCT_GRID_GAP_DESKTOP_PX = 24;
+export const PRODUCT_GRID_GAP_MOBILE_PX = 16;
+export const PRODUCT_PREFETCH_ROOT_MARGIN = "300px";
+export const PRODUCT_VIRTUAL_OVERSCAN_ROWS = 1;
+
+// Backward compatibility constants
+export const PRODUCTS_PER_PAGE = PRODUCT_FETCH_BATCH_SIZE;
+//export const LAZY_LOAD_DELAY_MS = 0;
 
 export const NOTIFICATIONS_PER_PAGE = 10;
 export const NOTIFICATIONS_LAZY_LOAD_DELAY_MS = 2000;

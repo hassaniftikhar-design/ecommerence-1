@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { DEFAULT_PRODUCT_IMAGE } from "@/constants/generalconstants";
+import { DEFAULT_PRODUCT_IMAGE, PRODUCT_FETCH_BATCH_SIZE } from "@/constants/generalconstants";
 import { createProductSchema, updateProductSchema } from "@/lib/validators";
 
 function generateSku(): string {
@@ -141,7 +141,7 @@ export async function getProductsServer(params: GetProductsServerParams) {
     sortQuery = "newest",
     statusQuery = "",
     pageNumber = 1,
-    limitNumber = 12,
+    limitNumber = PRODUCT_FETCH_BATCH_SIZE,
     isPaginatedCall = false,
     userIsAdmin = false,
   } = params;

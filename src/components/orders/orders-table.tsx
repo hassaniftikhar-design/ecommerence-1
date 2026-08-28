@@ -2,6 +2,7 @@
 
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -58,6 +59,16 @@ export function renderStatusBadge(status: OrderStatusType) {
 }
 
 export function OrdersTable({ orders, onSelectOrder }: OrdersTableProps) {
+  const router = useRouter();
+
+  const handleRowClick = (orderId: string) => {
+    if (onSelectOrder) {
+      onSelectOrder(orderId);
+    } else {
+      router.push(ROUTES.orderDetail(orderId));
+    }
+  };
+
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
       <Table>
@@ -80,7 +91,11 @@ export function OrdersTable({ orders, onSelectOrder }: OrdersTableProps) {
             </TableRow>
           ) : (
             orders.map((order) => (
-              <TableRow key={order.id} className="hover:bg-slate-50/80 border-b border-slate-100">
+              <TableRow
+                key={order.id}
+                onClick={() => handleRowClick(order.id)}
+                className="hover:bg-slate-50/80 border-b border-slate-100 cursor-pointer transition-colors"
+              >
                 <TableCell className="text-slate-700 text-xs font-medium py-3.5">{order.date}</TableCell>
                 <TableCell className="text-slate-700 text-xs font-medium py-3.5">{order.orderNumber}</TableCell>
                 <TableCell className="text-slate-700 text-xs font-medium py-3.5">{order.productsCount}</TableCell>
@@ -90,7 +105,10 @@ export function OrdersTable({ orders, onSelectOrder }: OrdersTableProps) {
                   {onSelectOrder ? (
                     <button
                       type="button"
-                      onClick={() => onSelectOrder(order.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectOrder(order.id);
+                      }}
                       aria-label={`View order ${order.orderNumber}`}
                       className="text-slate-600 hover:text-[#007BFF] transition inline-flex p-1"
                     >
@@ -99,6 +117,7 @@ export function OrdersTable({ orders, onSelectOrder }: OrdersTableProps) {
                   ) : (
                     <Link
                       href={ROUTES.orderDetail(order.id)}
+                      onClick={(e) => e.stopPropagation()}
                       aria-label={`View order ${order.orderNumber}`}
                       className="text-slate-600 hover:text-[#007BFF] transition inline-flex p-1"
                     >
@@ -114,3 +133,4 @@ export function OrdersTable({ orders, onSelectOrder }: OrdersTableProps) {
     </div>
   );
 }
+

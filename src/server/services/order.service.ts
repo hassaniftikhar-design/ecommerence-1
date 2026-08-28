@@ -420,6 +420,13 @@ export async function getOrderByIdServer(id: string, userId?: string, userRole?:
   return { success: true as const, status: 200, order: formattedDetail };
 }
 
+const ALLOWED_ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  IN_PROGRESS: ["IN_PROGRESS", "DISPATCHED", "REJECTED"],
+  DISPATCHED: ["DISPATCHED", "DELIVERED", "REJECTED"],
+  DELIVERED: ["DELIVERED"],
+  REJECTED: ["REJECTED"],
+};
+
 export async function updateOrderStatusServer(id: string, status: OrderStatus) {
   const validStatuses: OrderStatus[] = [
     "IN_PROGRESS",
@@ -442,6 +449,35 @@ export async function updateOrderStatusServer(id: string, status: OrderStatus) {
   }
 
   const previousStatus = existingOrder.status;
+
+  if (previousStatus === status) {
+    return {
+      success: true as const,
+      status: 200,
+      order: {
+        id: existingOrder.id,
+        status: existingOrder.status,
+      },
+    };
+  }
+
+  const allowedNext = ALLOWED_ORDER_TRANSITIONS[previousStatus] || [];
+  if (!allowedNext.includes(status)) {
+    let message = `Invalid status transition from ${previousStatus} to ${status}.`;
+    if (previousStatus === "DELIVERED") {
+      message = "Delivered orders cannot be modified or cancelled.";
+    } else if (previousStatus === "REJECTED") {
+      message = "Cancelled orders cannot be modified.";
+    } else if (previousStatus === "DISPATCHED" && status === "IN_PROGRESS") {
+      message = "Dispatched orders cannot be reverted back to In Progress.";
+    }
+    return {
+      success: false as const,
+      status: 400,
+      errors: ["INVALID_STATUS_TRANSITION"],
+      message,
+    };
+  }
 
   const updatedOrder = await prisma.$transaction(async (tx) => {
     if (previousStatus !== "REJECTED" && status === "REJECTED") {

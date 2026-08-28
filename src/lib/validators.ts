@@ -17,7 +17,13 @@ export const signupSchema = z
   .object({
     fullName: z.string().min(2, "Enter your full name"),
     email: z.string().email("Enter a valid email address"),
-    mobile: phone,
+    mobile: z
+      .string()
+      .optional()
+      .refine(
+        (val) => !val || (val.replace(/\D/g, "").length >= 10 && /^[+0-9\s-]+$/.test(val)),
+        { message: "Enter a valid phone number" }
+      ),
     password,
     confirmPassword: z.string(),
   })

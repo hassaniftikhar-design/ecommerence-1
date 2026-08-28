@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -10,42 +10,15 @@ import { RequireLoginModal } from "@/components/auth/require-login-modal";
 import { NotificationPopover } from "@/components/notifications/notification-popover";
 import { ROUTES } from "@/constants/routes";
 import { isSessionExpired } from "@/constants/auth";
-import { getCart } from "@/services/cart.service";
+import { useCart } from "@/providers/cart-provider";
 
 export function SiteHeader() {
   const { data: session, status } = useSession();
+  const { cartCount } = useCart();
 
   const isExpired = isSessionExpired(session?.user?.sessionExpiresAt);
   const isAuthenticated = status === "authenticated" && !isExpired;
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [cartCount, setCartCount] = useState<number>(0);
-
-  const fetchCartCount = useCallback(async () => {
-    if (!isAuthenticated) {
-      setCartCount(0);
-      return;
-    }
-    try {
-      const cartData = await getCart();
-      const totalCount = (cartData.items || []).reduce((sum, item) => sum + item.quantity, 0);
-      setCartCount(totalCount);
-    } catch {
-      // Ignore background fetch errors
-    }
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    fetchCartCount();
-
-    const handleCartUpdate = () => {
-      fetchCartCount();
-    };
-
-    window.addEventListener("cart-updated", handleCartUpdate);
-    return () => {
-      window.removeEventListener("cart-updated", handleCartUpdate);
-    };
-  }, [fetchCartCount]);
 
   const handleCartClick = (e: React.MouseEvent) => {
     if (!isAuthenticated) {
