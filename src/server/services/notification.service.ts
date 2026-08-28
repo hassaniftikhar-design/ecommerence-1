@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { validateMarkNotificationReadInput } from "@/server/middlewares";
 
 export async function getNotificationsServer(
   userId: string,
@@ -32,24 +33,31 @@ export async function markNotificationReadServer(
   notificationId?: string,
   markAll?: boolean
 ) {
-  if (markAll) {
+  const validation = validateMarkNotificationReadInput(notificationId, markAll);
+  if (!validation.success) {
+    return validation;
+  }
+
+  const { notificationId: validNotificationId, markAll: isMarkAll } = validation.data;
+
+  if (isMarkAll) {
     await prisma.notification.updateMany({
       where: { userId, isRead: false },
       data: { isRead: true },
     });
     return { success: true as const, status: 200, message: "Notification status updated" };
-  } else if (notificationId) {
+  } else if (validNotificationId) {
     await prisma.notification.updateMany({
-      where: { id: notificationId, userId },
+      where: { id: validNotificationId, userId },
       data: { isRead: true },
     });
     return { success: true as const, status: 200, message: "Notification status updated" };
-  } else {
-    return {
-      success: false as const,
-      status: 400,
-      errors: [],
-      message: "Missing notificationId or markAll flag",
-    };
   }
+
+  return {
+    success: false as const,
+    status: 400,
+    errors: [],
+    message: "Missing notificationId or markAll flag",
+  };
 }

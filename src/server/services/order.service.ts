@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { OrderStatus } from "@prisma/client";
 import { TAX_RATE, DEFAULT_PRODUCT_IMAGE } from "@/constants/generalconstants";
+import {
+  validateOrderStatusInput,
+  validateOrderIdInput,
+  validateCreateOrderInput,
+} from "@/server/middlewares";
 
 function generateOrderNumber(): string {
   const randNum = Math.floor(100000 + Math.random() * 900000);
@@ -31,23 +36,23 @@ export async function listOrdersServer(params: ListOrdersServerParams) {
   const baseUserFilter = userRole === "ADMIN" ? {} : userId ? { userId } : { userId: "guest-or-none" };
   const searchFilter = query.trim()
     ? {
-        OR: [
-          { orderNumber: { contains: query.trim(), mode: "insensitive" as const } },
-          { id: { contains: query.trim(), mode: "insensitive" as const } },
-          { user: { name: { contains: query.trim(), mode: "insensitive" as const } } },
-          { user: { email: { contains: query.trim(), mode: "insensitive" as const } } },
-          { items: { some: { title: { contains: query.trim(), mode: "insensitive" as const } } } },
-          {
-            items: {
-              some: {
-                product: {
-                  category: { name: { contains: query.trim(), mode: "insensitive" as const } },
-                },
+      OR: [
+        { orderNumber: { contains: query.trim(), mode: "insensitive" as const } },
+        { id: { contains: query.trim(), mode: "insensitive" as const } },
+        { user: { name: { contains: query.trim(), mode: "insensitive" as const } } },
+        { user: { email: { contains: query.trim(), mode: "insensitive" as const } } },
+        { items: { some: { title: { contains: query.trim(), mode: "insensitive" as const } } } },
+        {
+          items: {
+            some: {
+              product: {
+                category: { name: { contains: query.trim(), mode: "insensitive" as const } },
               },
             },
           },
-        ],
-      }
+        },
+      ],
+    }
     : {};
 
   const whereClause = { ...baseUserFilter, ...searchFilter };
@@ -111,9 +116,14 @@ export async function listOrdersServer(params: ListOrdersServerParams) {
 
 export async function createOrderServer(
   userId: string,
-  itemIds?: string[],
+  itemIds?: string,
   expectedTotal?: number
 ) {
+  const validation = validateCreateOrderInput(itemIds, expectedTotal);
+  if (!validation.success) {
+    return validation;
+  }
+  const { itemIds: validItemIds, expectedTotal: validExpectedTotal } = validation.data;
   const cart = await prisma.cart.findUnique({
     where: { userId },
     include: {
@@ -143,8 +153,8 @@ export async function createOrderServer(
   }
 
   let targetItems = cart.items;
-  if (Array.isArray(itemIds) && itemIds.length > 0) {
-    targetItems = cart.items.filter((item) => itemIds.includes(item.id));
+  if (Array.isArray(validItemIds) && validItemIds.length > 0) {
+    targetItems = cart.items.filter((item) => validItemIds.includes(item.id));
   }
 
   if (targetItems.length === 0) {
@@ -152,12 +162,13 @@ export async function createOrderServer(
   }
 
   const cartLines = targetItems.map((item) => {
-    const unitPrice = Number(item.product.price);
-    const lineTotal = Math.round(unitPrice * item.quantity * 100) / 100;
     const imageUrl =
       item.variant?.images[0] ||
       item.product.variants[0]?.images[0] ||
       DEFAULT_PRODUCT_IMAGE;
+
+    const unitPrice = Number(item.product.price);
+    const lineTotal = Math.round(unitPrice * item.quantity * 100) / 100;
 
     let itemTitle = item.product.name;
     if (item.variant?.variantOptions && item.variant.variantOptions.length > 0) {
@@ -186,7 +197,7 @@ export async function createOrderServer(
   const tax = Math.round(subTotal * TAX_RATE * 100) / 100;
   const totalAmount = Math.round((subTotal + tax) * 100) / 100;
 
-  if (typeof expectedTotal === "number" && Math.abs(expectedTotal - totalAmount) > 0.01) {
+  if (typeof validExpectedTotal === "number" && Math.abs(validExpectedTotal - totalAmount) > 0.01) {
     return {
       success: false as const,
       status: 409,
@@ -345,8 +356,14 @@ export async function createOrderServer(
 }
 
 export async function getOrderByIdServer(id: string, userId?: string, userRole?: string) {
+  const idValidation = validateOrderIdInput(id);
+  if (!idValidation.success) {
+    return idValidation;
+  }
+
+  const validId = idValidation.data;
   const order = await prisma.order.findUnique({
-    where: { id },
+    where: { id: validId },
     include: {
       user: { select: { id: true, name: true, email: true } },
       items: {
@@ -427,20 +444,22 @@ const ALLOWED_ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   REJECTED: ["REJECTED"],
 };
 
-export async function updateOrderStatusServer(id: string, status: OrderStatus) {
-  const validStatuses: OrderStatus[] = [
-    "IN_PROGRESS",
-    "DISPATCHED",
-    "DELIVERED",
-    "REJECTED",
-  ];
-
-  if (!validStatuses.includes(status)) {
-    return { success: false as const, status: 400, errors: [], message: "Invalid status value" };
+export async function updateOrderStatusServer(id: string, status: unknown) {
+  const idValidation = validateOrderIdInput(id);
+  if (!idValidation.success) {
+    return idValidation;
   }
 
+  const statusValidation = validateOrderStatusInput(status);
+  if (!statusValidation.success) {
+    return statusValidation;
+  }
+
+  const validId = idValidation.data;
+  const validStatus = statusValidation.data;
+
   const existingOrder = await prisma.order.findUnique({
-    where: { id },
+    where: { id: validId },
     include: { items: true },
   });
 
@@ -450,7 +469,7 @@ export async function updateOrderStatusServer(id: string, status: OrderStatus) {
 
   const previousStatus = existingOrder.status;
 
-  if (previousStatus === status) {
+  if (previousStatus === validStatus) {
     return {
       success: true as const,
       status: 200,
@@ -462,7 +481,7 @@ export async function updateOrderStatusServer(id: string, status: OrderStatus) {
   }
 
   const allowedNext = ALLOWED_ORDER_TRANSITIONS[previousStatus] || [];
-  if (!allowedNext.includes(status)) {
+  if (!allowedNext.includes(validStatus)) {
     let message = `Invalid status transition from ${previousStatus} to ${status}.`;
     if (previousStatus === "DELIVERED") {
       message = "Delivered orders cannot be modified or cancelled.";
@@ -533,8 +552,8 @@ export async function updateOrderStatusServer(id: string, status: OrderStatus) {
     }
 
     return tx.order.update({
-      where: { id },
-      data: { status },
+      where: { id: validId },
+      data: { status: validStatus },
       include: {
         user: { select: { name: true } },
         items: true,
@@ -549,7 +568,7 @@ export async function updateOrderStatusServer(id: string, status: OrderStatus) {
     REJECTED: "cancelled",
   };
 
-  const readableStatus = statusLabels[status] || status.toLowerCase();
+  const readableStatus = statusLabels[validStatus] || validStatus.toLowerCase();
 
   await prisma.notification.create({
     data: {
