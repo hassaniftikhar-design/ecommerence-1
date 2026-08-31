@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, User, ShieldCheck, ShoppingBag } from "lucide-react";
+import { ChevronDown, User, ShieldCheck, ShoppingBag, CreditCard, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 
@@ -67,6 +67,24 @@ export function UserMenu() {
           >
             <ShoppingBag className="h-4 w-4 text-slate-500" />
             My Orders
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link
+            href={ROUTES.addresses}
+            className="flex items-center gap-2 cursor-pointer font-medium"
+          >
+            <MapPin className="h-4 w-4 text-slate-500" />
+            Shipping Address
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link
+            href={ROUTES.paymentMethods}
+            className="flex items-center gap-2 cursor-pointer font-medium"
+          >
+            <CreditCard className="h-4 w-4 text-slate-500" />
+            Payment Methods
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

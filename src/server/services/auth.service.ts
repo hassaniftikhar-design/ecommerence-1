@@ -11,6 +11,8 @@ import {
 } from "@/server/middlewares";
 import { sendResetPasswordEmail } from "@/lib/email";
 import { PASSWORD_RESET_EXPIRATION_MINUTES } from "@/constants";
+import { stripe } from "@/lib/stripe/stripe-server";
+import { logStripeError } from "@/lib/stripe/errors";
 
 export async function signupUserServer(body: unknown) {
   const validation = validateSignupInput(body);
@@ -30,6 +32,20 @@ export async function signupUserServer(body: unknown) {
   }
 
   const hashedPassword = await hash(password, 12);
+  //Stripe customer id creating here, adn remain null on failure and cab be backfilled later on checkout
+  let stripeCustomerId: string | null = null;
+  try {
+    const customer = await stripe.customers.create({
+      email: normalizedEmail,
+      name: fullName,
+      phone: mobile || undefined,
+    });
+    stripeCustomerId = customer.id;
+  } catch (stripeErr) {
+    logStripeError("signupUserServer:stripe.customers.create", stripeErr, {
+      email: normalizedEmail,
+    });
+  }
 
   const user = await prisma.user.create({
     data: {
@@ -37,6 +53,7 @@ export async function signupUserServer(body: unknown) {
       email: normalizedEmail,
       phone: mobile || null,
       password: hashedPassword,
+      stripeCustomerId,
     },
     select: {
       id: true,
@@ -44,6 +61,7 @@ export async function signupUserServer(body: unknown) {
       email: true,
       phone: true,
       role: true,
+      stripeCustomerId: true,
       createdAt: true,
     },
   });

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, Check, X, AlertCircle } from "lucide-react";
+import { ArrowLeft, Check, X, AlertCircle, ShieldAlert, CreditCard } from "lucide-react";
 import { OrderSummaryFields } from "@/components/orders/order-summary-fields";
 import { OrderProductsTable } from "@/components/orders/order-products-table";
 import { renderStatusBadge } from "@/components/orders/orders-table";
@@ -37,6 +37,31 @@ const ALLOWED_STATUS_OPTIONS: Record<
   REJECTED: [{ value: "REJECTED", label: "Rejected" }],
 };
 
+export function renderPaymentBadge(payment?: OrderDetail["payment"]) {
+  if (!payment) return null;
+  const status = payment.status;
+
+  const colorMap: Record<string, string> = {
+    SUCCEEDED: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    PENDING: "bg-amber-50 text-amber-700 border-amber-200",
+    PROCESSING: "bg-blue-50 text-blue-700 border-blue-200",
+    FAILED: "bg-red-50 text-red-700 border-red-200",
+    REFUNDED: "bg-purple-50 text-purple-700 border-purple-200",
+    PARTIALLY_REFUNDED: "bg-purple-50 text-purple-700 border-purple-200",
+  };
+
+  const cls = colorMap[status] || "bg-slate-50 text-slate-700 border-slate-200";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${cls}`}
+    >
+      <CreditCard className="h-3 w-3" />
+      Payment: {status}
+    </span>
+  );
+}
+
 export function AdminOrderDrawer({
   isOpen,
   onClose,
@@ -53,6 +78,13 @@ export function AdminOrderDrawer({
 
   const currentOptions = order ? ALLOWED_STATUS_OPTIONS[order.status] || [] : [];
   const isTerminalStatus = order?.status === "DELIVERED" || order?.status === "REJECTED";
+
+  const isPaymentLocked = Boolean(
+    order?.payment &&
+      (order.payment.status === "PENDING" ||
+        order.payment.status === "PROCESSING" ||
+        order.payment.status === "FAILED")
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -141,11 +173,13 @@ export function AdminOrderDrawer({
 
           <div className="flex items-center gap-3">
             {order && renderStatusBadge(order.status)}
+            {order?.payment && renderPaymentBadge(order.payment)}
+
             <Select
               value={statusValue}
               onChange={(e) => setStatusValue(e.target.value as OrderStatusType)}
               className="w-36 sm:w-40 h-9 text-xs"
-              disabled={loading || !order || isTerminalStatus}
+              disabled={loading || !order || isTerminalStatus || isPaymentLocked}
             >
               {currentOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -153,6 +187,7 @@ export function AdminOrderDrawer({
                 </option>
               ))}
             </Select>
+
             <Button
               onClick={handleUpdateStatus}
               disabled={
@@ -160,6 +195,7 @@ export function AdminOrderDrawer({
                 loading ||
                 !order ||
                 isTerminalStatus ||
+                isPaymentLocked ||
                 statusValue === order?.status
               }
               className="bg-[#007BFF] hover:bg-blue-600 text-white text-xs h-9 px-4 font-semibold disabled:opacity-50"
@@ -180,6 +216,23 @@ export function AdminOrderDrawer({
 
         {/* Content Body Area */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Payment Status Warning Banner when Locked */}
+          {order?.payment && isPaymentLocked && (
+            <div className="rounded-xl bg-amber-50 p-4 text-xs font-semibold text-amber-800 border border-amber-200 flex items-start gap-3 shadow-2xs">
+              <ShieldAlert className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
+              <div>
+                <p className="font-bold text-amber-900">
+                  Order Status Updates Locked ({order.payment.status})
+                </p>
+                <p className="mt-0.5 font-normal text-amber-700">
+                  {order.payment.status === "FAILED"
+                    ? "Payment for this order has failed. Order status cannot be updated until the customer completes payment."
+                    : "Payment for this order is currently pending or processing. Order status cannot be advanced until payment succeeds."}
+                </p>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="rounded-xl bg-red-50 p-4 text-xs font-semibold text-red-700 border border-red-200 flex items-start gap-2.5 shadow-2xs">
               <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />

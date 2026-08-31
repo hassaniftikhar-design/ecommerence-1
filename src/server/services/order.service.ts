@@ -116,7 +116,7 @@ export async function listOrdersServer(params: ListOrdersServerParams) {
 
 export async function createOrderServer(
   userId: string,
-  itemIds?: string,
+  itemIds?: string[],
   expectedTotal?: number
 ) {
   const validation = validateCreateOrderInput(itemIds, expectedTotal);
@@ -366,6 +366,7 @@ export async function getOrderByIdServer(id: string, userId?: string, userRole?:
     where: { id: validId },
     include: {
       user: { select: { id: true, name: true, email: true } },
+      payment: true,
       items: {
         include: {
           variant: {
@@ -407,6 +408,16 @@ export async function getOrderByIdServer(id: string, userId?: string, userRole?:
     tax: Number(order.tax),
     totalAmount: Number(order.totalAmount),
     status: order.status,
+    payment: order.payment
+      ? {
+          id: order.payment.id,
+          status: order.payment.status,
+          amount: Number(order.payment.amount),
+          currency: order.payment.currency,
+          paidAt: order.payment.paidAt ? formatDate(order.payment.paidAt) : null,
+          errorMessage: order.payment.errorMessage,
+        }
+      : null,
     products: order.items.map((item) => {
       let color: string | undefined = undefined;
       let size: string | undefined = undefined;
@@ -460,11 +471,43 @@ export async function updateOrderStatusServer(id: string, status: unknown) {
 
   const existingOrder = await prisma.order.findUnique({
     where: { id: validId },
-    include: { items: true },
+    include: { items: true, payment: true },
   });
 
   if (!existingOrder) {
     return { success: false as const, status: 404, errors: [], message: "Order not found" };
+  }
+
+  // Payment Status Locking for Card Payments
+  if (existingOrder.payment) {
+    const paymentStatus = existingOrder.payment.status;
+
+    if (paymentStatus === "PENDING" || paymentStatus === "PROCESSING") {
+      return {
+        success: false as const,
+        status: 400,
+        errors: ["PAYMENT_PENDING"],
+        message: `Cannot update order status while payment is ${paymentStatus}. Please wait for payment confirmation.`,
+      };
+    }
+
+    if (paymentStatus === "FAILED") {
+      return {
+        success: false as const,
+        status: 400,
+        errors: ["PAYMENT_FAILED"],
+        message: "Cannot advance order status because payment has FAILED. The customer must complete or retry payment.",
+      };
+    }
+
+    if (paymentStatus === "REFUNDED" && validStatus !== "REJECTED") {
+      return {
+        success: false as const,
+        status: 400,
+        errors: ["PAYMENT_REFUNDED"],
+        message: "This order has been refunded and cannot be advanced. Only cancellation (Rejected) is permitted.",
+      };
+    }
   }
 
   const previousStatus = existingOrder.status;

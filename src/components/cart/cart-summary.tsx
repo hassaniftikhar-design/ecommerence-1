@@ -1,73 +1,40 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/toast";
-import { placeOrder, PriceChangedError } from "@/services/cart.service";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { TAX_RATE } from "@/constants/generalconstants";
+import { ROUTES } from "@/constants/routes";
 import type { CartTotals } from "@/types/cart.types";
 
 interface CartSummaryProps {
   totals: CartTotals;
   isEmpty?: boolean;
   selectedItemIds?: string[];
-  onOrderPlaced?: (order: { orderId: string; orderNumber: string }) => void;
-  onOutOfStockError?: (message: string) => void;
+  onProceedToCheckout?: () => void;
+  loading?: boolean;
 }
 
 export function CartSummary({
   totals,
   isEmpty = false,
   selectedItemIds = [],
-  onOrderPlaced,
-  onOutOfStockError,
+  onProceedToCheckout,
+  loading = false,
 }: CartSummaryProps) {
-  const { showSuccess } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [orderFailed, setOrderFailed] = useState(false);
-  const [priceChangedAlert, setPriceChangedAlert] = useState<{ isOpen: boolean; newTotal: number }>({ isOpen: false, newTotal: 0 });
-
+  const router = useRouter();
   const hasSelectedItems = selectedItemIds.length > 0;
 
-  // Reset orderFailed whenever user changes item selections or cart totals
-  useEffect(() => {
-    setOrderFailed(false);
-  }, [selectedItemIds, totals]);
-
-  const handlePlaceOrder = async (forceProceed = false) => {
-    if (isEmpty || !hasSelectedItems || loading || orderFailed) return;
-    try {
-      setLoading(true);
-      setOrderFailed(false);
-      const expectedTotalToPass = forceProceed ? priceChangedAlert.newTotal : totals.total;
-      const res = await placeOrder(selectedItemIds, expectedTotalToPass);
-      showSuccess("Order is successfully placed!");
-      setPriceChangedAlert({ isOpen: false, newTotal: 0 });
-      onOrderPlaced?.(res);
-    } catch (err) {
-      if (err instanceof PriceChangedError) {
-        setPriceChangedAlert({ isOpen: true, newTotal: err.newTotal });
-        return;
-      }
-      setOrderFailed(true);
-      const errorMsg = (err as Error).message || "Failed to place order";
-      onOutOfStockError?.(errorMsg);
-    } finally {
-      setLoading(false);
+  const handleProceed = () => {
+    if (isEmpty || !hasSelectedItems || loading) return;
+    if (onProceedToCheckout) {
+      onProceedToCheckout();
+    } else {
+      router.push(ROUTES.checkout);
     }
   };
 
-  const isButtonDisabled = isEmpty || loading || !hasSelectedItems || orderFailed;
+  const isButtonDisabled = isEmpty || !hasSelectedItems || loading;
 
   return (
     <div className="mt-8 flex flex-col items-center sm:items-end gap-3 w-full">
@@ -88,40 +55,19 @@ export function CartSummary({
       </div>
 
       <Button
-        onClick={() => handlePlaceOrder(false)}
+        onClick={handleProceed}
         disabled={isButtonDisabled}
-        className="mt-2 w-full max-w-xs bg-[#007BFF] hover:bg-blue-600 text-white font-semibold h-11 text-base rounded-xl shadow-sm disabled:cursor-not-allowed disabled:bg-slate-300 transition-all"
+        className="mt-2 w-full max-w-xs bg-[#007BFF] hover:bg-blue-600 text-white font-semibold h-11 text-base rounded-xl shadow-sm disabled:cursor-not-allowed disabled:bg-slate-300 transition-all flex items-center justify-center gap-2"
       >
-        {loading
-          ? "Placing Order..."
-          : "Place Order"}
+        {loading ? (
+          <span className="flex items-center gap-2">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            Checking Stock...
+          </span>
+        ) : (
+          "Proceed to Checkout"
+        )}
       </Button>
-
-      <AlertDialog open={priceChangedAlert.isOpen} onOpenChange={(open) => setPriceChangedAlert(prev => ({ ...prev, isOpen: open }))}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Price Updated</AlertDialogTitle>
-            <AlertDialogDescription>
-              The prices for some items in your cart have changed since you added them. 
-              Your new total is <strong className="text-slate-900">${priceChangedAlert.newTotal.toFixed(2)}</strong>. 
-              Do you still want to place this order?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={(e) => {
-                e.preventDefault();
-                handlePlaceOrder(true);
-              }}
-              disabled={loading}
-              className="bg-[#007BFF] hover:bg-blue-600 text-white"
-            >
-              {loading ? "Placing Order..." : "Place Order"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

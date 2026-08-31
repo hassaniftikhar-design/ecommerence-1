@@ -41,8 +41,8 @@ export interface ValidatedCreateOrderInput {
 }
 
 export function validateCreateOrderInput(
-  itemIds?: string,
-  expectedTotal?: number
+  itemIds?: unknown,
+  expectedTotal?: unknown
 ): ValidationResult<ValidatedCreateOrderInput> {
   let cleanItemIds: string[] | undefined = undefined;
   if (Array.isArray(itemIds)) {
