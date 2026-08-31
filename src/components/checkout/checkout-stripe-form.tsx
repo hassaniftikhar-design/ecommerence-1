@@ -23,6 +23,7 @@ interface CheckoutStripeFormProps {
   onOrderPlaced?: (orderId: string) => void;
   onPriceChanged?: (newTotal: number) => void;
   onOutOfStock?: (message: string) => void;
+  onBackToInfo?: () => void;
 }
 
 export function CheckoutStripeForm({
@@ -33,6 +34,7 @@ export function CheckoutStripeForm({
   onAddressMissing,
   onPriceChanged,
   onOutOfStock,
+  onBackToInfo,
 }: CheckoutStripeFormProps) {
   const stripe = useStripe();
   const elements = useElements();
@@ -49,7 +51,7 @@ export function CheckoutStripeForm({
     e.preventDefault();
 
     if (!hasValidAddress) {
-      setErrorMessage("Please enter and save your shipping address above to continue.");
+      setErrorMessage("Please enter and save your shipping address to continue.");
       onAddressMissing?.();
       return;
     }
@@ -132,9 +134,9 @@ export function CheckoutStripeForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-5">
       {errorMessage && (
-        <div className="rounded-xl bg-red-50 p-4 text-xs font-semibold text-red-700 border border-red-200 flex items-start gap-2.5 shadow-2xs">
+        <div className="rounded-xl bg-red-50 p-3.5 text-xs font-semibold text-red-700 border border-red-200 flex items-start gap-2.5 shadow-2xs">
           <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
           <span className="flex-1 leading-snug">{errorMessage}</span>
         </div>
@@ -153,12 +155,12 @@ export function CheckoutStripeForm({
 
       {/* Stripe Payment Element (Shown when "new" card is selected) */}
       {selectedCardId === "new" && (
-        <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <span className="text-sm font-semibold text-slate-800">
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+            <span className="text-xs sm:text-sm font-semibold text-slate-800">
               Card Information
             </span>
-            <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+            <span className="flex items-center gap-1 text-[10px] sm:text-[11px] font-medium text-emerald-600">
               <ShieldCheck className="h-3.5 w-3.5" /> 256-bit SSL Encrypted
             </span>
           </div>
@@ -188,12 +190,18 @@ export function CheckoutStripeForm({
         </div>
       )}
 
+      {/* Security note */}
+      <p className="text-[11px] text-slate-500 flex items-center gap-1.5 pt-1">
+        <Lock className="h-3 w-3 text-slate-400 shrink-0" />
+        <span>Secured by Stripe. We never store your full card number.</span>
+      </p>
+
       {/* Submit Button */}
-      <div className="space-y-3 pt-2">
+      <div className="space-y-3 pt-1">
         <Button
           type="submit"
           disabled={loading || !stripe}
-          className="w-full h-12 bg-[#007BFF] hover:bg-blue-600 text-white font-bold text-base rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+          className="w-full h-11 sm:h-12 bg-[#007BFF] hover:bg-blue-600 text-white font-bold text-sm sm:text-base rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
         >
           {loading ? (
             <span className="flex items-center gap-2">
@@ -202,14 +210,22 @@ export function CheckoutStripeForm({
             </span>
           ) : (
             <span className="flex items-center gap-2">
-              <Lock className="h-4 w-4" /> Pay ${totalAmount.toFixed(2)}
+              <Lock className="h-4 w-4" /> Pay ${totalAmount.toFixed(2)} Securely
             </span>
           )}
         </Button>
 
-        <p className="text-center text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
-          <Lock className="h-3 w-3" /> Payments are securely processed by Stripe. Your card information is never stored on our servers.
-        </p>
+        {onBackToInfo && (
+          <div className="text-center pt-1">
+            <button
+              type="button"
+              onClick={onBackToInfo}
+              className="text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors"
+            >
+              ← Back to Delivery Info
+            </button>
+          </div>
+        )}
       </div>
     </form>
   );
