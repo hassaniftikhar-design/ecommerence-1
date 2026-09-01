@@ -49,9 +49,8 @@ export default function CartPage() {
   } | null>(null);
   const [outOfStockMessage, setOutOfStockMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [checkingStock, setCheckingStock] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-
 
   const fetchCartData = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -69,6 +68,42 @@ export default function CartPage() {
       setLoading(false);
     }
   }, [isAuthenticated]);
+
+  const handleProceedToCheckout = async () => {
+    if (selectedItemIds.length === 0) return;
+    try {
+      setCheckingStock(true);
+      setError(null);
+
+      // Re-fetch fresh cart state to verify live inventory
+      const freshCart = await getCart();
+      setItems(freshCart.items);
+      setTotals(computeTotals(freshCart.items, selectedItemIds));
+
+      // Find if any selected item is out of stock or exceeds stock
+      const outOfStockItem = freshCart.items.find((item) => {
+        const available = item.stock ?? 0;
+        return selectedItemIds.includes(item.id) && (available === 0 || item.quantity > available);
+      });
+
+      if (outOfStockItem) {
+        const available = outOfStockItem.stock ?? 0;
+        let msg = `Order can't be placed because '${outOfStockItem.name}' is currently out of stock. Please update your cart quantity.`;
+        if (available > 0) {
+          msg = `Order can't be placed because only ${available} unit(s) of '${outOfStockItem.name}' remain in stock (you requested ${outOfStockItem.quantity}). Please update your cart quantity.`;
+        }
+        setOutOfStockMessage(msg);
+        return;
+      }
+
+      // Live stock verified, proceed to checkout
+      router.push(ROUTES.checkout);
+    } catch (err: any) {
+      setError(err.message || "Failed to verify product stock. Please try again.");
+    } finally {
+      setCheckingStock(false);
+    }
+  };
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -153,13 +188,8 @@ export default function CartPage() {
               totals={totals}
               isEmpty={items.length === 0}
               selectedItemIds={selectedItemIds}
-              onOrderPlaced={(orderInfo) => {
-                fetchCartData();
-                setPlacedOrderInfo(orderInfo);
-              }}
-              onOutOfStockError={(msg) => {
-                setOutOfStockMessage(msg);
-              }}
+              onProceedToCheckout={handleProceedToCheckout}
+              loading={checkingStock}
             />
           )}
         </>

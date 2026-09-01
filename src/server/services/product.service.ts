@@ -2,7 +2,10 @@ import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { DEFAULT_PRODUCT_IMAGE, PRODUCT_FETCH_BATCH_SIZE } from "@/constants/generalconstants";
-import { createProductSchema, updateProductSchema } from "@/lib/validators";
+import {
+  validateCreateProductInput,
+  validateUpdateProductInput,
+} from "@/server/middlewares";
 
 function generateSku(): string {
   return `SKU-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`;
@@ -278,13 +281,9 @@ export async function createProductServer(body: unknown, adminUserId: string) {
     delete (body as Record<string, unknown>).createdById;
   }
 
-  const parsed = createProductSchema.safeParse(body);
-  if (!parsed.success) {
-    const issueErrors = parsed.error.issues.map(
-      (issue) => `${issue.path.join(".")}: ${issue.message}`
-    );
-    const errorMessage = issueErrors.join(", ") || "Validation failed";
-    return { success: false as const, status: 400, errors: issueErrors, message: errorMessage };
+  const validation = validateCreateProductInput(body);
+  if (!validation.success) {
+    return validation;
   }
 
   const {
@@ -296,7 +295,7 @@ export async function createProductServer(body: unknown, adminUserId: string) {
     price,
     stock,
     imageUrl,
-  } = parsed.data;
+  } = validation.data;
 
   let category = null;
   if (categoryId) {
@@ -514,13 +513,9 @@ export async function updateProductServer(id: string, body: unknown) {
     return { success: false as const, status: 404, errors: [], message: "Product not found" };
   }
 
-  const parsed = updateProductSchema.safeParse(body);
-  if (!parsed.success) {
-    const issueErrors = parsed.error.issues.map(
-      (issue) => `${issue.path.join(".")}: ${issue.message}`
-    );
-    const errorMessage = issueErrors.join(", ") || "Validation failed";
-    return { success: false as const, status: 400, errors: issueErrors, message: errorMessage };
+  const validation = validateUpdateProductInput(body);
+  if (!validation.success) {
+    return validation;
   }
 
   const {
@@ -532,7 +527,7 @@ export async function updateProductServer(id: string, body: unknown) {
     price,
     stock,
     imageUrl,
-  } = parsed.data;
+  } = validation.data;
 
   let targetCategoryId = categoryId;
   if (!targetCategoryId && categoryName) {

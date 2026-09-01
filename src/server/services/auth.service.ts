@@ -2,26 +2,25 @@ import { hash, compare } from "bcryptjs";
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import {
-  signupSchema,
-  forgotPasswordSchema,
-  resetPasswordSchema,
-  changePasswordSchema,
-} from "@/lib/validators";
+  validateSignupInput,
+  validateForgotPasswordInput,
+  validateResetPasswordInput,
+  validateChangePasswordInput,
+  validateResetTokenInput,
+  validateVerificationTokenInput,
+} from "@/server/middlewares";
 import { sendResetPasswordEmail } from "@/lib/email";
 import { PASSWORD_RESET_EXPIRATION_MINUTES } from "@/constants";
+import { stripe } from "@/lib/stripe/stripe-server";
+import { logStripeError } from "@/lib/stripe/errors";
 
 export async function signupUserServer(body: unknown) {
-  const parsed = signupSchema.safeParse(body);
-
-  if (!parsed.success) {
-    const issueErrors = parsed.error.issues.map(
-      (issue) => `${issue.path.join(".")}: ${issue.message}`
-    );
-    const errorMessage = issueErrors.join(", ") || "Validation failed";
-    return { success: false as const, status: 400, errors: issueErrors, message: errorMessage };
+  const validation = validateSignupInput(body);
+  if (!validation.success) {
+    return validation;
   }
 
-  const { fullName, email, mobile, password } = parsed.data;
+  const { fullName, email, mobile, password } = validation.data;
   const normalizedEmail = email.toLowerCase().trim();
 
   const existingUser = await prisma.user.findUnique({
@@ -33,6 +32,20 @@ export async function signupUserServer(body: unknown) {
   }
 
   const hashedPassword = await hash(password, 12);
+  //Stripe customer id creating here, adn remain null on failure and cab be backfilled later on checkout
+  let stripeCustomerId: string | null = null;
+  try {
+    const customer = await stripe.customers.create({
+      email: normalizedEmail,
+      name: fullName,
+      phone: mobile || undefined,
+    });
+    stripeCustomerId = customer.id;
+  } catch (stripeErr) {
+    logStripeError("signupUserServer:stripe.customers.create", stripeErr, {
+      email: normalizedEmail,
+    });
+  }
 
   const user = await prisma.user.create({
     data: {
@@ -40,6 +53,7 @@ export async function signupUserServer(body: unknown) {
       email: normalizedEmail,
       phone: mobile || null,
       password: hashedPassword,
+      stripeCustomerId,
     },
     select: {
       id: true,
@@ -47,6 +61,7 @@ export async function signupUserServer(body: unknown) {
       email: true,
       phone: true,
       role: true,
+      stripeCustomerId: true,
       createdAt: true,
     },
   });
@@ -55,17 +70,12 @@ export async function signupUserServer(body: unknown) {
 }
 
 export async function forgotPasswordServer(body: unknown) {
-  const parsed = forgotPasswordSchema.safeParse(body);
-
-  if (!parsed.success) {
-    const issueErrors = parsed.error.issues.map(
-      (issue) => `${issue.path.join(".")}: ${issue.message}`
-    );
-    const errorMessage = issueErrors.join(", ") || "Validation failed";
-    return { success: false as const, status: 400, errors: issueErrors, message: errorMessage };
+  const validation = validateForgotPasswordInput(body);
+  if (!validation.success) {
+    return validation;
   }
 
-  const { email } = parsed.data;
+  const { email } = validation.data;
   const normalizedEmail = email.toLowerCase().trim();
 
   const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
@@ -107,12 +117,14 @@ export async function forgotPasswordServer(body: unknown) {
 }
 
 export async function validateResetTokenServer(token: string) {
-  if (!token) {
-    return { success: false as const, status: 400, errors: [], message: "Missing reset token" };
+  const validation = validateResetTokenInput(token);
+  if (!validation.success) {
+    return validation;
   }
 
+  const validToken = validation.data;
   const user = await prisma.user.findFirst({
-    where: { resetToken: token },
+    where: { resetToken: validToken },
   });
 
   if (!user) {
@@ -131,17 +143,12 @@ export async function validateResetTokenServer(token: string) {
 }
 
 export async function resetPasswordServer(body: unknown) {
-  const parsed = resetPasswordSchema.safeParse(body);
-
-  if (!parsed.success) {
-    const issueErrors = parsed.error.issues.map(
-      (issue) => `${issue.path.join(".")}: ${issue.message}`
-    );
-    const errorMessage = issueErrors.join(", ") || "Validation failed";
-    return { success: false as const, status: 400, errors: issueErrors, message: errorMessage };
+  const validation = validateResetPasswordInput(body);
+  if (!validation.success) {
+    return validation;
   }
 
-  const { token, password } = parsed.data;
+  const { token, password } = validation.data;
 
   const user = await prisma.user.findFirst({
     where: { resetToken: token },
@@ -176,17 +183,12 @@ export async function resetPasswordServer(body: unknown) {
 }
 
 export async function changePasswordServer(userId: string, body: unknown) {
-  const parsed = changePasswordSchema.safeParse(body);
-
-  if (!parsed.success) {
-    const issueErrors = parsed.error.issues.map(
-      (issue) => `${issue.path.join(".")}: ${issue.message}`
-    );
-    const errorMessage = issueErrors.join(", ") || "Validation failed";
-    return { success: false as const, status: 400, errors: issueErrors, message: errorMessage };
+  const validation = validateChangePasswordInput(body);
+  if (!validation.success) {
+    return validation;
   }
 
-  const { currentPassword, newPassword } = parsed.data;
+  const { currentPassword, newPassword } = validation.data;
 
   const dbUser = await prisma.user.findUnique({
     where: { id: userId },
@@ -221,12 +223,14 @@ export async function changePasswordServer(userId: string, body: unknown) {
 }
 
 export async function verifyEmailServer(token: string) {
-  if (!token) {
-    return { success: false as const, status: 400, errors: [], message: "Verification token is required" };
+  const validation = validateVerificationTokenInput(token);
+  if (!validation.success) {
+    return validation;
   }
 
+  const validToken = validation.data;
   const verificationToken = await prisma.verificationToken.findUnique({
-    where: { token },
+    where: { token: validToken },
   });
 
   if (!verificationToken || verificationToken.expiresAt < new Date()) {
@@ -239,7 +243,7 @@ export async function verifyEmailServer(token: string) {
   });
 
   await prisma.verificationToken.delete({
-    where: { token },
+    where: { token: validToken },
   });
 
   return { success: true as const, status: 200, message: "Email verified successfully" };

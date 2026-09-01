@@ -25,11 +25,21 @@ model User {
   resetToken        String?
   resetTokenExpires DateTime?
 
-  accounts      Account[]
-  products      Product[]
-  cart          Cart?
-  orders        Order[]
-  notifications Notification[]
+  // Stripe
+  stripeCustomerId String? @unique
+
+  // Address (single default, embedded)
+  addressLine String? @default("")
+  city        String? @default("")
+  postalCode  String? @default("")
+  country     String? @default("")
+
+  accounts       Account[]
+  products       Product[]
+  cart           Cart?
+  orders         Order[]
+  notifications  Notification[]
+  paymentMethods PaymentMethod[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -224,7 +234,8 @@ model Order {
   tax         Decimal     @db.Decimal(10, 2)
   totalAmount Decimal     @db.Decimal(10, 2)
 
-  items OrderItem[]
+  items   OrderItem[]
+  payment Payment?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -246,5 +257,61 @@ model OrderItem {
   imageUrl  String
 
   createdAt DateTime @default(now())
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+model Payment {
+  id      String @id @default(cuid())
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  status PaymentStatus @default(PENDING)
+
+  stripePaymentIntentId String  @unique
+  stripePaymentMethodId String?
+  stripeCustomerId      String?
+
+  amount   Decimal @db.Decimal(10, 2)
+  currency String  @default("usd")
+
+  paidAt     DateTime?
+  refundedAt DateTime?
+
+  errorMessage String?
+  rawErrorCode String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PaymentMethod {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  stripePaymentMethodId String @unique
+
+  brand    String
+  last4    String
+  expMonth Int
+  expYear  Int
+
+  isDefault Boolean @default(false)
+
+  createdAt DateTime @default(now())
+}
+
+model StripeWebhookEvent {
+  id          String   @id // Stripe event id, used for idempotency
+  type        String
+  processedAt DateTime @default(now())
 }
 

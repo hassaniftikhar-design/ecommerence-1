@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { TAX_RATE, DEFAULT_PRODUCT_IMAGE } from "@/constants/generalconstants";
+import {
+  validateAddToCartInput,
+  validateCartItemQuantityInput,
+  validateCartItemIdInput,
+} from "@/server/middlewares";
 
 export async function getOrCreateCartServer(userId: string) {
   let cart = await prisma.cart.findUnique({
@@ -127,10 +132,16 @@ export async function addToCartServer(
   variantId?: string,
   quantity: number = 1
 ) {
+  const validation = validateAddToCartInput(productId, quantity, variantId);
+  if (!validation.success) {
+    return validation;
+  }
+
+  const { productId: validProductId, variantId: validVariantId, quantity: validQuantity } = validation.data;
   const cartId = await getOrCreateCartServer(userId);
 
   const product = await prisma.product.findUnique({
-    where: { id: productId },
+    where: { id: validProductId },
     include: { variants: true },
   });
 
@@ -147,7 +158,7 @@ export async function addToCartServer(
     };
   }
 
-  let targetVariantId = variantId;
+  let targetVariantId = validVariantId;
   if (!targetVariantId && product.variants.length > 0) {
     targetVariantId = product.variants[0]?.id;
   }
@@ -158,12 +169,12 @@ export async function addToCartServer(
   const existingItem = await prisma.cartItem.findFirst({
     where: {
       cartId,
-      productId,
+      productId: validProductId,
       variantId: targetVariantId || null,
     },
   });
 
-  let newQty = (existingItem ? existingItem.quantity : 0) + Math.max(1, quantity);
+  let newQty = (existingItem ? existingItem.quantity : 0) + Math.max(1, validQuantity);
   if (availableStock > 0 && newQty > availableStock) {
     newQty = availableStock;
   }
@@ -177,7 +188,7 @@ export async function addToCartServer(
     await prisma.cartItem.create({
       data: {
         cartId,
-        productId,
+        productId: validProductId,
         variantId: targetVariantId || null,
         quantity: newQty,
       },
@@ -200,12 +211,21 @@ export async function clearCartServer(userId: string) {
 }
 
 export async function updateCartItemQuantityServer(id: string, quantity: number) {
-  if (typeof quantity !== "number" || quantity < 1) {
-    return { success: false as const, status: 400, errors: [], message: "Quantity must be a positive integer" };
+  const idValidation = validateCartItemIdInput(id);
+  if (!idValidation.success) {
+    return idValidation;
   }
 
+  const qtyValidation = validateCartItemQuantityInput(quantity);
+  if (!qtyValidation.success) {
+    return qtyValidation;
+  }
+
+  const validId = idValidation.data;
+  const validQuantity = qtyValidation.data;
+
   const cartItem = await prisma.cartItem.findUnique({
-    where: { id },
+    where: { id: validId },
     include: {
       product: { include: { variants: true } },
       variant: true,
@@ -222,13 +242,13 @@ export async function updateCartItemQuantityServer(id: string, quantity: number)
       ? cartItem.product.variants[0].stock
       : 0;
 
-  let targetQuantity = quantity;
+  let targetQuantity = validQuantity;
   if (availableStock > 0 && targetQuantity > availableStock) {
     targetQuantity = availableStock;
   }
 
   await prisma.cartItem.update({
-    where: { id },
+    where: { id: validId },
     data: { quantity: targetQuantity },
   });
 
@@ -237,8 +257,14 @@ export async function updateCartItemQuantityServer(id: string, quantity: number)
 }
 
 export async function removeCartItemServer(id: string) {
+  const idValidation = validateCartItemIdInput(id);
+  if (!idValidation.success) {
+    return idValidation;
+  }
+
+  const validId = idValidation.data;
   const cartItem = await prisma.cartItem.findUnique({
-    where: { id },
+    where: { id: validId },
   });
 
   if (!cartItem) {
@@ -246,7 +272,7 @@ export async function removeCartItemServer(id: string) {
   }
 
   await prisma.cartItem.delete({
-    where: { id },
+    where: { id: validId },
   });
 
   const cartData = await formatCartResponseServer(cartItem.cartId);

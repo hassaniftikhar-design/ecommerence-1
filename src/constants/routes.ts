@@ -7,8 +7,12 @@ export const ROUTES = {
   forgotEmail: "/forgot-email",
   resetPassword: "/reset-password",
   cart: "/cart",
+  checkout: "/checkout",
   orders: "/orders",
   orderDetail: (orderId: string) => `/orders/${orderId}`,
+  paymentStatus: (orderId: string) => `/orders/${orderId}/payment-status`,
+  paymentMethods: "/account/payment-methods",
+  addresses: "/account/addresses",
 
   // Admin Routes
   adminProducts: "/admin/products",

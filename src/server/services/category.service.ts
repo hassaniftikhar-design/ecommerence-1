@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { validateCreateCategoryInput } from "@/server/middlewares";
 
 export async function getCategoriesServer() {
   const categories = await prisma.category.findMany({
@@ -7,12 +8,13 @@ export async function getCategoriesServer() {
   return categories;
 }
 
-export async function createCategoryServer(name: string) {
-  if (!name || !name.trim()) {
-    return { success: false as const, status: 400, errors: [], message: "Category name is required" };
+export async function createCategoryServer(name: unknown) {
+  const validation = validateCreateCategoryInput(name);
+  if (!validation.success) {
+    return validation;
   }
 
-  const trimmedName = name.trim();
+  const trimmedName = validation.data;
 
   const category = await prisma.category.upsert({
     where: { name: trimmedName },

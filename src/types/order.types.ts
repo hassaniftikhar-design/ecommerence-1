@@ -1,3 +1,5 @@
+import type { PaymentStatus } from "./payment.types";
+
 export type OrderStatusType = "IN_PROGRESS" | "DISPATCHED" | "DELIVERED" | "REJECTED";
 
 export interface OrderListItem {
@@ -22,9 +24,19 @@ export interface OrderProductLine {
   size?: string;
 }
 
+export interface OrderPaymentSummary {
+  id: string;
+  status: PaymentStatus;
+  amount: number;
+  currency: string;
+  paidAt?: string | null;
+  errorMessage?: string | null;
+}
+
 export interface OrderDetail extends OrderListItem {
   subTotal: number;
   tax: number;
   totalAmount: number;
   products: OrderProductLine[];
+  payment?: OrderPaymentSummary | null;
 }
