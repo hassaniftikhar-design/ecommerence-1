@@ -1,18 +1,18 @@
-import type { Metadata } from "next";
+import type { Metadata } from 'next';
 
-import { ProductSearchBar } from "@/components/home/product-search-bar";
-import { CategoryDropdown } from "@/components/home/category-dropdown";
-import { SortDropdown } from "@/components/home/sort-dropdown";
-import { ProductGrid } from "@/components/home/product-grid";
-import { HomeFiltersReset } from "@/components/home/home-filters-reset";
-import { WelcomeToast } from "@/components/common/welcome-toast";
-import { getProducts, getCategories } from "@/services/product.service";
-import { PRODUCT_FETCH_BATCH_SIZE } from "@/constants/generalconstants";
+import { ProductSearchBar } from '@/components/home/product-search-bar';
+import { CategoryDropdown } from '@/components/home/category-dropdown';
+import { SortDropdown } from '@/components/home/sort-dropdown';
+import { ProductGrid } from '@/components/home/product-grid';
+import { HomeFiltersReset } from '@/components/home/home-filters-reset';
+import { WelcomeToast } from '@/components/common/welcome-toast';
+import { getProducts, getCategories } from '@/services/product.service';
+import { PRODUCT_FETCH_BATCH_SIZE } from '@/constants/generalconstants';
 
 export const metadata: Metadata = {
-  title: "ShopFastStore",
-  description: "Browse the full ShopFastStore product catalog.",
-  openGraph: { title: "ShopFastStore | Our Products" },
+  title: 'ShopFastStore',
+  description: 'Browse the full ShopFastStore product catalog.',
+  openGraph: { title: 'ShopFastStore | Our Products' }
 };
 
 interface HomePageProps {
@@ -26,9 +26,9 @@ interface HomePageProps {
 
 export default async function HomePage({ searchParams }: HomePageProps) {
   const params = await searchParams;
-  const q = params?.q || params?.search || "";
-  const category = params?.category || "";
-  const sort = params?.sort || "";
+  const q = params?.q || params?.search || '';
+  const category = params?.category || '';
+  const sort = params?.sort || '';
 
   const [initialProducts, categories] = await Promise.all([
     getProducts({
@@ -36,9 +36,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
       limit: PRODUCT_FETCH_BATCH_SIZE,
       q,
       category,
-      sort,
+      sort
     }),
-    getCategories(),
+    getCategories()
   ]);
 
   return (

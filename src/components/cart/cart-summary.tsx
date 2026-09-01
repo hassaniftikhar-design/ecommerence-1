@@ -1,11 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { TAX_RATE } from "@/constants/generalconstants";
-import { ROUTES } from "@/constants/routes";
-import type { CartTotals } from "@/types/cart.types";
+import { useRouter } from 'next/navigation';
+
+import { Button } from '@/components/ui/button';
+import { TAX_RATE } from '@/constants/generalconstants';
+import { ROUTES } from '@/constants/routes';
+import type { CartTotals } from '@/types/cart.types';
 
 interface CartSummaryProps {
   totals: CartTotals;
@@ -20,7 +20,7 @@ export function CartSummary({
   isEmpty = false,
   selectedItemIds = [],
   onProceedToCheckout,
-  loading = false,
+  loading = false
 }: CartSummaryProps) {
   const router = useRouter();
   const hasSelectedItems = selectedItemIds.length > 0;
@@ -65,7 +65,7 @@ export function CartSummary({
             Checking Stock...
           </span>
         ) : (
-          "Proceed to Checkout"
+          'Place Order'
         )}
       </Button>
     </div>

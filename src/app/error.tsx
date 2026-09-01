@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
 // error.tsx MUST be a Client Component -- Next.js requires this
 // because it needs to catch errors thrown during rendering on the
 // client and receives a `reset()` callback to attempt re-rendering,
 // both of which only make sense in the browser runtime.
-import { useEffect } from "react";
+import { useEffect } from 'react';
 
 export default function Error({
   error,
-  reset,
+  reset
 }: {
   error: Error & { digest?: string };
   reset: () => void;

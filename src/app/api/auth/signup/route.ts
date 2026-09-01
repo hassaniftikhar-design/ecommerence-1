@@ -1,7 +1,7 @@
-import { apiSuccess, apiError } from "@/lib/api-response";
-import { signupUserServer } from "@/server/services/auth.service";
+import { apiSuccess, apiError } from '@/lib/api-response';
+import { signupUserServer } from '@/server/services/auth.service';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
@@ -14,8 +14,8 @@ export async function POST(request: Request) {
 
     return apiSuccess(result.message, { user: result.user }, result.status);
   } catch (error) {
-    return apiError("An internal server error occurred during signup", [
-      (error as Error).message,
+    return apiError('An internal server error occurred during signup', [
+      (error as Error).message
     ], 500);
   }
 }

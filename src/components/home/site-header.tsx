@@ -1,23 +1,25 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { ShoppingBag } from "lucide-react";
-import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { useState } from 'react';
 
-import { UserMenu } from "@/components/common/user-menu";
-import { RequireLoginModal } from "@/components/auth/require-login-modal";
-import { NotificationPopover } from "@/components/notifications/notification-popover";
-import { ROUTES } from "@/constants/routes";
-import { isSessionExpired } from "@/constants/auth";
-import { useCart } from "@/providers/cart-provider";
+import Link from 'next/link';
+
+import { ShoppingBag } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+
+import { UserMenu } from '@/components/common/user-menu';
+import { RequireLoginModal } from '@/components/auth/require-login-modal';
+import { NotificationPopover } from '@/components/notifications/notification-popover';
+import { ROUTES } from '@/constants/routes';
+import { isSessionExpired } from '@/constants/auth';
+import { useCart } from '@/providers/cart-provider';
 
 export function SiteHeader() {
   const { data: session, status } = useSession();
   const { cartCount } = useCart();
 
   const isExpired = isSessionExpired(session?.user?.sessionExpiresAt);
-  const isAuthenticated = status === "authenticated" && !isExpired;
+  const isAuthenticated = status === 'authenticated' && !isExpired;
   const [showLoginModal, setShowLoginModal] = useState(false);
 
   const handleCartClick = (e: React.MouseEvent) => {
@@ -38,7 +40,7 @@ export function SiteHeader() {
             <ShoppingBag className="h-5 w-5 text-[#007BFF] group-hover:opacity-80 transition cursor-pointer" />
             {isAuthenticated && cartCount > 0 && (
               <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-xs animate-in zoom-in-50 duration-200">
-                {cartCount > 99 ? "99+" : cartCount}
+                {cartCount > 99 ? '99+' : cartCount}
               </span>
             )}
           </Link>

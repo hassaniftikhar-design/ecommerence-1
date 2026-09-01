@@ -1,20 +1,22 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { ShoppingBag } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Button } from "@/components/ui/button";
-import { ROUTES } from "@/constants/routes";
+import Link from 'next/link';
+
+import { ShoppingBag } from 'lucide-react';
+
+import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
+import { ROUTES } from '@/constants/routes';
 import {
   Table,
   TableBody,
   TableHead,
   TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { CartItemRow } from "@/components/cart/cart-item-row";
-import { useCartSelection } from "@/hooks/use-cart-selection";
-import type { CartItem } from "@/types/cart.types";
+  TableRow
+} from '@/components/ui/table';
+import { CartItemRow } from '@/components/cart/cart-item-row';
+import { useCartSelection } from '@/hooks/use-cart-selection';
+import type { CartItem } from '@/types/cart.types';
 
 interface CartTableProps {
   items: CartItem[];
@@ -29,7 +31,7 @@ export function CartTable({
   onUpdateQuantity,
   onRemoveItem,
   selectedIds = [],
-  onSelectionChange,
+  onSelectionChange
 }: CartTableProps) {
   const itemIds = items.map((item) => item.id);
   const { allSelected, toggleAll, toggleOne, isSelected } =
@@ -59,7 +61,7 @@ export function CartTable({
       <Table>
         <TableHeader>
           <TableRow className="bg-slate-50/70 border-b border-slate-200">
-            <TableHead className="w-[35%] font-semibold text-slate-600">
+            <TableHead className="w-[30%] font-semibold text-slate-600">
               <div className="flex items-center gap-3">
                 <Checkbox
                   checked={allSelected}
@@ -69,11 +71,12 @@ export function CartTable({
                 Product
               </div>
             </TableHead>
-            <TableHead className="font-semibold text-slate-600">Variant</TableHead>
+            <TableHead className="font-semibold text-slate-600">Color</TableHead>
+            <TableHead className="font-semibold text-slate-600">Size</TableHead>
             <TableHead className="font-semibold text-slate-600">Qty</TableHead>
-            <TableHead className="font-semibold text-slate-600">Price</TableHead>
+            <TableHead className="font-semibold text-slate-600">Rate</TableHead>
             <TableHead className="font-semibold text-slate-600">Total Price</TableHead>
-            <TableHead className="text-right font-semibold text-slate-600">Actions</TableHead>
+            <TableHead className="text-right font-semibold text-slate-600 pr-4">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

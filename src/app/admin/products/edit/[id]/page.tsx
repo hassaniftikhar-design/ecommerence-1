@@ -1,22 +1,15 @@
-"use client";
+'use client';
 
-import { use } from "react";
-import { useRouter } from "next/navigation";
-import { AdminProductsView } from "@/components/forms/admin-products-view";
-import { ROUTES } from "@/constants/routes";
+import { use } from 'react';
+
+import { AdminProductFormPage } from '@/components/forms/admin-product-form-page';
 
 export default function EditProductPage({
-  params,
+  params
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const router = useRouter();
 
-  return (
-    <AdminProductsView
-      initialEditProductId={id}
-      onCloseEditDrawer={() => router.push(ROUTES.adminProducts)}
-    />
-  );
+  return <AdminProductFormPage productId={id} />;
 }

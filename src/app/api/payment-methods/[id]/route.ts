@@ -1,8 +1,8 @@
-import { apiSuccess, apiError } from "@/lib/api-response";
-import { getCurrentUser } from "@/lib/server-auth";
-import { deletePaymentMethodServer } from "@/server/services/payment.service";
+import { apiSuccess, apiError } from '@/lib/api-response';
+import { getCurrentUser } from '@/lib/server-auth';
+import { deletePaymentMethodServer } from '@/server/services/payment.service';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 export async function DELETE(
   request: Request,
@@ -14,7 +14,7 @@ export async function DELETE(
     const userId = user?.id || user?.sub;
 
     if (!user || !userId) {
-      return apiError("Unauthorized: Please log in", [], 401);
+      return apiError('Unauthorized: Please log in', [], 401);
     }
 
     const result = await deletePaymentMethodServer(userId, paymentMethodRecordId);
@@ -25,8 +25,8 @@ export async function DELETE(
 
     return apiSuccess(result.message, undefined, result.status);
   } catch (error) {
-    return apiError("Failed to delete payment method", [
-      (error as Error).message,
+    return apiError('Failed to delete payment method', [
+      (error as Error).message
     ], 500);
   }
 }

@@ -1,9 +1,12 @@
-"use client";
+'use client';
 
-import React, { useRef } from "react";
-import Image from "next/image";
-import { ImagePlus, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import React, { useRef } from 'react';
+
+import Image from 'next/image';
+
+import { ImagePlus, X } from 'lucide-react';
+
+import { cn } from '@/lib/utils';
 
 interface VariantImageUploadProps {
   file?: File;
@@ -16,7 +19,7 @@ export function VariantImageUpload({
   file,
   previewUrl,
   onChange,
-  disabled = false,
+  disabled = false
 }: VariantImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -26,7 +29,7 @@ export function VariantImageUpload({
     const localUrl = URL.createObjectURL(selectedFile);
     onChange(selectedFile, localUrl);
     if (e.target) {
-      e.target.value = "";
+      e.target.value = '';
     }
   };
 
@@ -78,8 +81,8 @@ export function VariantImageUpload({
           onClick={() => !disabled && inputRef.current?.click()}
           disabled={disabled}
           className={cn(
-            "flex h-11 items-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white px-3 text-xs font-semibold text-slate-600 hover:border-[#007BFF] hover:text-[#007BFF] hover:bg-blue-50/30 transition-all cursor-pointer shadow-2xs active:scale-95",
-            disabled && "opacity-50 cursor-not-allowed"
+            'flex h-11 items-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white px-3 text-xs font-semibold text-slate-600 hover:border-[#007BFF] hover:text-[#007BFF] hover:bg-blue-50/30 transition-all cursor-pointer shadow-2xs active:scale-95',
+            disabled && 'opacity-50 cursor-not-allowed'
           )}
           title="Add variant image"
         >

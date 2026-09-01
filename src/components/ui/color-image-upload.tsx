@@ -1,9 +1,12 @@
-"use client";
+'use client';
 
-import React, { useRef } from "react";
-import Image from "next/image";
-import { Upload, X, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import React, { useRef } from 'react';
+
+import Image from 'next/image';
+
+import { Upload, X, RefreshCw } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 
 interface ColorImageUploadProps {
   colorName: string;
@@ -18,7 +21,7 @@ export function ColorImageUpload({
   file,
   previewUrl,
   onChange,
-  disabled = false,
+  disabled = false
 }: ColorImageUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -34,7 +37,7 @@ export function ColorImageUpload({
     const localUrl = URL.createObjectURL(selectedFile);
     onChange(selectedFile, localUrl);
     if (e.target) {
-      e.target.value = "";
+      e.target.value = '';
     }
   };
 
@@ -52,7 +55,7 @@ export function ColorImageUpload({
         <span
           className="h-4 w-4 rounded-full border border-slate-300 shadow-2xs shrink-0"
           style={{
-            backgroundColor: colorName.toLowerCase() === "white" ? "#FFFFFF" : colorName.toLowerCase(),
+            backgroundColor: colorName.toLowerCase() === 'white' ? '#FFFFFF' : colorName.toLowerCase()
           }}
         />
         <span className="text-xs font-bold text-slate-800">{colorName}</span>

@@ -1,14 +1,16 @@
-"use client";
+'use client';
 
-import { useEffect } from "react";
-import { useSession } from "next-auth/react";
-import { logout } from "@/services/auth.service";
+import { useEffect } from 'react';
+
+import { useSession } from 'next-auth/react';
+
+import { logout } from '@/services/auth.service';
 
 export function SessionExpiryHandler() {
   const { data: session, status } = useSession();
 
   useEffect(() => {
-    if (status !== "authenticated" || !session?.user?.sessionExpiresAt) {
+    if (status !== 'authenticated' || !session?.user?.sessionExpiresAt) {
       return;
     }
 

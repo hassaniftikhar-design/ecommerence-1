@@ -1,20 +1,22 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import React, { useState } from 'react';
+
+import { Check, ChevronDown } from 'lucide-react';
+
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
+  DropdownMenuItem
+} from '@/components/ui/dropdown-menu';
 import {
   MAX_VISIBLE_COLORS_DESKTOP,
   MAX_VISIBLE_COLORS_MOBILE,
-  getColorHex,
-} from "@/constants/generalconstants";
-import { useIsMobile } from "@/hooks/use-is-mobile";
+  getColorHex
+} from '@/constants/generalconstants';
+import { useIsMobile } from '@/hooks/use-is-mobile';
 
 export interface ProductColorSelectorProps {
   colors: string[];
@@ -27,7 +29,7 @@ export function ProductColorSelector({
   colors,
   selectedColor,
   onSelectColor,
-  className,
+  className
 }: ProductColorSelectorProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const isMobile = useIsMobile();
@@ -38,16 +40,16 @@ export function ProductColorSelector({
   }
 
   const maxColors = isMobile ? MAX_VISIBLE_COLORS_MOBILE : MAX_VISIBLE_COLORS_DESKTOP;
-  const activeColor = selectedColor || colors[0] || "";
+  const activeColor = selectedColor || colors[0] || '';
   const isOverMax = colors.length > maxColors;
 
   // Render Select Dropdown mode if colors > maxColors and dropdown is active
   if (isOverMax && showDropdown) {
     const activeHex = getColorHex(activeColor);
-    const isActiveWhite = activeColor.toLowerCase() === "white" || activeHex.toLowerCase() === "#ffffff";
+    const isActiveWhite = activeColor.toLowerCase() === 'white' || activeHex.toLowerCase() === '#ffffff';
 
     return (
-      <div className={cn("flex flex-col gap-1.5 w-full", className)}>
+      <div className={cn('flex flex-col gap-1.5 w-full', className)}>
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
             Color: <span className="text-slate-800 font-bold capitalize">{activeColor}</span>
@@ -62,8 +64,8 @@ export function ProductColorSelector({
               <div className="flex items-center gap-1.5 truncate">
                 <span
                   className={cn(
-                    "h-3.5 w-3.5 rounded-full shrink-0 border border-slate-300/80 shadow-2xs",
-                    isActiveWhite && "border-slate-400"
+                    'h-3.5 w-3.5 rounded-full shrink-0 border border-slate-300/80 shadow-2xs',
+                    isActiveWhite && 'border-slate-400'
                   )}
                   style={{ backgroundColor: activeHex }}
                 />
@@ -76,15 +78,15 @@ export function ProductColorSelector({
             {colors.map((color) => {
               const isSelected = activeColor.toLowerCase() === color.toLowerCase();
               const hex = getColorHex(color);
-              const isWhite = color.toLowerCase() === "white" || hex.toLowerCase() === "#ffffff";
+              const isWhite = color.toLowerCase() === 'white' || hex.toLowerCase() === '#ffffff';
 
               return (
                 <DropdownMenuItem
                   key={color}
                   onClick={() => onSelectColor(color)}
                   className={cn(
-                    "flex items-center gap-2 px-2.5 py-1.5 text-xs rounded-md cursor-pointer transition-colors",
-                    isSelected ? "bg-blue-50 text-[#007BFF] font-semibold" : "text-slate-700 hover:bg-slate-50"
+                    'flex items-center gap-2 px-2.5 py-1.5 text-xs rounded-md cursor-pointer transition-colors',
+                    isSelected ? 'bg-blue-50 text-[#007BFF] font-semibold' : 'text-slate-700 hover:bg-slate-50'
                   )}
                 >
                   <div className="w-4 flex items-center justify-center shrink-0">
@@ -92,8 +94,8 @@ export function ProductColorSelector({
                   </div>
                   <span
                     className={cn(
-                      "h-3.5 w-3.5 rounded-full shrink-0 border border-slate-300/80 shadow-2xs",
-                      isWhite && "border-slate-400"
+                      'h-3.5 w-3.5 rounded-full shrink-0 border border-slate-300/80 shadow-2xs',
+                      isWhite && 'border-slate-400'
                     )}
                     style={{ backgroundColor: hex }}
                   />
@@ -112,7 +114,7 @@ export function ProductColorSelector({
   const remainingCount = colors.length - maxColors;
 
   return (
-    <div className={cn("flex flex-col gap-1.5 w-full", className)}>
+    <div className={cn('flex flex-col gap-1.5 w-full', className)}>
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
           Color: <span className="text-slate-800 font-bold capitalize">{activeColor}</span>
@@ -122,7 +124,7 @@ export function ProductColorSelector({
         {visibleColors.map((color) => {
           const isSelected = activeColor.toLowerCase() === color.toLowerCase();
           const hex = getColorHex(color);
-          const isWhite = color.toLowerCase() === "white" || hex.toLowerCase() === "#ffffff";
+          const isWhite = color.toLowerCase() === 'white' || hex.toLowerCase() === '#ffffff';
 
           return (
             <button
@@ -131,16 +133,16 @@ export function ProductColorSelector({
               onClick={() => onSelectColor(color)}
               title={color}
               className={cn(
-                "relative rounded-full transition-all duration-150 cursor-pointer flex items-center justify-center shrink-0",
+                'relative rounded-full transition-all duration-150 cursor-pointer flex items-center justify-center shrink-0',
                 isSelected
-                  ? "h-6 w-6 ring-2 ring-slate-900 ring-offset-1 shadow-sm scale-110"
-                  : "h-5 w-5 hover:scale-110 opacity-80 hover:opacity-100"
+                  ? 'h-6 w-6 ring-2 ring-slate-900 ring-offset-1 shadow-sm scale-110'
+                  : 'h-5 w-5 hover:scale-110 opacity-80 hover:opacity-100'
               )}
             >
               <span
                 className={cn(
-                  "h-full w-full rounded-full border border-black/10 shadow-2xs",
-                  isWhite && "border-slate-300"
+                  'h-full w-full rounded-full border border-black/10 shadow-2xs',
+                  isWhite && 'border-slate-300'
                 )}
                 style={{ backgroundColor: hex }}
               />

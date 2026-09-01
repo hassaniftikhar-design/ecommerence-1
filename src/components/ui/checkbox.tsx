@@ -1,14 +1,15 @@
-"use client";
+'use client';
 
 // Client Component: Radix's Checkbox primitive manages its own
 // checked/unchecked state internally via React state + keyboard
 // handlers, which requires the browser runtime -- it cannot render on
 // the server.
-import * as React from "react";
-import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
-import { Check } from "lucide-react";
+import * as React from 'react';
 
-import { cn } from "@/lib/utils";
+import * as CheckboxPrimitive from '@radix-ui/react-checkbox';
+import { Check } from 'lucide-react';
+
+import { cn } from '@/lib/utils';
 
 const Checkbox = React.forwardRef<
   React.ElementRef<typeof CheckboxPrimitive.Root>,
@@ -17,9 +18,9 @@ const Checkbox = React.forwardRef<
   <CheckboxPrimitive.Root
     ref={ref}
     className={cn(
-      "peer h-4 w-4 shrink-0 rounded-sm border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-      "data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-white",
-      className,
+      'peer h-4 w-4 shrink-0 rounded-sm border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+      'data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-white',
+      className
     )}
     {...props}
   >
@@ -28,6 +29,6 @@ const Checkbox = React.forwardRef<
     </CheckboxPrimitive.Indicator>
   </CheckboxPrimitive.Root>
 ));
-Checkbox.displayName = "Checkbox";
+Checkbox.displayName = 'Checkbox';
 
 export { Checkbox };

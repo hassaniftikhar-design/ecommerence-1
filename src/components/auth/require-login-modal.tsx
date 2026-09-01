@@ -1,11 +1,14 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
-import { LogIn, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ROUTES } from "@/constants/routes";
+import { useEffect, useState } from 'react';
+
+import { useRouter } from 'next/navigation';
+
+import { createPortal } from 'react-dom';
+import { LogIn, X } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { ROUTES } from '@/constants/routes';
 
 interface RequireLoginModalProps {
   isOpen: boolean;
@@ -17,8 +20,8 @@ interface RequireLoginModalProps {
 export function RequireLoginModal({
   isOpen,
   onClose,
-  title = "Login Required",
-  description = "Please log in to your account to view your cart or add items to your cart.",
+  title = 'Login Required',
+  description = 'Please log in to your account to view your cart or add items to your cart.'
 }: RequireLoginModalProps) {
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
@@ -30,12 +33,12 @@ export function RequireLoginModal({
   // Prevent background scrolling when open
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = "hidden";
+      document.body.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = "";
+      document.body.style.overflow = '';
     }
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = '';
     };
   }, [isOpen]);
 

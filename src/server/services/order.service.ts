@@ -1,11 +1,12 @@
-import { prisma } from "@/lib/prisma";
-import { OrderStatus } from "@prisma/client";
-import { TAX_RATE, DEFAULT_PRODUCT_IMAGE } from "@/constants/generalconstants";
+import { OrderStatus } from '@prisma/client';
+
+import { prisma } from '@/lib/prisma';
+import { TAX_RATE, DEFAULT_PRODUCT_IMAGE } from '@/constants/generalconstants';
 import {
   validateOrderStatusInput,
   validateOrderIdInput,
-  validateCreateOrderInput,
-} from "@/server/middlewares";
+  validateCreateOrderInput
+} from '@/server/middlewares';
 
 function generateOrderNumber(): string {
   const randNum = Math.floor(100000 + Math.random() * 900000);
@@ -13,10 +14,10 @@ function generateOrderNumber(): string {
 }
 
 function formatDate(dateObj: Date): string {
-  return dateObj.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
+  return dateObj.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
   });
 }
 
@@ -29,34 +30,34 @@ export interface ListOrdersServerParams {
 }
 
 export async function listOrdersServer(params: ListOrdersServerParams) {
-  const { userId, userRole, page = 1, limit = 10, query = "" } = params;
+  const { userId, userRole, page = 1, limit = 10, query = '' } = params;
 
   const skip = (page - 1) * limit;
 
-  const baseUserFilter = userRole === "ADMIN" ? {} : userId ? { userId } : { userId: "guest-or-none" };
+  const baseUserFilter = userRole === 'ADMIN' ? {} : userId ? { userId } : { userId: 'guest-or-none' };
   const searchFilter = query.trim()
     ? {
       OR: [
-        { orderNumber: { contains: query.trim(), mode: "insensitive" as const } },
-        { id: { contains: query.trim(), mode: "insensitive" as const } },
-        { user: { name: { contains: query.trim(), mode: "insensitive" as const } } },
-        { user: { email: { contains: query.trim(), mode: "insensitive" as const } } },
-        { items: { some: { title: { contains: query.trim(), mode: "insensitive" as const } } } },
+        { orderNumber: { contains: query.trim(), mode: 'insensitive' as const } },
+        { id: { contains: query.trim(), mode: 'insensitive' as const } },
+        { user: { name: { contains: query.trim(), mode: 'insensitive' as const } } },
+        { user: { email: { contains: query.trim(), mode: 'insensitive' as const } } },
+        { items: { some: { title: { contains: query.trim(), mode: 'insensitive' as const } } } },
         {
           items: {
             some: {
               product: {
-                category: { name: { contains: query.trim(), mode: "insensitive" as const } },
-              },
-            },
-          },
-        },
-      ],
+                category: { name: { contains: query.trim(), mode: 'insensitive' as const } }
+              }
+            }
+          }
+        }
+      ]
     }
     : {};
 
   const whereClause = { ...baseUserFilter, ...searchFilter };
-  const validOrdersWhere = { ...baseUserFilter, status: { not: "REJECTED" as const } };
+  const validOrdersWhere = { ...baseUserFilter, status: { not: 'REJECTED' as const } };
 
   const [orders, totalCount, validOrdersAmountAgg, validOrderItemsAgg] = await Promise.all([
     prisma.order.findMany({
@@ -67,25 +68,25 @@ export async function listOrdersServer(params: ListOrdersServerParams) {
           include: {
             product: {
               include: {
-                category: { select: { id: true, name: true } },
-              },
-            },
-          },
-        },
+                category: { select: { id: true, name: true } }
+              }
+            }
+          }
+        }
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       skip,
-      take: limit,
+      take: limit
     }),
     prisma.order.count({ where: whereClause }),
     prisma.order.aggregate({
       _sum: { totalAmount: true },
-      where: validOrdersWhere,
+      where: validOrdersWhere
     }),
     prisma.orderItem.aggregate({
       _sum: { quantity: true },
-      where: { order: validOrdersWhere },
-    }),
+      where: { order: validOrdersWhere }
+    })
   ]);
 
   const totalAmountSum = Number(validOrdersAmountAgg._sum.totalAmount || 0);
@@ -97,10 +98,10 @@ export async function listOrdersServer(params: ListOrdersServerParams) {
       id: order.id,
       date: formatDate(order.createdAt),
       orderNumber: order.orderNumber,
-      user: order.user.name || "Customer",
+      user: order.user.name || 'Customer',
       productsCount: uniqueProductCount || order.items.length,
       amount: Number(order.totalAmount),
-      status: order.status,
+      status: order.status
     };
   });
 
@@ -110,7 +111,7 @@ export async function listOrdersServer(params: ListOrdersServerParams) {
     totalUnits: totalUnitsSum,
     totalAmount: totalAmountSum,
     page,
-    pageSize: limit,
+    pageSize: limit
   };
 }
 
@@ -136,20 +137,20 @@ export async function createOrderServer(
                 include: {
                   optionValue: {
                     include: {
-                      option: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
+                      option: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   });
 
   if (!cart || cart.items.length === 0) {
-    return { success: false as const, status: 400, errors: [], message: "Cannot place order with an empty cart" };
+    return { success: false as const, status: 400, errors: [], message: 'Cannot place order with an empty cart' };
   }
 
   let targetItems = cart.items;
@@ -158,7 +159,7 @@ export async function createOrderServer(
   }
 
   if (targetItems.length === 0) {
-    return { success: false as const, status: 400, errors: [], message: "No items selected to place order" };
+    return { success: false as const, status: 400, errors: [], message: 'No items selected to place order' };
   }
 
   const cartLines = targetItems.map((item) => {
@@ -175,7 +176,7 @@ export async function createOrderServer(
       const optionsStr = item.variant.variantOptions
         .map((vo) => vo.optionValue.value)
         .filter(Boolean)
-        .join(", ");
+        .join(', ');
       if (optionsStr) {
         itemTitle = `${item.product.name} (${optionsStr})`;
       }
@@ -189,7 +190,7 @@ export async function createOrderServer(
       price: unitPrice,
       quantity: item.quantity,
       totalPrice: lineTotal,
-      imageUrl,
+      imageUrl
     };
   });
 
@@ -197,13 +198,13 @@ export async function createOrderServer(
   const tax = Math.round(subTotal * TAX_RATE * 100) / 100;
   const totalAmount = Math.round((subTotal + tax) * 100) / 100;
 
-  if (typeof validExpectedTotal === "number" && Math.abs(validExpectedTotal - totalAmount) > 0.01) {
+  if (typeof validExpectedTotal === 'number' && Math.abs(validExpectedTotal - totalAmount) > 0.01) {
     return {
       success: false as const,
       status: 409,
-      errors: ["PRICE_CHANGED"],
-      message: "Prices have updated. Please review your new total.",
-      data: { newTotal: totalAmount },
+      errors: ['PRICE_CHANGED'],
+      message: 'Prices have updated. Please review your new total.',
+      data: { newTotal: totalAmount }
     };
   }
 
@@ -214,7 +215,7 @@ export async function createOrderServer(
       for (const line of cartLines) {
         const prod = await tx.product.findUnique({
           where: { id: line.productId },
-          select: { isActive: true, name: true, variants: { select: { id: true } } },
+          select: { isActive: true, name: true, variants: { select: { id: true } } }
         });
         if (!prod || !prod.isActive) {
           throw new Error(`INACTIVE_PRODUCT: ${line.title}`);
@@ -233,11 +234,11 @@ export async function createOrderServer(
         data: {
           orderNumber,
           userId,
-          status: "IN_PROGRESS",
+          status: 'IN_PROGRESS',
           subTotal,
           tax,
-          totalAmount,
-        },
+          totalAmount
+        }
       });
 
       for (const line of cartLines) {
@@ -246,7 +247,7 @@ export async function createOrderServer(
         if (line.variantId) {
           const variant = await tx.productVariant.findUnique({
             where: { id: line.variantId },
-            select: { stock: true },
+            select: { stock: true }
           });
 
           if (variant) {
@@ -256,11 +257,11 @@ export async function createOrderServer(
           const updateResult = await tx.productVariant.updateMany({
             where: {
               id: line.variantId,
-              stock: { gte: line.quantity },
+              stock: { gte: line.quantity }
             },
             data: {
-              stock: { decrement: line.quantity },
-            },
+              stock: { decrement: line.quantity }
+            }
           });
 
           if (updateResult.count === 0) {
@@ -277,14 +278,14 @@ export async function createOrderServer(
             price: line.price,
             quantity: line.quantity,
             stock: currentStock,
-            imageUrl: line.imageUrl,
-          },
+            imageUrl: line.imageUrl
+          }
         });
       }
 
       const orderedCartItemIds = cartLines.map((l) => l.cartItemId);
       await tx.cartItem.deleteMany({
-        where: { id: { in: orderedCartItemIds } },
+        where: { id: { in: orderedCartItemIds } }
       });
 
       return newOrder;
@@ -293,42 +294,42 @@ export async function createOrderServer(
     await prisma.notification.create({
       data: {
         userId,
-        title: "Order Placed Successfully",
+        title: 'Order Placed Successfully',
         message: `Your order #${createdOrder.orderNumber} has been placed.`,
-        type: "ORDER_PLACED",
-        orderId: createdOrder.id,
-      },
+        type: 'ORDER_PLACED',
+        orderId: createdOrder.id
+      }
     });
 
     return {
       success: true as const,
       status: 201,
       orderId: createdOrder.id,
-      orderNumber: createdOrder.orderNumber,
+      orderNumber: createdOrder.orderNumber
     };
   } catch (error) {
-    const errorMsg = (error as Error).message || "";
-    if (errorMsg.startsWith("INACTIVE_PRODUCT")) {
-      const prodName = errorMsg.split(":")[1]?.trim() || "Product";
+    const errorMsg = (error as Error).message || '';
+    if (errorMsg.startsWith('INACTIVE_PRODUCT')) {
+      const prodName = errorMsg.split(':')[1]?.trim() || 'Product';
       return {
         success: false as const,
         status: 400,
-        errors: ["INACTIVE_PRODUCT"],
-        message: `Order cannot be placed because '${prodName}' is currently inactive.`,
+        errors: ['INACTIVE_PRODUCT'],
+        message: `Order cannot be placed because '${prodName}' is currently inactive.`
       };
     }
-    if (errorMsg.startsWith("VARIANT_DELETED")) {
-      const prodName = errorMsg.split(":")[1]?.trim() || "Item";
+    if (errorMsg.startsWith('VARIANT_DELETED')) {
+      const prodName = errorMsg.split(':')[1]?.trim() || 'Item';
       return {
         success: false as const,
         status: 400,
-        errors: ["VARIANT_DELETED"],
-        message: `Item '${prodName}' does not exist anymore and was removed by the seller. Please update your cart.`,
+        errors: ['VARIANT_DELETED'],
+        message: `Item '${prodName}' does not exist anymore and was removed by the seller. Please update your cart.`
       };
     }
-    if (errorMsg.startsWith("OUT_OF_STOCK")) {
-      const parts = errorMsg.split(":");
-      const itemName = parts[1]?.trim() || "Item";
+    if (errorMsg.startsWith('OUT_OF_STOCK')) {
+      const parts = errorMsg.split(':');
+      const itemName = parts[1]?.trim() || 'Item';
       const availableStock = parts[2] !== undefined ? parseInt(parts[2], 10) : null;
       const requestedQty = parts[3] !== undefined ? parseInt(parts[3], 10) : null;
 
@@ -342,16 +343,16 @@ export async function createOrderServer(
       return {
         success: false as const,
         status: 400,
-        errors: ["OUT_OF_STOCK"],
+        errors: ['OUT_OF_STOCK'],
         message,
         data: {
           outOfStockItem: itemName,
           availableStock,
-          requestedQty,
-        },
+          requestedQty
+        }
       };
     }
-    return { success: false as const, status: 500, errors: [errorMsg], message: "Failed to place order" };
+    return { success: false as const, status: 500, errors: [errorMsg], message: 'Failed to place order' };
   }
 }
 
@@ -365,7 +366,7 @@ export async function getOrderByIdServer(id: string, userId?: string, userRole?:
   const order = await prisma.order.findUnique({
     where: { id: validId },
     include: {
-      user: { select: { id: true, name: true, email: true } },
+      user: { select: { id: true, name: true, email: true, addressLine: true, city: true, postalCode: true, country: true } },
       payment: true,
       items: {
         include: {
@@ -375,48 +376,58 @@ export async function getOrderByIdServer(id: string, userId?: string, userRole?:
                 include: {
                   optionValue: {
                     include: {
-                      option: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
+                      option: true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   });
 
   if (!order) {
-    return { success: false as const, status: 404, errors: [], message: "Order not found" };
+    return { success: false as const, status: 404, errors: [], message: 'Order not found' };
   }
 
-  if (userRole !== "ADMIN" && order.userId !== userId) {
-    return { success: false as const, status: 403, errors: [], message: "Forbidden: Cannot access this order" };
+  if (userRole !== 'ADMIN' && order.userId !== userId) {
+    return { success: false as const, status: 403, errors: [], message: 'Forbidden: Cannot access this order' };
   }
 
   const uniqueProductCount = new Set(order.items.map((item) => item.productId)).size;
+
+  const shippingAddress = [
+    order.user.addressLine,
+    order.user.city,
+    order.user.postalCode,
+    order.user.country
+  ]
+    .filter(Boolean)
+    .join(', ');
 
   const formattedDetail = {
     id: order.id,
     date: formatDate(order.createdAt),
     orderNumber: order.orderNumber,
-    user: order.user.name || "Customer",
+    user: order.user.name || 'Customer',
     productsCount: uniqueProductCount || order.items.length,
     amount: Number(order.totalAmount),
     subTotal: Number(order.subTotal),
     tax: Number(order.tax),
     totalAmount: Number(order.totalAmount),
+    shippingAddress: shippingAddress || null,
     status: order.status,
     payment: order.payment
       ? {
-          id: order.payment.id,
-          status: order.payment.status,
-          amount: Number(order.payment.amount),
-          currency: order.payment.currency,
-          paidAt: order.payment.paidAt ? formatDate(order.payment.paidAt) : null,
-          errorMessage: order.payment.errorMessage,
-        }
+        id: order.payment.id,
+        status: order.payment.status,
+        amount: Number(order.payment.amount),
+        currency: order.payment.currency,
+        paidAt: order.payment.paidAt ? formatDate(order.payment.paidAt) : null,
+        errorMessage: order.payment.errorMessage
+      }
       : null,
     products: order.items.map((item) => {
       let color: string | undefined = undefined;
@@ -426,8 +437,8 @@ export async function getOrderByIdServer(id: string, userId?: string, userRole?:
         for (const vo of item.variant.variantOptions) {
           const optionName = vo.optionValue?.option?.name?.toLowerCase();
           const val = vo.optionValue?.value;
-          if (optionName === "color") color = val;
-          if (optionName === "size") size = val;
+          if (optionName === 'color') color = val;
+          if (optionName === 'size') size = val;
         }
       }
 
@@ -440,19 +451,19 @@ export async function getOrderByIdServer(id: string, userId?: string, userRole?:
         quantity: item.quantity,
         stock: item.variant?.stock ?? item.stock,
         color,
-        size,
+        size
       };
-    }),
+    })
   };
 
   return { success: true as const, status: 200, order: formattedDetail };
 }
 
 const ALLOWED_ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  IN_PROGRESS: ["IN_PROGRESS", "DISPATCHED", "REJECTED"],
-  DISPATCHED: ["DISPATCHED", "DELIVERED", "REJECTED"],
-  DELIVERED: ["DELIVERED"],
-  REJECTED: ["REJECTED"],
+  IN_PROGRESS: ['IN_PROGRESS', 'DISPATCHED', 'REJECTED'],
+  DISPATCHED: ['DISPATCHED', 'DELIVERED', 'REJECTED'],
+  DELIVERED: ['DELIVERED'],
+  REJECTED: ['REJECTED']
 };
 
 export async function updateOrderStatusServer(id: string, status: unknown) {
@@ -471,41 +482,41 @@ export async function updateOrderStatusServer(id: string, status: unknown) {
 
   const existingOrder = await prisma.order.findUnique({
     where: { id: validId },
-    include: { items: true, payment: true },
+    include: { items: true, payment: true }
   });
 
   if (!existingOrder) {
-    return { success: false as const, status: 404, errors: [], message: "Order not found" };
+    return { success: false as const, status: 404, errors: [], message: 'Order not found' };
   }
 
   // Payment Status Locking for Card Payments
   if (existingOrder.payment) {
     const paymentStatus = existingOrder.payment.status;
 
-    if (paymentStatus === "PENDING" || paymentStatus === "PROCESSING") {
+    if (paymentStatus === 'PENDING' || paymentStatus === 'PROCESSING') {
       return {
         success: false as const,
         status: 400,
-        errors: ["PAYMENT_PENDING"],
-        message: `Cannot update order status while payment is ${paymentStatus}. Please wait for payment confirmation.`,
+        errors: ['PAYMENT_PENDING'],
+        message: `Cannot update order status while payment is ${paymentStatus}. Please wait for payment confirmation.`
       };
     }
 
-    if (paymentStatus === "FAILED") {
+    if (paymentStatus === 'FAILED') {
       return {
         success: false as const,
         status: 400,
-        errors: ["PAYMENT_FAILED"],
-        message: "Cannot advance order status because payment has FAILED. The customer must complete or retry payment.",
+        errors: ['PAYMENT_FAILED'],
+        message: 'Cannot advance order status because payment has FAILED. The customer must complete or retry payment.'
       };
     }
 
-    if (paymentStatus === "REFUNDED" && validStatus !== "REJECTED") {
+    if (paymentStatus === 'REFUNDED' && validStatus !== 'REJECTED') {
       return {
         success: false as const,
         status: 400,
-        errors: ["PAYMENT_REFUNDED"],
-        message: "This order has been refunded and cannot be advanced. Only cancellation (Rejected) is permitted.",
+        errors: ['PAYMENT_REFUNDED'],
+        message: 'This order has been refunded and cannot be advanced. Only cancellation (Rejected) is permitted.'
       };
     }
   }
@@ -518,36 +529,36 @@ export async function updateOrderStatusServer(id: string, status: unknown) {
       status: 200,
       order: {
         id: existingOrder.id,
-        status: existingOrder.status,
-      },
+        status: existingOrder.status
+      }
     };
   }
 
   const allowedNext = ALLOWED_ORDER_TRANSITIONS[previousStatus] || [];
   if (!allowedNext.includes(validStatus)) {
     let message = `Invalid status transition from ${previousStatus} to ${status}.`;
-    if (previousStatus === "DELIVERED") {
-      message = "Delivered orders cannot be modified or cancelled.";
-    } else if (previousStatus === "REJECTED") {
-      message = "Cancelled orders cannot be modified.";
-    } else if (previousStatus === "DISPATCHED" && status === "IN_PROGRESS") {
-      message = "Dispatched orders cannot be reverted back to In Progress.";
+    if (previousStatus === 'DELIVERED') {
+      message = 'Delivered orders cannot be modified or cancelled.';
+    } else if (previousStatus === 'REJECTED') {
+      message = 'Cancelled orders cannot be modified.';
+    } else if (previousStatus === 'DISPATCHED' && status === 'IN_PROGRESS') {
+      message = 'Dispatched orders cannot be reverted back to In Progress.';
     }
     return {
       success: false as const,
       status: 400,
-      errors: ["INVALID_STATUS_TRANSITION"],
-      message,
+      errors: ['INVALID_STATUS_TRANSITION'],
+      message
     };
   }
 
   const updatedOrder = await prisma.$transaction(async (tx) => {
-    if (previousStatus !== "REJECTED" && status === "REJECTED") {
+    if (previousStatus !== 'REJECTED' && status === 'REJECTED') {
       for (const item of existingOrder.items) {
         let targetVariantId = item.variantId;
         if (!targetVariantId) {
           const firstVariant = await tx.productVariant.findFirst({
-            where: { productId: item.productId },
+            where: { productId: item.productId }
           });
           if (firstVariant) {
             targetVariantId = firstVariant.id;
@@ -556,24 +567,24 @@ export async function updateOrderStatusServer(id: string, status: unknown) {
 
         if (targetVariantId) {
           const variant = await tx.productVariant.findUnique({
-            where: { id: targetVariantId },
+            where: { id: targetVariantId }
           });
           if (variant) {
             await tx.productVariant.update({
               where: { id: targetVariantId },
-              data: { stock: variant.stock + item.quantity },
+              data: { stock: variant.stock + item.quantity }
             });
           }
         }
       }
     }
 
-    if (previousStatus === "REJECTED" && status !== "REJECTED") {
+    if (previousStatus === 'REJECTED' && status !== 'REJECTED') {
       for (const item of existingOrder.items) {
         let targetVariantId = item.variantId;
         if (!targetVariantId) {
           const firstVariant = await tx.productVariant.findFirst({
-            where: { productId: item.productId },
+            where: { productId: item.productId }
           });
           if (firstVariant) {
             targetVariantId = firstVariant.id;
@@ -582,12 +593,12 @@ export async function updateOrderStatusServer(id: string, status: unknown) {
 
         if (targetVariantId) {
           const variant = await tx.productVariant.findUnique({
-            where: { id: targetVariantId },
+            where: { id: targetVariantId }
           });
           if (variant) {
             await tx.productVariant.update({
               where: { id: targetVariantId },
-              data: { stock: Math.max(0, variant.stock - item.quantity) },
+              data: { stock: Math.max(0, variant.stock - item.quantity) }
             });
           }
         }
@@ -599,16 +610,16 @@ export async function updateOrderStatusServer(id: string, status: unknown) {
       data: { status: validStatus },
       include: {
         user: { select: { name: true } },
-        items: true,
-      },
+        items: true
+      }
     });
   });
 
   const statusLabels: Record<OrderStatus, string> = {
-    IN_PROGRESS: "processing",
-    DISPATCHED: "shipped",
-    DELIVERED: "delivered",
-    REJECTED: "cancelled",
+    IN_PROGRESS: 'processing',
+    DISPATCHED: 'shipped',
+    DELIVERED: 'delivered',
+    REJECTED: 'cancelled'
   };
 
   const readableStatus = statusLabels[validStatus] || validStatus.toLowerCase();
@@ -616,11 +627,11 @@ export async function updateOrderStatusServer(id: string, status: unknown) {
   await prisma.notification.create({
     data: {
       userId: existingOrder.userId,
-      title: "Order Status Updated",
+      title: 'Order Status Updated',
       message: `Your order #${existingOrder.orderNumber} is now ${readableStatus}.`,
-      type: "ORDER_STATUS_UPDATED",
-      orderId: updatedOrder.id,
-    },
+      type: 'ORDER_STATUS_UPDATED',
+      orderId: updatedOrder.id
+    }
   });
 
   return {
@@ -628,7 +639,7 @@ export async function updateOrderStatusServer(id: string, status: unknown) {
     status: 200,
     order: {
       id: updatedOrder.id,
-      status: updatedOrder.status,
-    },
+      status: updatedOrder.status
+    }
   };
 }

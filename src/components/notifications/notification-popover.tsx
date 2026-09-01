@@ -1,37 +1,38 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Bell, Package, ShoppingBag } from "lucide-react";
-import { useSession } from "next-auth/react";
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+
+import { Bell, Package, ShoppingBag } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 
 import {
   NOTIFICATIONS_PER_PAGE,
-  NOTIFICATIONS_LAZY_LOAD_DELAY_MS,
-} from "@/constants/generalconstants";
-import { getNotifications, markNotificationAsRead } from "@/services/notification.service";
-import type { NotificationItem } from "@/types/notification.types";
+  NOTIFICATIONS_LAZY_LOAD_DELAY_MS
+} from '@/constants/generalconstants';
+import { getNotifications, markNotificationAsRead } from '@/services/notification.service';
+import type { NotificationItem } from '@/types/notification.types';
 
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-  if (diffInSeconds < 60) return "Just now";
+  if (diffInSeconds < 60) return 'Just now';
   const diffInMinutes = Math.floor(diffInSeconds / 60);
   if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
   const diffInHours = Math.floor(diffInMinutes / 60);
   if (diffInHours < 24) return `${diffInHours}h ago`;
   const diffInDays = Math.floor(diffInHours / 24);
   if (diffInDays < 30) return `${diffInDays}d ago`;
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 export function NotificationPopover() {
   const { status } = useSession();
-  const isAuthenticated = status === "authenticated";
+  const isAuthenticated = status === 'authenticated';
 
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"unread" | "all">("unread");
+  const [activeTab, setActiveTab] = useState<'unread' | 'all'>('unread');
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -53,7 +54,7 @@ export function NotificationPopover() {
       setHasMore(!!data.hasMore);
       setPage(1);
     } catch (err) {
-      console.error("Failed to load notifications", err);
+      console.error('Failed to load notifications', err);
     } finally {
       setLoading(false);
     }
@@ -68,17 +69,15 @@ export function NotificationPopover() {
     }
   }, [isAuthenticated, fetchNotifications]);
 
-
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
 
   const handleScroll = async () => {
     if (!containerRef.current || loadingMore || !hasMore || loading) return;
@@ -87,7 +86,6 @@ export function NotificationPopover() {
     if (scrollTop + clientHeight >= scrollHeight - 15) {
       setLoadingMore(true);
       const nextPage = page + 1;
-
 
       await new Promise((resolve) => setTimeout(resolve, NOTIFICATIONS_LAZY_LOAD_DELAY_MS));
 
@@ -102,7 +100,7 @@ export function NotificationPopover() {
         setHasMore(!!data.hasMore);
         setPage(nextPage);
       } catch (err) {
-        console.error("Failed to load more notifications", err);
+        console.error('Failed to load more notifications', err);
       } finally {
         setLoadingMore(false);
       }
@@ -127,7 +125,7 @@ export function NotificationPopover() {
   };
 
   const filteredNotifications = notifications.filter((item) => {
-    if (activeTab === "unread") return !item.isRead;
+    if (activeTab === 'unread') return !item.isRead;
     return true;
   });
 
@@ -143,7 +141,7 @@ export function NotificationPopover() {
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white px-1 shadow-xs animate-in zoom-in">
-            {unreadCount > 99 ? "99+" : unreadCount}
+            {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
@@ -168,28 +166,28 @@ export function NotificationPopover() {
           <div className="grid grid-cols-2 border-b border-slate-200/80 bg-slate-50/50">
             <button
               type="button"
-              onClick={() => setActiveTab("unread")}
-              className={`py-2.5 text-xs font-medium transition-all relative ${activeTab === "unread"
-                ? "text-[#007BFF] font-semibold"
-                : "text-slate-500 hover:text-slate-800"
+              onClick={() => setActiveTab('unread')}
+              className={`py-2.5 text-xs font-medium transition-all relative ${activeTab === 'unread'
+                ? 'text-[#007BFF] font-semibold'
+                : 'text-slate-500 hover:text-slate-800'
                 }`}
             >
               Unread
-              {activeTab === "unread" && (
+              {activeTab === 'unread' && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#007BFF] rounded-full" />
               )}
             </button>
 
             <button
               type="button"
-              onClick={() => setActiveTab("all")}
-              className={`py-2.5 text-xs font-medium transition-all relative ${activeTab === "all"
-                ? "text-[#007BFF] font-semibold"
-                : "text-slate-500 hover:text-slate-800"
+              onClick={() => setActiveTab('all')}
+              className={`py-2.5 text-xs font-medium transition-all relative ${activeTab === 'all'
+                ? 'text-[#007BFF] font-semibold'
+                : 'text-slate-500 hover:text-slate-800'
                 }`}
             >
               All
-              {activeTab === "all" && (
+              {activeTab === 'all' && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#007BFF] rounded-full" />
               )}
             </button>
@@ -207,20 +205,20 @@ export function NotificationPopover() {
               </div>
             ) : filteredNotifications.length === 0 ? (
               <div className="py-12 text-center text-slate-400 text-xs px-4">
-                {activeTab === "unread"
-                  ? "No unread notifications"
-                  : "No notifications yet"}
+                {activeTab === 'unread'
+                  ? 'No unread notifications'
+                  : 'No notifications yet'}
               </div>
             ) : (
               <>
                 {filteredNotifications.map((item) => {
-                  const isStatusUpdate = item.type === "ORDER_STATUS_UPDATED";
+                  const isStatusUpdate = item.type === 'ORDER_STATUS_UPDATED';
 
                   return (
                     <div
                       key={item.id}
                       onClick={() => handleItemClick(item)}
-                      className={`flex items-start gap-3.5 p-4 transition-colors cursor-pointer hover:bg-slate-50/80 ${!item.isRead ? "bg-blue-50/20" : ""
+                      className={`flex items-start gap-3.5 p-4 transition-colors cursor-pointer hover:bg-slate-50/80 ${!item.isRead ? 'bg-blue-50/20' : ''
                         }`}
                     >
                       {/* Left Category Icon */}

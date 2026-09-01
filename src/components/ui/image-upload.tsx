@@ -1,10 +1,12 @@
-"use client";
+'use client';
 
-import React, { useRef, useState, type ChangeEvent } from "react";
-import { Upload as UploadIcon, RefreshCw, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { uploadImage } from "@/services/product.service";
-import { cn } from "@/lib/utils";
+import React, { useRef, useState, type ChangeEvent } from 'react';
+
+import { Upload as UploadIcon, RefreshCw, Trash2 } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { uploadImage } from '@/services/product.service';
+import { cn } from '@/lib/utils';
 
 export interface ImageUploadProps {
   value?: string[];
@@ -21,7 +23,7 @@ export function ImageUpload({
   onRemove,
   disabled = false,
   maxFiles = 1,
-  className,
+  className
 }: ImageUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -48,10 +50,10 @@ export function ImageUpload({
         onChange([...value, url]);
       }
     } catch (err) {
-      setError((err as Error).message || "Image upload failed");
+      setError((err as Error).message || 'Image upload failed');
     } finally {
       setUploading(false);
-      if (e.target) e.target.value = "";
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -67,7 +69,7 @@ export function ImageUpload({
   const primaryImage = value[0];
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn('space-y-2', className)}>
       <div className="relative flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 p-6 text-center bg-slate-50/50 min-h-[220px] w-full md:w-56 shrink-0 transition hover:border-slate-300">
         {primaryImage ? (
           <div className="space-y-3 w-full text-center">
@@ -97,8 +99,8 @@ export function ImageUpload({
               disabled={disabled || uploading}
               className="w-full text-xs font-semibold border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-1.5 h-8"
             >
-              <RefreshCw className={cn("h-3.5 w-3.5", uploading && "animate-spin")} />
-              {uploading ? "Uploading..." : "Change Image"}
+              <RefreshCw className={cn('h-3.5 w-3.5', uploading && 'animate-spin')} />
+              {uploading ? 'Uploading...' : 'Change Image'}
             </Button>
           </div>
         ) : (
@@ -112,7 +114,7 @@ export function ImageUpload({
               disabled={disabled || uploading}
               className="w-full bg-[#007BFF] hover:bg-blue-600 text-white font-medium px-4 py-2 text-sm shadow-sm"
             >
-              {uploading ? "Uploading..." : "Upload Image"}
+              {uploading ? 'Uploading...' : 'Upload Image'}
             </Button>
           </div>
         )}

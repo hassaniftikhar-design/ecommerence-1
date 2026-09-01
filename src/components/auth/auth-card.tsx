@@ -1,6 +1,6 @@
-import * as React from "react";
+import * as React from 'react';
 
-import { Card } from "@/components/ui/card";
+import { Card } from '@/components/ui/card';
 
 // Every auth screen in the Figma is: centered page, big blue heading
 // above, a fixed-width white card below. AuthCard + AuthLayout

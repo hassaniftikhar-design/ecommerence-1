@@ -1,4 +1,4 @@
-import * as React from "react";
+import * as React from 'react';
 
 // Matches the sampled #007bff heading above every auth card. A single
 // component instead of raw <h1> in each page so the four screens can

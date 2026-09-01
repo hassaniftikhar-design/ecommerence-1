@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, {
   createContext,
@@ -6,12 +6,14 @@ import React, {
   useEffect,
   useState,
   useCallback,
-  useMemo,
-} from "react";
-import { useSession } from "next-auth/react";
-import { getCart } from "@/services/cart.service";
-import type { CartItem } from "@/types/cart.types";
-import { isSessionExpired } from "@/constants/auth";
+  useMemo
+} from 'react';
+
+import { useSession } from 'next-auth/react';
+
+import { getCart } from '@/services/cart.service';
+import type { CartItem } from '@/types/cart.types';
+import { isSessionExpired } from '@/constants/auth';
 
 interface CartContextType {
   items: CartItem[];
@@ -25,7 +27,7 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 function getCachedCart(userId?: string): CartItem[] {
-  if (typeof window === "undefined" || !userId) return [];
+  if (typeof window === 'undefined' || !userId) return [];
   try {
     const raw = localStorage.getItem(`shop_cart_cache_${userId}`);
     if (!raw) return [];
@@ -45,7 +47,7 @@ function getCachedCart(userId?: string): CartItem[] {
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const isExpired = isSessionExpired(session?.user?.sessionExpiresAt);
-  const isAuthenticated = status === "authenticated" && !isExpired;
+  const isAuthenticated = status === 'authenticated' && !isExpired;
   const userId = session?.user?.id;
 
   const [items, setItems] = useState<CartItem[]>([]);
@@ -80,7 +82,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isAuthenticated || !userId) {
-      if (status === "unauthenticated" || isExpired) {
+      if (status === 'unauthenticated' || isExpired) {
         setItems([]);
       }
       return;
@@ -99,9 +101,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       refreshCart();
     };
 
-    window.addEventListener("cart-updated", handleCartUpdate);
+    window.addEventListener('cart-updated', handleCartUpdate);
     return () => {
-      window.removeEventListener("cart-updated", handleCartUpdate);
+      window.removeEventListener('cart-updated', handleCartUpdate);
     };
   }, [isAuthenticated, userId, status, isExpired, refreshCart]);
 
@@ -110,7 +112,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const map = new Map<string, number>();
     for (const item of items) {
       // Variant-specific key
-      const vKey = `${item.productId}:${item.variantId || "default"}`;
+      const vKey = `${item.productId}:${item.variantId || 'default'}`;
       map.set(vKey, (map.get(vKey) || 0) + item.quantity);
 
       // Product-level key (sum of all variants for this product)
@@ -127,7 +129,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const getCartQuantity = useCallback(
     (productId: string, variantId?: string | null): number => {
       if (!productId) return 0;
-      const vKey = `${productId}:${variantId || "default"}`;
+      const vKey = `${productId}:${variantId || 'default'}`;
       return quantityMap.get(vKey) || 0;
     },
     [quantityMap]
@@ -149,7 +151,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       refreshCart,
       getCartQuantity,
-      getCartQuantityForProduct,
+      getCartQuantityForProduct
     }),
     [items, cartCount, isLoading, refreshCart, getCartQuantity, getCartQuantityForProduct]
   );
@@ -162,7 +164,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 export function useCart() {
   const context = useContext(CartContext);
   if (!context) {
-    throw new Error("useCart must be used within a CartProvider");
+    throw new Error('useCart must be used within a CartProvider');
   }
   return context;
 }

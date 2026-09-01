@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from 'next/link';
 
 interface AuthFooterLinkProps {
   promptText: string;
@@ -12,11 +12,11 @@ interface AuthFooterLinkProps {
 export function AuthFooterLink({
   promptText,
   linkText,
-  href,
+  href
 }: AuthFooterLinkProps) {
   return (
     <p className="text-center text-sm text-ink">
-      {promptText}{" "}
+      {promptText}{' '}
       <Link href={href} className="text-primary hover:underline">
         {linkText}
       </Link>

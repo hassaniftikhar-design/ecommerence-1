@@ -1,6 +1,6 @@
-import * as React from "react";
+import * as React from 'react';
 
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 // The Figma auth card is a plain white panel with a 1px light-gray
 // border and no drop shadow -- intentionally flat, so we don't add a
@@ -10,13 +10,13 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
     <div
       ref={ref}
       className={cn(
-        "rounded border border-border-card bg-surface-card",
-        className,
+        'rounded border border-border-card bg-surface-card',
+        className
       )}
       {...props}
     />
-  ),
+  )
 );
-Card.displayName = "Card";
+Card.displayName = 'Card';
 
 export { Card };

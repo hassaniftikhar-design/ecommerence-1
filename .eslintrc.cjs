@@ -1,5 +1,4 @@
 
-
 module.exports = {
   parser: '@typescript-eslint/parser',
   parserOptions: {
@@ -14,7 +13,6 @@ module.exports = {
     es2021: true
   },
   extends: [
-    'airbnb',
     'plugin:@typescript-eslint/recommended',
     'plugin:eslint-comments/recommended',
     'next/core-web-vitals'

@@ -1,9 +1,11 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import React, { useEffect, useState } from 'react';
+
+import { createPortal } from 'react-dom';
+import { CheckCircle2 } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 
 interface OrderSuccessModalProps {
   isOpen: boolean;
@@ -17,7 +19,7 @@ export function OrderSuccessModal({
   isOpen,
   orderNumber,
   onContinueShopping,
-  onViewOrderDetails,
+  onViewOrderDetails
 }: OrderSuccessModalProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -28,12 +30,12 @@ export function OrderSuccessModal({
   // Lock body scroll while modal is open
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = "hidden";
+      document.body.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = "";
+      document.body.style.overflow = '';
     }
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = '';
     };
   }, [isOpen]);
 

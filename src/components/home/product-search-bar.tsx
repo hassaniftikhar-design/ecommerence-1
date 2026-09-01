@@ -1,16 +1,19 @@
-"use client";
+'use client';
 
-import { Search } from "lucide-react";
-import { useState, useEffect, useRef } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { useDebounce } from "@/hooks/use-debounce";
+import { useState, useEffect, useRef } from 'react';
+
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+
+import { Search } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { useDebounce } from '@/hooks/use-debounce';
 
 export function ProductSearchBar() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const initialQuery = searchParams.get("q") || searchParams.get("search") || "";
+  const initialQuery = searchParams.get('q') || searchParams.get('search') || '';
   const [query, setQuery] = useState(initialQuery);
   const debouncedQuery = useDebounce(query, 400);
   const isInitialMount = useRef(true);
@@ -29,23 +32,24 @@ export function ProductSearchBar() {
     if (debouncedQuery.trim() !== initialQuery.trim()) {
       const params = new URLSearchParams(searchParams.toString());
       if (debouncedQuery.trim()) {
-        params.set("q", debouncedQuery.trim());
+        params.set('q', debouncedQuery.trim());
       } else {
-        params.delete("q");
-        params.delete("search");
+        params.delete('q');
+        params.delete('search');
       }
       router.push(`${pathname}?${params.toString()}`);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const params = new URLSearchParams(searchParams.toString());
     if (query.trim()) {
-      params.set("q", query.trim());
+      params.set('q', query.trim());
     } else {
-      params.delete("q");
-      params.delete("search");
+      params.delete('q');
+      params.delete('search');
     }
     router.push(`${pathname}?${params.toString()}`);
   };

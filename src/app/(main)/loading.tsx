@@ -1,5 +1,5 @@
-import { ProductGridSkeleton } from "@/components/home/product-grid-skeleton";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ProductGridSkeleton } from '@/components/home/product-grid-skeleton';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Loading() {
   return (

@@ -1,25 +1,26 @@
-"use client";
+'use client';
 
-import { ChevronDown, User, ShieldCheck, ShoppingBag, CreditCard, MapPin } from "lucide-react";
-import Link from "next/link";
-import { useSession } from "next-auth/react";
+import Link from 'next/link';
+
+import { ChevronDown, User, ShieldCheck, ShoppingBag, CreditCard, MapPin } from 'lucide-react';
+import { useSession } from 'next-auth/react';
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ROUTES } from "@/constants/routes";
-import { isSessionExpired } from "@/constants/auth";
-import { logout } from "@/services/auth.service";
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+import { ROUTES } from '@/constants/routes';
+import { isSessionExpired } from '@/constants/auth';
+import { logout } from '@/services/auth.service';
 
 export function UserMenu() {
   const { data: session, status } = useSession();
   const isExpired = isSessionExpired(session?.user?.sessionExpiresAt);
 
-  if (status !== "authenticated" || isExpired || !session?.user) {
+  if (status !== 'authenticated' || isExpired || !session?.user) {
     return (
       <Link
         href={ROUTES.login}
@@ -30,7 +31,7 @@ export function UserMenu() {
     );
   }
 
-  const isAdmin = session.user.role === "ADMIN";
+  const isAdmin = session.user.role === 'ADMIN';
 
   const handleLogout = async () => {
     await logout();
@@ -42,7 +43,7 @@ export function UserMenu() {
         <User className="h-5 w-5" aria-hidden="true" />
         {session?.user?.name && (
           <span className="hidden md:inline-block font-normal text-slate-700 dark:text-slate-400">
-            {session.user.name.split(" ")[0]}
+            {session.user.name.split(' ')[0]}
           </span>
         )}
         <ChevronDown className="h-4 w-4" aria-hidden="true" />

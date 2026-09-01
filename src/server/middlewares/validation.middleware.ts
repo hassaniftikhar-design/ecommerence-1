@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export interface ValidationSuccess<T> {
   success: true;
@@ -25,19 +25,19 @@ export function validateWithSchema<T>(
 
   if (!parsed.success) {
     const issueErrors = parsed.error.issues.map(
-      (issue) => `${issue.path.join(".")}: ${issue.message}`
+      (issue) => `${issue.path.join('.')}: ${issue.message}`
     );
-    const errorMessage = issueErrors.join(", ") || "Validation failed";
+    const errorMessage = issueErrors.join(', ') || 'Validation failed';
     return {
       success: false,
       status: 400,
       errors: issueErrors,
-      message: errorMessage,
+      message: errorMessage
     };
   }
 
   return {
     success: true,
-    data: parsed.data,
+    data: parsed.data
   };
 }

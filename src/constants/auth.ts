@@ -6,13 +6,11 @@ export const SESSION_COOKIE_MAX_AGE_SECONDS = 5 * 24 * 60 * 60;
 
 export const PASSWORD_RESET_EXPIRATION_MINUTES = 3;
 
-
 export function isSessionExpired(sessionExpiresAt?: number): boolean {
         return (
-                typeof sessionExpiresAt !== "number" ||
+                typeof sessionExpiresAt !== 'number' ||
                 !Number.isFinite(sessionExpiresAt) ||
                 Date.now() >= sessionExpiresAt
         );
 }
-
 

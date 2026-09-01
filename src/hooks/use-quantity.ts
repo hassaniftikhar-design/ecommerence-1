@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useState, useCallback } from "react";
+import { useState, useCallback } from 'react';
 
 // Extracted out of ProductCard because the increment/decrement/clamp
 // logic is generic "quantity stepper" behavior, not something specific
@@ -8,17 +8,17 @@ import { useState, useCallback } from "react";
 // it reuses this hook instead of duplicating the clamping logic.
 export function useQuantity(initialValue: number, min = 1, max = 99) {
   const [quantity, setQuantity] = useState(
-    Math.min(Math.max(initialValue, min), max),
+    Math.min(Math.max(initialValue, min), max)
   );
 
   const increment = useCallback(
     () => setQuantity((q) => Math.min(q + 1, max)),
-    [max],
+    [max]
   );
 
   const decrement = useCallback(
     () => setQuantity((q) => Math.max(q - 1, min)),
-    [min],
+    [min]
   );
 
   return { quantity, increment, decrement };

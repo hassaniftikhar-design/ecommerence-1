@@ -1,8 +1,9 @@
-import { Decimal } from "@prisma/client/runtime/library";
-import { mockVariant, mockProduct } from "./product.mock";
+import { Decimal } from '@prisma/client/runtime/library';
 
-export const MOCK_CART_ID = "cart-cuid-12345";
-export const MOCK_CART_ITEM_ID = "cart-item-cuid-1";
+import { mockVariant, mockProduct } from './product.mock';
+
+export const MOCK_CART_ID = 'cart-cuid-12345';
+export const MOCK_CART_ITEM_ID = 'cart-item-cuid-1';
 
 export const mockCartItem = {
   id: MOCK_CART_ITEM_ID,
@@ -10,29 +11,29 @@ export const mockCartItem = {
   productId: mockProduct.id,
   variantId: mockVariant.id,
   quantity: 2,
-  createdAt: new Date("2026-01-01T00:00:00Z"),
-  updatedAt: new Date("2026-01-01T00:00:00Z"),
+  createdAt: new Date('2026-01-01T00:00:00Z'),
+  updatedAt: new Date('2026-01-01T00:00:00Z'),
   product: {
     ...mockProduct,
-    price: new Decimal(99.99),
+    price: new Decimal(99.99)
   },
-  variant: mockVariant,
+  variant: mockVariant
 };
 
 export const mockCart = {
   id: MOCK_CART_ID,
-  userId: "user-cuid-12345",
+  userId: 'user-cuid-12345',
   sessionId: null,
-  createdAt: new Date("2026-01-01T00:00:00Z"),
-  updatedAt: new Date("2026-01-01T00:00:00Z"),
-  items: [mockCartItem],
+  createdAt: new Date('2026-01-01T00:00:00Z'),
+  updatedAt: new Date('2026-01-01T00:00:00Z'),
+  items: [mockCartItem]
 };
 
 export const mockEmptyCart = {
-  id: "cart-empty-id",
-  userId: "user-cuid-empty",
+  id: 'cart-empty-id',
+  userId: 'user-cuid-empty',
   sessionId: null,
-  createdAt: new Date("2026-01-01T00:00:00Z"),
-  updatedAt: new Date("2026-01-01T00:00:00Z"),
-  items: [],
+  createdAt: new Date('2026-01-01T00:00:00Z'),
+  updatedAt: new Date('2026-01-01T00:00:00Z'),
+  items: []
 };

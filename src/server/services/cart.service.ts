@@ -1,19 +1,19 @@
-import { prisma } from "@/lib/prisma";
-import { TAX_RATE, DEFAULT_PRODUCT_IMAGE } from "@/constants/generalconstants";
+import { prisma } from '@/lib/prisma';
+import { TAX_RATE, DEFAULT_PRODUCT_IMAGE } from '@/constants/generalconstants';
 import {
   validateAddToCartInput,
   validateCartItemQuantityInput,
-  validateCartItemIdInput,
-} from "@/server/middlewares";
+  validateCartItemIdInput
+} from '@/server/middlewares';
 
 export async function getOrCreateCartServer(userId: string) {
   let cart = await prisma.cart.findUnique({
-    where: { userId },
+    where: { userId }
   });
 
   if (!cart) {
     cart = await prisma.cart.create({
-      data: { userId },
+      data: { userId }
     });
   }
   return cart.id;
@@ -33,14 +33,14 @@ export async function formatCartResponseServer(cartId: string) {
                     include: {
                       optionValue: {
                         include: {
-                          option: true,
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
+                          option: true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           variant: {
             include: {
@@ -48,23 +48,23 @@ export async function formatCartResponseServer(cartId: string) {
                 include: {
                   optionValue: {
                     include: {
-                      option: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
+                      option: true
+                    }
+                  }
+                }
+              }
+            }
+          }
         },
-        orderBy: { createdAt: "asc" },
-      },
-    },
+        orderBy: { createdAt: 'asc' }
+      }
+    }
   });
 
   if (!cart) {
     return {
       items: [],
-      totals: { subTotal: 0, tax: 0, total: 0 },
+      totals: { subTotal: 0, tax: 0, total: 0 }
     };
   }
 
@@ -77,9 +77,9 @@ export async function formatCartResponseServer(cartId: string) {
     if (activeVariant?.variantOptions) {
       for (const vo of activeVariant.variantOptions) {
         const optName = vo.optionValue.option.name.toLowerCase();
-        if (optName.includes("color") || optName.includes("colour")) {
+        if (optName.includes('color') || optName.includes('colour')) {
           colorVal = vo.optionValue.value;
-        } else if (optName.includes("size")) {
+        } else if (optName.includes('size')) {
           sizeVal = vo.optionValue.value;
         }
       }
@@ -97,11 +97,11 @@ export async function formatCartResponseServer(cartId: string) {
       name: item.product.name,
       imageUrl,
       color: colorVal ? { name: colorVal } : undefined,
-      size: sizeVal || "-",
+      size: sizeVal || '-',
       price: unitPrice,
       quantity: item.quantity,
       stock: itemStock,
-      totalPrice,
+      totalPrice
     };
   });
 
@@ -116,8 +116,8 @@ export async function formatCartResponseServer(cartId: string) {
     totals: {
       subTotal: roundedSubTotal,
       tax,
-      total,
-    },
+      total
+    }
   };
 }
 
@@ -142,11 +142,11 @@ export async function addToCartServer(
 
   const product = await prisma.product.findUnique({
     where: { id: validProductId },
-    include: { variants: true },
+    include: { variants: true }
   });
 
   if (!product) {
-    return { success: false as const, status: 404, errors: [], message: "Product not found" };
+    return { success: false as const, status: 404, errors: [], message: 'Product not found' };
   }
 
   if (!product.isActive) {
@@ -154,7 +154,7 @@ export async function addToCartServer(
       success: false as const,
       status: 400,
       errors: [],
-      message: "This product is inactive and cannot be added to cart.",
+      message: 'This product is inactive and cannot be added to cart.'
     };
   }
 
@@ -170,8 +170,8 @@ export async function addToCartServer(
     where: {
       cartId,
       productId: validProductId,
-      variantId: targetVariantId || null,
-    },
+      variantId: targetVariantId || null
+    }
   });
 
   let newQty = (existingItem ? existingItem.quantity : 0) + Math.max(1, validQuantity);
@@ -182,7 +182,7 @@ export async function addToCartServer(
   if (existingItem) {
     await prisma.cartItem.update({
       where: { id: existingItem.id },
-      data: { quantity: newQty },
+      data: { quantity: newQty }
     });
   } else {
     await prisma.cartItem.create({
@@ -190,24 +190,40 @@ export async function addToCartServer(
         cartId,
         productId: validProductId,
         variantId: targetVariantId || null,
-        quantity: newQty,
-      },
+        quantity: newQty
+      }
     });
   }
 
   const cartData = await formatCartResponseServer(cartId);
-  return { success: true as const, status: 200, cartData, message: "Item added to cart successfully" };
+  return { success: true as const, status: 200, cartData, message: 'Item added to cart successfully' };
 }
 
 export async function clearCartServer(userId: string) {
   const cartId = await getOrCreateCartServer(userId);
 
   await prisma.cartItem.deleteMany({
-    where: { cartId },
+    where: { cartId }
   });
 
   const cartData = await formatCartResponseServer(cartId);
-  return { success: true as const, status: 200, cartData, message: "Cart cleared successfully" };
+  return { success: true as const, status: 200, cartData, message: 'Cart cleared successfully' };
+}
+
+export async function removeMultipleCartItemsServer(userId: string, itemIds: string[]) {
+  const cartId = await getOrCreateCartServer(userId);
+
+  if (Array.isArray(itemIds) && itemIds.length > 0) {
+    await prisma.cartItem.deleteMany({
+      where: {
+        cartId,
+        id: { in: itemIds }
+      }
+    });
+  }
+
+  const cartData = await formatCartResponseServer(cartId);
+  return { success: true as const, status: 200, cartData, message: 'Selected items removed from cart' };
 }
 
 export async function updateCartItemQuantityServer(id: string, quantity: number) {
@@ -228,12 +244,12 @@ export async function updateCartItemQuantityServer(id: string, quantity: number)
     where: { id: validId },
     include: {
       product: { include: { variants: true } },
-      variant: true,
-    },
+      variant: true
+    }
   });
 
   if (!cartItem) {
-    return { success: false as const, status: 404, errors: [], message: "Cart item not found" };
+    return { success: false as const, status: 404, errors: [], message: 'Cart item not found' };
   }
 
   const availableStock = cartItem.variant
@@ -249,11 +265,11 @@ export async function updateCartItemQuantityServer(id: string, quantity: number)
 
   await prisma.cartItem.update({
     where: { id: validId },
-    data: { quantity: targetQuantity },
+    data: { quantity: targetQuantity }
   });
 
   const cartData = await formatCartResponseServer(cartItem.cartId);
-  return { success: true as const, status: 200, cartData, message: "Cart item quantity updated" };
+  return { success: true as const, status: 200, cartData, message: 'Cart item quantity updated' };
 }
 
 export async function removeCartItemServer(id: string) {
@@ -264,17 +280,17 @@ export async function removeCartItemServer(id: string) {
 
   const validId = idValidation.data;
   const cartItem = await prisma.cartItem.findUnique({
-    where: { id: validId },
+    where: { id: validId }
   });
 
   if (!cartItem) {
-    return { success: false as const, status: 404, errors: [], message: "Cart item not found" };
+    return { success: false as const, status: 404, errors: [], message: 'Cart item not found' };
   }
 
   await prisma.cartItem.delete({
-    where: { id: validId },
+    where: { id: validId }
   });
 
   const cartData = await formatCartResponseServer(cartItem.cartId);
-  return { success: true as const, status: 200, cartData, message: "Cart item removed" };
+  return { success: true as const, status: 200, cartData, message: 'Cart item removed' };
 }

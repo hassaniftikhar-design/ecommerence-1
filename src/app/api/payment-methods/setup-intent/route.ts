@@ -1,8 +1,8 @@
-import { apiSuccess, apiError } from "@/lib/api-response";
-import { getCurrentUser } from "@/lib/server-auth";
-import { createSetupIntentServer } from "@/server/services/payment.service";
+import { apiSuccess, apiError } from '@/lib/api-response';
+import { getCurrentUser } from '@/lib/server-auth';
+import { createSetupIntentServer } from '@/server/services/payment.service';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     const userId = user?.id || user?.sub;
 
     if (!user || !userId) {
-      return apiError("Unauthorized: Please log in", [], 401);
+      return apiError('Unauthorized: Please log in', [], 401);
     }
 
     const result = await createSetupIntentServer(userId);
@@ -21,8 +21,8 @@ export async function POST(request: Request) {
 
     return apiSuccess(result.message, result.data, result.status);
   } catch (error) {
-    return apiError("Failed to initialize payment setup", [
-      (error as Error).message,
+    return apiError('Failed to initialize payment setup', [
+      (error as Error).message
     ], 500);
   }
 }

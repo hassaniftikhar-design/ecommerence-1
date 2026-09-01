@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/prisma";
-import { validateMarkNotificationReadInput } from "@/server/middlewares";
+import { prisma } from '@/lib/prisma';
+import { validateMarkNotificationReadInput } from '@/server/middlewares';
 
 export async function getNotificationsServer(
   userId: string,
@@ -11,16 +11,16 @@ export async function getNotificationsServer(
   const [notifications, unreadCount, total] = await Promise.all([
     prisma.notification.findMany({
       where: { userId },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       skip,
-      take: limit,
+      take: limit
     }),
     prisma.notification.count({
-      where: { userId, isRead: false },
+      where: { userId, isRead: false }
     }),
     prisma.notification.count({
-      where: { userId },
-    }),
+      where: { userId }
+    })
   ]);
 
   const hasMore = skip + notifications.length < total;
@@ -43,21 +43,21 @@ export async function markNotificationReadServer(
   if (isMarkAll) {
     await prisma.notification.updateMany({
       where: { userId, isRead: false },
-      data: { isRead: true },
+      data: { isRead: true }
     });
-    return { success: true as const, status: 200, message: "Notification status updated" };
+    return { success: true as const, status: 200, message: 'Notification status updated' };
   } else if (validNotificationId) {
     await prisma.notification.updateMany({
       where: { id: validNotificationId, userId },
-      data: { isRead: true },
+      data: { isRead: true }
     });
-    return { success: true as const, status: 200, message: "Notification status updated" };
+    return { success: true as const, status: 200, message: 'Notification status updated' };
   }
 
   return {
     success: false as const,
     status: 400,
     errors: [],
-    message: "Missing notificationId or markAll flag",
+    message: 'Missing notificationId or markAll flag'
   };
 }

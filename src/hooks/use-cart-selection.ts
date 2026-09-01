@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo } from 'react';
 
 export function useCartSelection(
   itemIds: string[],
@@ -43,7 +43,7 @@ export function useCartSelection(
       someSelected,
       toggleAll,
       toggleOne,
-      isSelected,
+      isSelected
     }),
     [allSelected, someSelected, toggleAll, toggleOne, isSelected]
   );

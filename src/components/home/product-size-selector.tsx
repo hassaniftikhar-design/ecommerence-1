@@ -1,19 +1,21 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import React, { useState } from 'react';
+
+import { Check, ChevronDown } from 'lucide-react';
+
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
+  DropdownMenuItem
+} from '@/components/ui/dropdown-menu';
 import {
   MAX_VISIBLE_SIZES_DESKTOP,
-  MAX_VISIBLE_SIZES_MOBILE,
-} from "@/constants/generalconstants";
-import { useIsMobile } from "@/hooks/use-is-mobile";
+  MAX_VISIBLE_SIZES_MOBILE
+} from '@/constants/generalconstants';
+import { useIsMobile } from '@/hooks/use-is-mobile';
 
 export interface ProductSizeSelectorProps {
   sizes: string[];
@@ -26,7 +28,7 @@ export function ProductSizeSelector({
   sizes,
   selectedSize,
   onSelectSize,
-  className,
+  className
 }: ProductSizeSelectorProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const isMobile = useIsMobile();
@@ -37,13 +39,13 @@ export function ProductSizeSelector({
   }
 
   const maxSizes = isMobile ? MAX_VISIBLE_SIZES_MOBILE : MAX_VISIBLE_SIZES_DESKTOP;
-  const activeSize = selectedSize || sizes[0] || "";
+  const activeSize = selectedSize || sizes[0] || '';
   const isOverMax = sizes.length > maxSizes;
 
   // Render Select Dropdown mode if sizes > maxSizes and dropdown is active
   if (isOverMax && showDropdown) {
     return (
-      <div className={cn("flex flex-col gap-1.5 w-full", className)}>
+      <div className={cn('flex flex-col gap-1.5 w-full', className)}>
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
             Size: <span className="text-slate-800 font-bold">{activeSize}</span>
@@ -68,8 +70,8 @@ export function ProductSizeSelector({
                   key={size}
                   onClick={() => onSelectSize(size)}
                   className={cn(
-                    "flex items-center gap-2 px-2.5 py-1.5 text-xs rounded-md cursor-pointer transition-colors",
-                    isSelected ? "bg-blue-50 text-[#007BFF] font-semibold" : "text-slate-700 hover:bg-slate-50"
+                    'flex items-center gap-2 px-2.5 py-1.5 text-xs rounded-md cursor-pointer transition-colors',
+                    isSelected ? 'bg-blue-50 text-[#007BFF] font-semibold' : 'text-slate-700 hover:bg-slate-50'
                   )}
                 >
                   <div className="w-4 flex items-center justify-center shrink-0">
@@ -90,7 +92,7 @@ export function ProductSizeSelector({
   const remainingCount = sizes.length - maxSizes;
 
   return (
-    <div className={cn("flex flex-col gap-1.5 w-full", className)}>
+    <div className={cn('flex flex-col gap-1.5 w-full', className)}>
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
           Size: <span className="text-slate-800 font-bold">{activeSize}</span>
@@ -106,10 +108,10 @@ export function ProductSizeSelector({
               type="button"
               onClick={() => onSelectSize(size)}
               className={cn(
-                "px-2 py-0.5 rounded-md text-xs transition-all cursor-pointer border shrink-0",
+                'px-2 py-0.5 rounded-md text-xs transition-all cursor-pointer border shrink-0',
                 isSelected
-                  ? "bg-[#007BFF] text-white font-bold border-[#007BFF] shadow-2xs"
-                  : "bg-white text-slate-700 border-slate-200 font-medium hover:bg-slate-50 hover:border-slate-300"
+                  ? 'bg-[#007BFF] text-white font-bold border-[#007BFF] shadow-2xs'
+                  : 'bg-white text-slate-700 border-slate-200 font-medium hover:bg-slate-50 hover:border-slate-300'
               )}
             >
               {size}

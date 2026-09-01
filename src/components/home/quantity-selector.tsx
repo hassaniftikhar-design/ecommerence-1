@@ -1,7 +1,8 @@
-"use client";
+'use client';
 
-import { useEffect, useState, useRef } from "react";
-import { Minus, Plus, AlertTriangle } from "lucide-react";
+import { useEffect, useState, useRef } from 'react';
+
+import { Minus, Plus, AlertTriangle } from 'lucide-react';
 
 interface QuantitySelectorProps {
   initialValue: number;
@@ -12,7 +13,7 @@ interface QuantitySelectorProps {
 export function QuantitySelector({
   initialValue,
   max,
-  onChange,
+  onChange
 }: QuantitySelectorProps) {
   const [quantity, setQuantity] = useState(initialValue);
   const [inputValue, setInputValue] = useState(String(initialValue));
@@ -35,7 +36,7 @@ export function QuantitySelector({
     if (!isFocused) {
       if (max !== undefined && max <= 0) {
         setQuantity(1);
-        setInputValue("1");
+        setInputValue('1');
       } else if (max !== undefined && quantity > max) {
         setQuantity(max);
         setInputValue(String(max));
@@ -85,7 +86,7 @@ export function QuantitySelector({
     const rawVal = e.target.value;
     setInputValue(rawVal);
 
-    if (rawVal === "") {
+    if (rawVal === '') {
       return;
     }
 
@@ -94,7 +95,7 @@ export function QuantitySelector({
     if (isNaN(parsed) || parsed <= 0) {
       triggerErrorPopup();
       setQuantity(1);
-      setInputValue("1");
+      setInputValue('1');
       onChange?.(1);
       return;
     }
@@ -123,7 +124,7 @@ export function QuantitySelector({
     if (isNaN(parsed) || parsed <= 0) {
       triggerErrorPopup();
       setQuantity(1);
-      setInputValue("1");
+      setInputValue('1');
       onChange?.(1);
     } else if (max !== undefined && parsed > max) {
       setQuantity(max);

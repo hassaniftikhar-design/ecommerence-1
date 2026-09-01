@@ -1,9 +1,10 @@
-"use client";
+'use client';
 
-import React from "react";
-import { AlertTriangle, X } from "lucide-react";
+import React from 'react';
 
-import { Button } from "@/components/ui/button";
+import { AlertTriangle, X } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 
 interface OutOfStockModalProps {
   isOpen: boolean;
@@ -15,8 +16,8 @@ interface OutOfStockModalProps {
 export function OutOfStockModal({
   isOpen,
   onClose,
-  title = "Order Can't Be Placed",
-  message = "Order can't be placed due to quantity going out of stock. Please update your cart quantity.",
+  title = 'Order Can\'t Be Placed',
+  message = 'Order can\'t be placed due to quantity going out of stock. Please update your cart quantity.'
 }: OutOfStockModalProps) {
   if (!isOpen) return null;
 

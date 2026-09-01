@@ -1,18 +1,22 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
+import React, { useState } from 'react';
+
 import {
   PaymentElement,
   useStripe,
-  useElements,
-} from "@stripe/react-stripe-js";
-import { AlertCircle, Lock, ShieldCheck } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { createCheckoutIntent } from "@/services/payment.service";
-import { getFriendlyPaymentErrorMessage } from "@/lib/stripe/errors";
-import { SavedCardsSelector } from "./saved-cards-selector";
-import type { SavedPaymentMethod } from "@/types/payment.types";
+  useElements
+} from '@stripe/react-stripe-js';
+import { AlertCircle, Lock, ShieldCheck } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { createCheckoutIntent } from '@/services/payment.service';
+import { getFriendlyPaymentErrorMessage } from '@/lib/stripe/errors';
+
+import type { SavedPaymentMethod } from '@/types/payment.types';
+
+import { SavedCardsSelector } from './saved-cards-selector';
 
 interface CheckoutStripeFormProps {
   selectedItemIds: string[];
@@ -34,15 +38,15 @@ export function CheckoutStripeForm({
   onAddressMissing,
   onPriceChanged,
   onOutOfStock,
-  onBackToInfo,
+  onBackToInfo
 }: CheckoutStripeFormProps) {
   const stripe = useStripe();
   const elements = useElements();
 
   const defaultCard = savedCards.find((c) => c.isDefault);
-  const initialSelection = defaultCard ? defaultCard.id : (savedCards[0]?.id || "new");
+  const initialSelection = defaultCard ? defaultCard.id : (savedCards[0]?.id || 'new');
 
-  const [selectedCardId, setSelectedCardId] = useState<string | "new">(initialSelection);
+  const [selectedCardId, setSelectedCardId] = useState<string | 'new'>(initialSelection);
   const [saveCardForFuture, setSaveCardForFuture] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -51,18 +55,18 @@ export function CheckoutStripeForm({
     e.preventDefault();
 
     if (!hasValidAddress) {
-      setErrorMessage("Please enter and save your shipping address to continue.");
+      setErrorMessage('Please enter and save your shipping address to continue.');
       onAddressMissing?.();
       return;
     }
 
     if (!stripe) {
-      setErrorMessage("Payment system is still initializing. Please wait a moment.");
+      setErrorMessage('Payment system is still initializing. Please wait a moment.');
       return;
     }
 
-    if (selectedCardId === "new" && !elements) {
-      setErrorMessage("Please fill in your card details.");
+    if (selectedCardId === 'new' && !elements) {
+      setErrorMessage('Please fill in your card details.');
       return;
     }
 
@@ -71,7 +75,7 @@ export function CheckoutStripeForm({
       setErrorMessage(null);
 
       // If entering a new card, validate Elements first
-      if (selectedCardId === "new" && elements) {
+      if (selectedCardId === 'new' && elements) {
         const { error: submitError } = await elements.submit();
         if (submitError) {
           const { friendlyMessage } = getFriendlyPaymentErrorMessage(submitError);
@@ -85,8 +89,8 @@ export function CheckoutStripeForm({
       const intentResponse = await createCheckoutIntent({
         itemIds: selectedItemIds,
         expectedTotal: totalAmount,
-        savedPaymentMethodId: selectedCardId !== "new" ? selectedCardId : undefined,
-        saveCardForFuture: selectedCardId === "new" ? saveCardForFuture : false,
+        savedPaymentMethodId: selectedCardId !== 'new' ? selectedCardId : undefined,
+        saveCardForFuture: selectedCardId === 'new' ? saveCardForFuture : false
       });
 
       const { clientSecret, orderId } = intentResponse;
@@ -95,21 +99,21 @@ export function CheckoutStripeForm({
       const returnUrl = `${window.location.origin}/orders/${orderId}/payment-status`;
 
       let confirmResult;
-      if (selectedCardId === "new" && elements) {
+      if (selectedCardId === 'new' && elements) {
         confirmResult = await stripe.confirmPayment({
           elements,
           clientSecret,
           confirmParams: {
-            return_url: returnUrl,
-          },
+            return_url: returnUrl
+          }
         });
       } else {
         // Confirming with existing saved card
         confirmResult = await stripe.confirmPayment({
           clientSecret,
           confirmParams: {
-            return_url: returnUrl,
-          },
+            return_url: returnUrl
+          }
         });
       }
 
@@ -117,13 +121,14 @@ export function CheckoutStripeForm({
         const { friendlyMessage } = getFriendlyPaymentErrorMessage(confirmResult.error);
         setErrorMessage(friendlyMessage);
       }
-    } catch (err: any) {
-      if (err?.errors?.includes?.("PRICE_CHANGED") && err?.data?.newTotal) {
-        onPriceChanged?.(err.data.newTotal);
+    } catch (err: unknown) {
+      const errorObj = err as { errors?: string[]; data?: { newTotal?: number }; message?: string };
+      if (errorObj?.errors?.includes?.('PRICE_CHANGED') && errorObj?.data?.newTotal) {
+        onPriceChanged?.(errorObj.data.newTotal);
         return;
       }
-      if (err?.errors?.includes?.("OUT_OF_STOCK") || err?.message?.toLowerCase()?.includes("out of stock")) {
-        onOutOfStock?.(err.message || "An item in your cart is currently out of stock. Please update your cart quantity.");
+      if (errorObj?.errors?.includes?.('OUT_OF_STOCK') || errorObj?.message?.toLowerCase()?.includes('out of stock')) {
+        onOutOfStock?.(errorObj.message || 'An item in your cart is currently out of stock. Please update your cart quantity.');
         return;
       }
       const { friendlyMessage } = getFriendlyPaymentErrorMessage(err);
@@ -154,7 +159,7 @@ export function CheckoutStripeForm({
       />
 
       {/* Stripe Payment Element (Shown when "new" card is selected) */}
-      {selectedCardId === "new" && (
+      {selectedCardId === 'new' && (
         <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 sm:p-5 shadow-xs">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
             <span className="text-xs sm:text-sm font-semibold text-slate-800">
@@ -168,7 +173,7 @@ export function CheckoutStripeForm({
           <div className="pt-1">
             <PaymentElement
               options={{
-                layout: "tabs",
+                layout: 'tabs'
               }}
             />
           </div>

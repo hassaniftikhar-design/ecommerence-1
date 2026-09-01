@@ -1,8 +1,9 @@
-"use client";
+'use client';
 
-import React, { use, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import React, { use, useEffect, useState } from 'react';
+
+import { useRouter, useSearchParams } from 'next/navigation';
+
 import {
   CheckCircle2,
   XCircle,
@@ -10,20 +11,22 @@ import {
   ArrowRight,
   RotateCcw,
   ShoppingBag,
-  Package,
-} from "lucide-react";
-import { getStripe } from "@/lib/stripe/stripe-client";
-import { getFriendlyPaymentErrorMessage } from "@/lib/stripe/errors";
-import { getOrderById } from "@/services/order.service";
-import { clearCart } from "@/services/cart.service";
-import { ROUTES } from "@/constants/routes";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import type { OrderDetail } from "@/types/order.types";
-import type { PaymentIntent } from "@stripe/stripe-js";
+  Package
+} from 'lucide-react';
+
+import type { PaymentIntent } from '@stripe/stripe-js';
+
+import { getStripe } from '@/lib/stripe/stripe-client';
+import { getFriendlyPaymentErrorMessage } from '@/lib/stripe/errors';
+import { getOrderById } from '@/services/order.service';
+import { clearCart } from '@/services/cart.service';
+import { ROUTES } from '@/constants/routes';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import type { OrderDetail } from '@/types/order.types';
 
 export default function PaymentStatusPage({
-  params,
+  params
 }: {
   params: Promise<{ orderId: string }>;
 }) {
@@ -33,8 +36,8 @@ export default function PaymentStatusPage({
 
   const [loading, setLoading] = useState(true);
   const [paymentStatus, setPaymentStatus] = useState<
-    "succeeded" | "processing" | "failed" | "requires_payment_method" | "unknown"
-  >("unknown");
+    'succeeded' | 'processing' | 'failed' | 'requires_payment_method' | 'unknown'
+  >('unknown');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [order, setOrder] = useState<OrderDetail | null>(null);
 
@@ -43,8 +46,8 @@ export default function PaymentStatusPage({
       try {
         setLoading(true);
 
-        const clientSecret = searchParams.get("payment_intent_client_secret");
-        const redirectStatus = searchParams.get("redirect_status");
+        const clientSecret = searchParams.get('payment_intent_client_secret');
+        const redirectStatus = searchParams.get('redirect_status');
 
         // 1. Fetch Order Details for UI Display
         let orderDetails: OrderDetail | null = null;
@@ -52,7 +55,7 @@ export default function PaymentStatusPage({
           orderDetails = await getOrderById(orderId);
           setOrder(orderDetails);
         } catch (orderErr) {
-          console.warn("Could not fetch order details:", orderErr);
+          console.warn('Could not fetch order details:', orderErr);
         }
 
         // 2. Retrieve PaymentIntent status client-side via Stripe.js for instant UX feedback
@@ -63,22 +66,22 @@ export default function PaymentStatusPage({
 
           if (error) {
             const { friendlyMessage } = getFriendlyPaymentErrorMessage(error);
-            setPaymentStatus("failed");
+            setPaymentStatus('failed');
             setErrorMessage(friendlyMessage);
           } else if (paymentIntent) {
             handlePaymentIntentStatus(paymentIntent);
           }
-        } else if (redirectStatus === "succeeded") {
-          setPaymentStatus("succeeded");
-        } else if (redirectStatus === "failed") {
-          setPaymentStatus("failed");
-          setErrorMessage("Payment was unsuccessful. Please try again.");
+        } else if (redirectStatus === 'succeeded') {
+          setPaymentStatus('succeeded');
+        } else if (redirectStatus === 'failed') {
+          setPaymentStatus('failed');
+          setErrorMessage('Payment was unsuccessful. Please try again.');
         } else {
-          setPaymentStatus("succeeded");
+          setPaymentStatus('succeeded');
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         const { friendlyMessage } = getFriendlyPaymentErrorMessage(err);
-        setPaymentStatus("failed");
+        setPaymentStatus('failed');
         setErrorMessage(friendlyMessage);
       } finally {
         setLoading(false);
@@ -87,30 +90,30 @@ export default function PaymentStatusPage({
 
     function handlePaymentIntentStatus(intent: PaymentIntent) {
       switch (intent.status) {
-        case "succeeded":
-          setPaymentStatus("succeeded");
+        case 'succeeded':
+          setPaymentStatus('succeeded');
           break;
-        case "processing":
-          setPaymentStatus("processing");
+        case 'processing':
+          setPaymentStatus('processing');
           break;
-        case "requires_payment_method":
-          setPaymentStatus("requires_payment_method");
+        case 'requires_payment_method':
+          setPaymentStatus('requires_payment_method');
           if (intent.last_payment_error) {
             const { friendlyMessage } = getFriendlyPaymentErrorMessage(
               intent.last_payment_error
             );
             setErrorMessage(friendlyMessage);
           } else {
-            setErrorMessage("Your payment was declined. Please try another card.");
+            setErrorMessage('Your payment was declined. Please try another card.');
           }
           break;
-        case "canceled":
-          setPaymentStatus("failed");
-          setErrorMessage("Payment was canceled. You have not been charged.");
+        case 'canceled':
+          setPaymentStatus('failed');
+          setErrorMessage('Payment was canceled. You have not been charged.');
           break;
         default:
-          setPaymentStatus("unknown");
-          setErrorMessage("Payment status could not be confirmed. Please check your order history.");
+          setPaymentStatus('unknown');
+          setErrorMessage('Payment status could not be confirmed. Please check your order history.');
           break;
       }
     }
@@ -119,18 +122,18 @@ export default function PaymentStatusPage({
   }, [orderId, searchParams]);
 
   useEffect(() => {
-    if (paymentStatus === "succeeded") {
+    if (paymentStatus === 'succeeded') {
       clearCart().catch(() => { });
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent("cart-updated"));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('cart-updated'));
 
-        window.history.pushState(null, "", window.location.href);
+        window.history.pushState(null, '', window.location.href);
         const handlePopState = () => {
           router.replace(ROUTES.home);
         };
-        window.addEventListener("popstate", handlePopState);
+        window.addEventListener('popstate', handlePopState);
         return () => {
-          window.removeEventListener("popstate", handlePopState);
+          window.removeEventListener('popstate', handlePopState);
         };
       }
     }
@@ -148,7 +151,7 @@ export default function PaymentStatusPage({
   }
 
   // SUCCESS VIEW
-  if (paymentStatus === "succeeded") {
+  if (paymentStatus === 'succeeded') {
     return (
       <div className="mx-auto max-w-xl px-4 sm:px-6 py-12">
         <div className="rounded-3xl border border-slate-200 bg-white p-8 sm:p-10 shadow-sm text-center space-y-6">
@@ -208,7 +211,7 @@ export default function PaymentStatusPage({
   }
 
   // PROCESSING VIEW
-  if (paymentStatus === "processing") {
+  if (paymentStatus === 'processing') {
     return (
       <div className="mx-auto max-w-xl px-4 sm:px-6 py-12">
         <div className="rounded-3xl border border-slate-200 bg-white p-8 sm:p-10 shadow-sm text-center space-y-6">

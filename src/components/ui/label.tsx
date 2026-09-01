@@ -1,6 +1,6 @@
-import * as React from "react";
+import * as React from 'react';
 
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 // Figma label text: #212529, ~14-16px, sits directly above its input
 // with a small gap. Plain semantic <label> (not Radix) is enough here
@@ -9,11 +9,11 @@ const Label = React.forwardRef<HTMLLabelElement, React.LabelHTMLAttributes<HTMLL
   ({ className, ...props }, ref) => (
     <label
       ref={ref}
-      className={cn("mb-2 block text-sm font-normal text-ink", className)}
+      className={cn('mb-2 block text-sm font-normal text-ink', className)}
       {...props}
     />
-  ),
+  )
 );
-Label.displayName = "Label";
+Label.displayName = 'Label';
 
 export { Label };

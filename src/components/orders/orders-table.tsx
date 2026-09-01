@@ -1,19 +1,21 @@
-"use client";
+'use client';
 
-import { ArrowUpRight } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+
+import { ArrowUpRight } from 'lucide-react';
+
 import {
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { ROUTES } from "@/constants/routes";
-import type { OrderListItem, OrderStatusType } from "@/types/order.types";
-import { cn } from "@/lib/utils";
+  TableRow
+} from '@/components/ui/table';
+import { ROUTES } from '@/constants/routes';
+import type { OrderListItem, OrderStatusType } from '@/types/order.types';
+import { cn } from '@/lib/utils';
 
 interface OrdersTableProps {
   orders: OrderListItem[];
@@ -21,35 +23,35 @@ interface OrdersTableProps {
 }
 
 export function renderStatusBadge(status: OrderStatusType) {
-  let label = "In Progress";
-  let badgeStyle = "bg-[#F59E0B] text-white";
+  let label = 'In Progress';
+  let badgeStyle = 'bg-[#F59E0B] text-white';
 
   switch (status) {
-    case "DELIVERED":
-      label = "Delivered";
-      badgeStyle = "bg-[#22C55E] text-white";
+    case 'DELIVERED':
+      label = 'Delivered';
+      badgeStyle = 'bg-[#22C55E] text-white';
       break;
-    case "IN_PROGRESS":
-      label = "In Progress";
-      badgeStyle = "bg-[#F59E0B] text-white";
+    case 'IN_PROGRESS':
+      label = 'In Progress';
+      badgeStyle = 'bg-[#F59E0B] text-white';
       break;
-    case "DISPATCHED":
-      label = "Dispatched";
-      badgeStyle = "bg-[#007BFF] text-white";
+    case 'DISPATCHED':
+      label = 'Dispatched';
+      badgeStyle = 'bg-[#007BFF] text-white';
       break;
-    case "REJECTED":
-      label = "Rejected";
-      badgeStyle = "bg-[#EF4444] text-white";
+    case 'REJECTED':
+      label = 'Rejected';
+      badgeStyle = 'bg-[#EF4444] text-white';
       break;
     default:
-      label = "In Progress";
-      badgeStyle = "bg-[#F59E0B] text-white";
+      label = 'In Progress';
+      badgeStyle = 'bg-[#F59E0B] text-white';
   }
 
   return (
     <span
       className={cn(
-        "inline-flex items-center justify-center px-3 py-1 rounded-md text-xs font-semibold min-w-[90px] text-center shadow-xs",
+        'inline-flex items-center justify-center px-3 py-1 rounded-md text-xs font-semibold min-w-[90px] text-center shadow-xs',
         badgeStyle
       )}
     >

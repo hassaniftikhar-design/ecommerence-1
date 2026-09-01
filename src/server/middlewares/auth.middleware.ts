@@ -1,11 +1,13 @@
+import type { z } from 'zod';
+
 import {
   signupSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
-  changePasswordSchema,
-} from "@/lib/validators";
-import { validateWithSchema, type ValidationResult } from "./validation.middleware";
-import type { z } from "zod";
+  changePasswordSchema
+} from '@/lib/validators';
+
+import { validateWithSchema, type ValidationResult } from './validation.middleware';
 
 export type SignupInput = z.infer<typeof signupSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
@@ -29,31 +31,31 @@ export function validateChangePasswordInput(body: unknown): ValidationResult<Cha
 }
 
 export function validateResetTokenInput(token: unknown): ValidationResult<string> {
-  if (typeof token !== "string" || !token.trim()) {
+  if (typeof token !== 'string' || !token.trim()) {
     return {
       success: false,
       status: 400,
       errors: [],
-      message: "Missing reset token",
+      message: 'Missing reset token'
     };
   }
   return {
     success: true,
-    data: token.trim(),
+    data: token.trim()
   };
 }
 
 export function validateVerificationTokenInput(token: unknown): ValidationResult<string> {
-  if (typeof token !== "string" || !token.trim()) {
+  if (typeof token !== 'string' || !token.trim()) {
     return {
       success: false,
       status: 400,
       errors: [],
-      message: "Verification token is required",
+      message: 'Verification token is required'
     };
   }
   return {
     success: true,
-    data: token.trim(),
+    data: token.trim()
   };
 }

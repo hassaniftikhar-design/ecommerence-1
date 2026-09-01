@@ -1,45 +1,40 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { Search, ShoppingBag, Package, DollarSign, ArrowUpRight } from "lucide-react";
-import { useSession } from "next-auth/react";
-import Link from "next/link";
-import { ROUTES } from "@/constants/routes";
+import { useState, useEffect } from 'react';
+
+import { useRouter } from 'next/navigation';
+
+import Link from 'next/link';
+
+import { Search, ShoppingBag, Package, DollarSign, ArrowUpRight } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+
+import { ROUTES } from '@/constants/routes';
 import {
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
-import { renderStatusBadge } from "@/components/orders/orders-table";
-import { AdminOrderDrawer } from "@/components/orders/admin-order-drawer";
-import { getOrders } from "@/services/order.service";
-import type { OrderListItem } from "@/types/order.types";
-import { useDebounce } from "@/hooks/use-debounce";
+  TableRow
+} from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
+import { renderStatusBadge } from '@/components/orders/orders-table';
+import { getOrders } from '@/services/order.service';
+import type { OrderListItem } from '@/types/order.types';
+import { useDebounce } from '@/hooks/use-debounce';
 
-export interface AdminOrdersViewProps {
-  initialOrderId?: string | null;
-  onCloseDrawer?: () => void;
-}
-
-export function AdminOrdersView({
-  initialOrderId = null,
-  onCloseDrawer,
-}: AdminOrdersViewProps = {}) {
+export function AdminOrdersView() {
+  const router = useRouter();
   const { data: session, status } = useSession();
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 400);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [totalUnits, setTotalUnits] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(initialOrderId);
-  const [drawerOpen, setDrawerOpen] = useState<boolean>(Boolean(initialOrderId));
   const pageSize = 10;
 
   // Reset to page 1 whenever debounced search term changes
@@ -63,34 +58,17 @@ export function AdminOrdersView({
   };
 
   useEffect(() => {
-    if (status === "authenticated") {
+    if (status === 'authenticated') {
       loadOrders();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, debouncedSearchQuery, status]);
-
-  useEffect(() => {
-    if (initialOrderId) {
-      setSelectedOrderId(initialOrderId);
-      setDrawerOpen(true);
-    }
-  }, [initialOrderId]);
-
-  const handleOpenDrawer = (orderId: string) => {
-    setSelectedOrderId(orderId);
-    setDrawerOpen(true);
-  };
-
-  const handleCloseDrawer = () => {
-    setDrawerOpen(false);
-    setSelectedOrderId(null);
-    onCloseDrawer?.();
-  };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
   };
 
-  if (status === "loading") {
+  if (status === 'loading') {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -98,82 +76,75 @@ export function AdminOrdersView({
           <Skeleton className="h-24 w-full rounded-xl" />
           <Skeleton className="h-24 w-full rounded-xl" />
         </div>
-        <div className="flex items-center justify-between gap-4">
-          <Skeleton className="h-8 w-40" />
-          <Skeleton className="h-9 w-64 rounded-lg" />
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-12 w-full" />
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
+          <Skeleton className="h-64 w-full" />
         </div>
       </div>
     );
   }
 
-  if (session?.user?.role !== "ADMIN") {
+  if (!session || session.user?.role !== 'ADMIN') {
     return (
       <div className="mx-auto max-w-lg py-16 text-center">
         <h1 className="text-2xl font-bold text-red-600">Access Denied</h1>
-        <p className="mt-2 text-slate-600">You must be logged in as an Admin to view this page.</p>
-        <Link href={ROUTES.login} className="mt-4 inline-block font-semibold text-[#007BFF] underline">
+        <p className="mt-2 text-slate-600">You must be an administrator to view this page.</p>
+        <Link href={ROUTES.login} className="mt-4 inline-block font-semibold text-primary underline">
           Go to Login
         </Link>
       </div>
     );
   }
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
     <div className="space-y-6">
-      {/* Stat Summary Cards Row */}
+      {/* 3 Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div>
-            <p className="text-xs font-semibold text-slate-500">Total Orders:</p>
-            <p className="text-2xl font-bold text-[#007BFF] mt-1">{totalCount}</p>
+        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Orders</p>
+            <h3 className="text-2xl font-bold text-[#0B192C]">{totalCount}</h3>
           </div>
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-[#007BFF]">
-            <ShoppingBag className="h-5 w-5" />
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div>
-            <p className="text-xs font-semibold text-slate-500">Total Units:</p>
-            <p className="text-2xl font-bold text-[#007BFF] mt-1">{totalUnits}</p>
-          </div>
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-[#007BFF]">
-            <Package className="h-5 w-5" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-[#007BFF]">
+            <ShoppingBag className="h-6 w-6" />
           </div>
         </div>
 
-        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div>
-            <p className="text-xs font-semibold text-slate-500">Total Amount:</p>
-            <p className="text-2xl font-bold text-[#007BFF] mt-1">${totalAmount.toFixed(2)}</p>
+        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Units Sold</p>
+            <h3 className="text-2xl font-bold text-[#0B192C]">{totalUnits}</h3>
           </div>
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-[#007BFF]">
-            <DollarSign className="h-5 w-5" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-[#10B981]">
+            <Package className="h-6 w-6" />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Revenue</p>
+            <h3 className="text-2xl font-bold text-[#0B192C]">${totalAmount.toFixed(2)}</h3>
+          </div>
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+            <DollarSign className="h-6 w-6" />
           </div>
         </div>
       </div>
 
-      {/* Title & Search Bar Row */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2">
-        <h1 className="text-2xl font-bold text-[#007BFF]">Orders</h1>
+      {/* Header & Search */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold text-[#007BFF]">Orders Management</h1>
 
-        <div className="relative w-full sm:w-80">
+        <div className="relative w-full sm:w-72 h-9">
           <input
             type="text"
-            placeholder="Search user, order ID, product, category..."
+            placeholder="Search order #, customer, etc..."
             value={searchQuery}
             onChange={handleSearchChange}
-            className="w-full rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-10 text-xs sm:text-sm text-slate-700 placeholder-slate-400 outline-none focus:border-[#007BFF]"
+            className="w-full h-9 rounded-lg border border-slate-200 bg-white pl-3 pr-9 text-xs sm:text-sm text-slate-700 placeholder-slate-400 outline-none focus:border-[#007BFF]"
           />
-          <Search className="absolute right-3 top-2.5 h-4 w-4 text-slate-400" />
+          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
         </div>
       </div>
 
@@ -184,11 +155,11 @@ export function AdminOrdersView({
             <TableRow className="bg-slate-50/70 border-b border-slate-200">
               <TableHead className="font-semibold text-slate-600">Date</TableHead>
               <TableHead className="font-semibold text-slate-600">Order #</TableHead>
-              <TableHead className="font-semibold text-slate-600">User</TableHead>
-              <TableHead className="font-semibold text-slate-600">Product(s)</TableHead>
-              <TableHead className="font-semibold text-slate-600">Amount</TableHead>
+              <TableHead className="font-semibold text-slate-600">Customer</TableHead>
+              <TableHead className="font-semibold text-slate-600">Items</TableHead>
+              <TableHead className="font-semibold text-slate-600">Total Price</TableHead>
               <TableHead className="font-semibold text-slate-600">Status</TableHead>
-              <TableHead className="text-right font-semibold text-slate-600">Actions</TableHead>
+              <TableHead className="text-right font-semibold text-slate-600">Details</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -215,7 +186,7 @@ export function AdminOrdersView({
                 <TableRow
                   key={order.id}
                   className="hover:bg-slate-50/60 border-b border-slate-100 cursor-pointer transition-colors"
-                  onClick={() => handleOpenDrawer(order.id)}
+                  onClick={() => router.push(ROUTES.adminOrderDetail(order.id))}
                 >
                   <TableCell className="text-xs sm:text-sm text-slate-600">{order.date}</TableCell>
                   <TableCell className="text-xs sm:text-sm text-slate-700 font-semibold">{order.orderNumber}</TableCell>
@@ -226,17 +197,14 @@ export function AdminOrdersView({
                   </TableCell>
                   <TableCell>{renderStatusBadge(order.status)}</TableCell>
                   <TableCell className="text-right">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenDrawer(order.id);
-                      }}
-                      className="inline-flex items-center text-slate-600 hover:text-[#007BFF] transition p-1"
+                    <Link
+                      href={ROUTES.adminOrderDetail(order.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center text-slate-600 hover:text-[#007BFF] transition p-1 cursor-pointer"
                       title="View Order Details"
                     >
                       <ArrowUpRight className="h-5 w-5" />
-                    </button>
+                    </Link>
                   </TableCell>
                 </TableRow>
               ))
@@ -249,8 +217,8 @@ export function AdminOrdersView({
       {totalPages > 1 && (
         <div className="flex justify-between items-center text-xs text-slate-500">
           <div>
-            Showing <span className="font-semibold text-slate-700">{(currentPage - 1) * pageSize + 1}</span> to{" "}
-            <span className="font-semibold text-slate-700">{Math.min(currentPage * pageSize, totalCount)}</span> of{" "}
+            Showing <span className="font-semibold text-slate-700">{(currentPage - 1) * pageSize + 1}</span> to{' '}
+            <span className="font-semibold text-slate-700">{Math.min(currentPage * pageSize, totalCount)}</span> of{' '}
             <span className="font-semibold text-slate-700">{totalCount}</span> orders
           </div>
 
@@ -268,7 +236,7 @@ export function AdminOrdersView({
                 key={page}
                 type="button"
                 onClick={() => setCurrentPage(page)}
-                className={`px-3 py-1.5 font-medium border-r border-slate-200 last:border-r-0 cursor-pointer ${currentPage === page ? "text-[#007BFF] bg-blue-50" : "text-slate-600 hover:bg-slate-50"
+                className={`px-3 py-1.5 font-medium border-r border-slate-200 last:border-r-0 cursor-pointer ${currentPage === page ? 'text-[#007BFF] bg-blue-50' : 'text-slate-600 hover:bg-slate-50'
                   }`}
               >
                 {page}
@@ -285,14 +253,6 @@ export function AdminOrdersView({
           </div>
         </div>
       )}
-
-      {/* Order Detail Drawer Slider (1144px width) */}
-      <AdminOrderDrawer
-        isOpen={drawerOpen}
-        onClose={handleCloseDrawer}
-        orderId={selectedOrderId}
-        onStatusUpdated={loadOrders}
-      />
     </div>
   );
 }

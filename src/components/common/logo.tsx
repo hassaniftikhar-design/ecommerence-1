@@ -1,6 +1,6 @@
-import Link from "next/link";
+import Link from 'next/link';
 
-import { ROUTES } from "@/constants/routes";
+import { ROUTES } from '@/constants/routes';
 
 // Standalone so both the home header and (eventually) an auth-area
 // header can share the exact same wordmark/link without duplicating

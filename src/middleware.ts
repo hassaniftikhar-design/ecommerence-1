@@ -1,9 +1,10 @@
 
-import { getToken } from "next-auth/jwt";
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-import { isSessionExpired } from "@/constants";
+import { getToken } from 'next-auth/jwt';
+
+import { isSessionExpired } from '@/constants';
 
 const secret = process.env.NEXTAUTH_SECRET;
 
@@ -12,25 +13,24 @@ export async function middleware(request: NextRequest) {
 
   const token = await getToken({
     req: request,
-    secret,
+    secret
   });
 
   const isAuthPage =
-    pathname === "/login" || pathname === "/signup";
+    pathname === '/login' || pathname === '/signup';
 
   const isProtectedRoute =
-    pathname.startsWith("/admin") ||
-    pathname.startsWith("/orders") ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/orders') ||
     //pathname.startsWith("/profile") ||
-    pathname.startsWith("/cart");
-
+    pathname.startsWith('/cart');
 
   if (!token) {
     if (isProtectedRoute) {
-      const loginUrl = new URL("/login", request.url);
+      const loginUrl = new URL('/login', request.url);
 
       loginUrl.searchParams.set(
-        "callbackUrl",
+        'callbackUrl',
         pathname
       );
 
@@ -39,7 +39,6 @@ export async function middleware(request: NextRequest) {
 
     return NextResponse.next();
   }
-
 
   if (isSessionExpired(token.sessionExpiresAt)) {
     const response = isProtectedRoute
@@ -51,44 +50,39 @@ export async function middleware(request: NextRequest) {
       )
       : NextResponse.next();
 
+    response.cookies.delete('next-auth.session-token');
 
-    response.cookies.delete("next-auth.session-token");
-
-
-    response.cookies.delete("__Secure-next-auth.session-token");
+    response.cookies.delete('__Secure-next-auth.session-token');
 
     return response;
   }
 
-
-  if (token.role === "ADMIN") {
-    if (pathname === "/") {
+  if (token.role === 'ADMIN') {
+    if (pathname === '/') {
       return NextResponse.redirect(
-        new URL("/admin/products", request.url)
+        new URL('/admin/products', request.url)
       );
     }
 
     if (isAuthPage) {
       return NextResponse.redirect(
-        new URL("/admin/products", request.url)
+        new URL('/admin/products', request.url)
       );
     }
   }
 
-
-  if (token.role !== "ADMIN" && isAuthPage) {
+  if (token.role !== 'ADMIN' && isAuthPage) {
     return NextResponse.redirect(
-      new URL("/", request.url)
+      new URL('/', request.url)
     );
   }
 
-
   if (
-    pathname.startsWith("/admin") &&
-    token.role !== "ADMIN"
+    pathname.startsWith('/admin') &&
+    token.role !== 'ADMIN'
   ) {
     return NextResponse.redirect(
-      new URL("/", request.url)
+      new URL('/', request.url)
     );
   }
 
@@ -97,13 +91,13 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/",
-    "/admin/:path*",
-    "/orders/:path*",
+    '/',
+    '/admin/:path*',
+    '/orders/:path*',
     // "/profile/:path*",
-    "/cart/:path*",
-    "/login",
-    "/signup",
-  ],
+    '/cart/:path*',
+    '/login',
+    '/signup'
+  ]
 
 };

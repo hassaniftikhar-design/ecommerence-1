@@ -1,19 +1,20 @@
-"use client";
+'use client';
 
-import { useMemo } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
-import { PackageX, AlertCircle, RefreshCw } from "lucide-react";
+import { useMemo } from 'react';
 
-import { ProductCard } from "@/components/home/product-card";
-import { ProductCardSkeleton } from "@/components/home/product-card-skeleton";
-import { Button } from "@/components/ui/button";
-import { getProducts, type PaginatedProductsResponse } from "@/services/product.service";
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { PackageX, AlertCircle, RefreshCw } from 'lucide-react';
+
+import { ProductCard } from '@/components/home/product-card';
+import { ProductCardSkeleton } from '@/components/home/product-card-skeleton';
+import { Button } from '@/components/ui/button';
+import { getProducts, type PaginatedProductsResponse } from '@/services/product.service';
 import {
   PRODUCT_FETCH_BATCH_SIZE,
-  PRODUCT_CACHE_MAX_PAGES,
-} from "@/constants/generalconstants";
-import { useProductVirtualization } from "@/hooks/use-product-virtualization";
-import type { Product } from "@/types/product.types";
+  PRODUCT_CACHE_MAX_PAGES
+} from '@/constants/generalconstants';
+import { useProductVirtualization } from '@/hooks/use-product-virtualization';
+import type { Product } from '@/types/product.types';
 
 export interface ProductGridProps {
   initialData: PaginatedProductsResponse;
@@ -22,9 +23,9 @@ export interface ProductGridProps {
   sort?: string;
 }
 
-export function ProductGrid({ initialData, q = "", category = "", sort = "" }: ProductGridProps) {
+export function ProductGrid({ initialData, q = '', category = '', sort = '' }: ProductGridProps) {
   // Only seed initialData when initial params match default unsorted/unfiltered initial page load
-  const isInitialFilter = !q && !category && (!sort || sort === "newest");
+  const isInitialFilter = !q && !category && (!sort || sort === 'newest');
 
   const {
     data,
@@ -37,16 +38,16 @@ export function ProductGrid({ initialData, q = "", category = "", sort = "" }: P
     isLoading,
     status,
     error,
-    refetch,
+    refetch
   } = useInfiniteQuery({
-    queryKey: ["products", { q, category, sort }],
+    queryKey: ['products', { q, category, sort }],
     queryFn: async ({ pageParam = 1 }) => {
       return getProducts({
         page: pageParam as number,
         limit: PRODUCT_FETCH_BATCH_SIZE,
         q,
         category,
-        sort,
+        sort
       });
     },
     initialPageParam: 1,
@@ -60,10 +61,10 @@ export function ProductGrid({ initialData, q = "", category = "", sort = "" }: P
     initialData: isInitialFilter
       ? {
         pages: [initialData],
-        pageParams: [1],
+        pageParams: [1]
       }
       : undefined,
-    staleTime: 60 * 1000,
+    staleTime: 60 * 1000
   });
 
   // Flatten and deduplicate products across all loaded pages
@@ -94,7 +95,7 @@ export function ProductGrid({ initialData, q = "", category = "", sort = "" }: P
     bottomSpacerHeight,
     outerWrapperRef,
     topSentinelRef,
-    bottomSentinelRef,
+    bottomSentinelRef
   } = useProductVirtualization({
     items: products,
     totalCatalogCount,
@@ -105,7 +106,7 @@ export function ProductGrid({ initialData, q = "", category = "", sort = "" }: P
     isFetchingPreviousPage,
     fetchNextPage,
     fetchPreviousPage,
-    filterKey,
+    filterKey
   });
 
   if (isLoading && products.length === 0) {
@@ -118,7 +119,7 @@ export function ProductGrid({ initialData, q = "", category = "", sort = "" }: P
     );
   }
 
-  if (status === "error" && products.length === 0) {
+  if (status === 'error' && products.length === 0) {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50/50 p-10 text-center shadow-xs my-6 flex flex-col items-center justify-center space-y-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
@@ -127,7 +128,7 @@ export function ProductGrid({ initialData, q = "", category = "", sort = "" }: P
         <h3 className="text-lg font-bold text-slate-900">Failed to Load Products</h3>
         <p className="text-xs text-slate-600 max-w-sm">
           {(error as Error)?.message ||
-            "Something went wrong while fetching products. Please try again."}
+            'Something went wrong while fetching products. Please try again.'}
         </p>
         <Button
           type="button"
@@ -203,7 +204,7 @@ export function ProductGrid({ initialData, q = "", category = "", sort = "" }: P
       <div ref={bottomSentinelRef} className="h-1 w-full pointer-events-none" aria-hidden="true" />
 
       {/* Retry Footer Button if background fetch failed */}
-      {status === "error" && products.length > 0 && (
+      {status === 'error' && products.length > 0 && (
         <div className="flex flex-col items-center justify-center pt-3 pb-4 space-y-2">
           <p className="text-xs text-red-500 font-medium">Failed to load more products.</p>
           <Button

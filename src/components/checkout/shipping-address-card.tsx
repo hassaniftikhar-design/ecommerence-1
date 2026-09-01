@@ -1,20 +1,19 @@
-"use client";
+'use client';
 
-import React, { useState } from "react";
+import React, { useState } from 'react';
+
 import {
   MapPin,
   Edit2,
   Check,
-  Plus,
   Phone,
-  Building,
-  Globe,
-  AlertCircle,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { updateUserAddress } from "@/services/user.service";
-import type { UserAddress } from "@/types/user.types";
+  AlertCircle
+} from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { updateUserAddress } from '@/services/user.service';
+import type { UserAddress } from '@/types/user.types';
 
 interface ShippingAddressCardProps {
   address: UserAddress | null;
@@ -25,7 +24,7 @@ interface ShippingAddressCardProps {
 export function ShippingAddressCard({
   address,
   onAddressUpdated,
-  requiredError,
+  requiredError
 }: ShippingAddressCardProps) {
   const hasExistingAddress = Boolean(
     address?.addressLine && address?.city && address?.postalCode && address?.country
@@ -33,11 +32,11 @@ export function ShippingAddressCard({
 
   const [isEditing, setIsEditing] = useState(!hasExistingAddress);
   const [formData, setFormData] = useState({
-    addressLine: address?.addressLine || "",
-    city: address?.city || "",
-    postalCode: address?.postalCode || "",
-    country: address?.country || "United States",
-    phone: address?.phone || "",
+    addressLine: address?.addressLine || '',
+    city: address?.city || '',
+    postalCode: address?.postalCode || '',
+    country: address?.country || 'United States',
+    phone: address?.phone || ''
   });
 
   const [saving, setSaving] = useState(false);
@@ -47,11 +46,11 @@ export function ShippingAddressCard({
   React.useEffect(() => {
     if (address) {
       setFormData({
-        addressLine: address.addressLine || "",
-        city: address.city || "",
-        postalCode: address.postalCode || "",
-        country: address.country || "United States",
-        phone: address.phone || "",
+        addressLine: address.addressLine || '',
+        city: address.city || '',
+        postalCode: address.postalCode || '',
+        country: address.country || 'United States',
+        phone: address.phone || ''
       });
       if (!address.addressLine || !address.city) {
         setIsEditing(true);
@@ -68,19 +67,19 @@ export function ShippingAddressCard({
     e.preventDefault();
 
     if (!formData.addressLine.trim()) {
-      setFormError("Street address is required");
+      setFormError('Street address is required');
       return;
     }
     if (!formData.city.trim()) {
-      setFormError("City is required");
+      setFormError('City is required');
       return;
     }
     if (!formData.postalCode.trim()) {
-      setFormError("Postal / Zip code is required");
+      setFormError('Postal / Zip code is required');
       return;
     }
     if (!formData.country.trim()) {
-      setFormError("Country is required");
+      setFormError('Country is required');
       return;
     }
 
@@ -93,13 +92,13 @@ export function ShippingAddressCard({
         city: formData.city.trim(),
         postalCode: formData.postalCode.trim(),
         country: formData.country.trim(),
-        phone: formData.phone.trim() || undefined,
+        phone: formData.phone.trim() || undefined
       });
 
       onAddressUpdated(updated);
       setIsEditing(false);
-    } catch (err: any) {
-      setFormError(err.message || "Failed to save address");
+    } catch (err: unknown) {
+      setFormError((err as Error).message || 'Failed to save address');
     } finally {
       setSaving(false);
     }
@@ -109,8 +108,8 @@ export function ShippingAddressCard({
     <div
       className={`rounded-2xl border bg-white p-6 shadow-xs transition-all ${
         requiredError && !hasExistingAddress && !isEditing
-          ? "border-red-400 ring-2 ring-red-100"
-          : "border-slate-200"
+          ? 'border-red-400 ring-2 ring-red-100'
+          : 'border-slate-200'
       }`}
     >
       <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
@@ -163,7 +162,7 @@ export function ShippingAddressCard({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="font-bold text-sm text-slate-900">
-                {address?.name || "Customer"}
+                {address?.name || 'Customer'}
               </span>
               <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
                 <Check className="h-2.5 w-2.5 mr-0.5" /> Verified
@@ -191,7 +190,7 @@ export function ShippingAddressCard({
             </label>
             <Input
               value={formData.addressLine}
-              onChange={(e) => handleChange("addressLine", e.target.value)}
+              onChange={(e) => handleChange('addressLine', e.target.value)}
               placeholder="e.g. 123 Main Street, Apt 4B"
               className="text-xs h-9 rounded-lg"
               required
@@ -205,7 +204,7 @@ export function ShippingAddressCard({
               </label>
               <Input
                 value={formData.city}
-                onChange={(e) => handleChange("city", e.target.value)}
+                onChange={(e) => handleChange('city', e.target.value)}
                 placeholder="e.g. New York"
                 className="text-xs h-9 rounded-lg"
                 required
@@ -218,7 +217,7 @@ export function ShippingAddressCard({
               </label>
               <Input
                 value={formData.postalCode}
-                onChange={(e) => handleChange("postalCode", e.target.value)}
+                onChange={(e) => handleChange('postalCode', e.target.value)}
                 placeholder="e.g. 10001"
                 className="text-xs h-9 rounded-lg"
                 required
@@ -233,7 +232,7 @@ export function ShippingAddressCard({
               </label>
               <Input
                 value={formData.country}
-                onChange={(e) => handleChange("country", e.target.value)}
+                onChange={(e) => handleChange('country', e.target.value)}
                 placeholder="e.g. United States"
                 className="text-xs h-9 rounded-lg"
                 required
@@ -247,7 +246,7 @@ export function ShippingAddressCard({
               <Input
                 type="tel"
                 value={formData.phone}
-                onChange={(e) => handleChange("phone", e.target.value)}
+                onChange={(e) => handleChange('phone', e.target.value)}
                 placeholder="e.g. +1 (555) 019-2834"
                 className="text-xs h-9 rounded-lg"
               />
@@ -274,7 +273,7 @@ export function ShippingAddressCard({
               disabled={saving}
               className="bg-[#007BFF] hover:bg-blue-600 text-white text-xs font-semibold h-8 px-4 rounded-lg shadow-xs"
             >
-              {saving ? "Saving Address..." : hasExistingAddress ? "Update Address" : "Save Shipping Address"}
+              {saving ? 'Saving Address...' : hasExistingAddress ? 'Update Address' : 'Save Shipping Address'}
             </Button>
           </div>
         </form>
