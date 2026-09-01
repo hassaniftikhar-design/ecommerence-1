@@ -19,8 +19,18 @@ export function QuantitySelector({
   const [isFocused, setIsFocused] = useState(false);
   const [showPopup, setShowPopup] = useState(false);
   const popupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const prevInitialValueRef = useRef(initialValue);
 
-  // Sync state with initialValue prop when not actively focused
+  // Sync state ONLY when initialValue prop actually changes from the outside
+  useEffect(() => {
+    if (prevInitialValueRef.current !== initialValue) {
+      prevInitialValueRef.current = initialValue;
+      setQuantity(initialValue);
+      setInputValue(String(initialValue));
+    }
+  }, [initialValue]);
+
+  // Enforce max stock constraints
   useEffect(() => {
     if (!isFocused) {
       if (max !== undefined && max <= 0) {
@@ -30,14 +40,10 @@ export function QuantitySelector({
         setQuantity(max);
         setInputValue(String(max));
         onChange?.(max);
-      } else {
-        setQuantity(initialValue);
-        setInputValue(String(initialValue));
       }
     }
-  }, [initialValue, isFocused, max, quantity, onChange]);
+  }, [isFocused, max, quantity, onChange]);
 
-  // Clean up timer on unmount
   useEffect(() => {
     return () => {
       if (popupTimeoutRef.current) {

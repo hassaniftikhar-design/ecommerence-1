@@ -66,7 +66,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
 
       {loading ? (
         <div className="space-y-6">
-          {/* Metadata Card Skeleton */}
+
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <Skeleton className="h-6 w-48" />

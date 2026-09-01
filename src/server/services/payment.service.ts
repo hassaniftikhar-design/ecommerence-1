@@ -2,7 +2,11 @@ import { prisma } from "@/lib/prisma";
 import { stripe, createOrGetStripeCustomer } from "@/lib/stripe/stripe-server";
 import { logStripeError } from "@/lib/stripe/errors";
 import { TAX_RATE, DEFAULT_PRODUCT_IMAGE } from "@/constants/generalconstants";
-import { validateCreateOrderInput } from "@/server/middlewares";
+import {
+  validateCreateOrderInput,
+  validateSavePaymentMethodInput,
+  validatePaymentMethodIdInput,
+} from "@/server/middlewares";
 import type Stripe from "stripe";
 
 function generateOrderNumber(): string {
@@ -360,3 +364,420 @@ export async function createCheckoutPaymentIntentServer(
     };
   }
 }
+
+/**
+ * Retrieves all saved payment methods for a user from database.
+ */
+export async function getSavedPaymentMethodsServer(userId: string) {
+  try {
+    const paymentMethods = await prisma.paymentMethod.findMany({
+      where: { userId },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+    });
+
+    const formatted = paymentMethods.map((pm) => ({
+      id: pm.id,
+      stripePaymentMethodId: pm.stripePaymentMethodId,
+      brand: pm.brand,
+      last4: pm.last4,
+      expMonth: pm.expMonth,
+      expYear: pm.expYear,
+      isDefault: pm.isDefault,
+      createdAt: pm.createdAt.toISOString(),
+    }));
+
+    return {
+      success: true as const,
+      status: 200,
+      message: "Payment methods retrieved successfully",
+      data: {
+        paymentMethods: formatted,
+      },
+    };
+  } catch (error) {
+    logStripeError("getSavedPaymentMethodsServer", error, { userId });
+    return {
+      success: false as const,
+      status: 500,
+      errors: [(error as Error).message],
+      message: "Failed to fetch payment methods",
+    };
+  }
+}
+
+/**
+ * Saves a payment method card to Stripe and local database.
+ */
+export async function savePaymentMethodServer(
+  userId: string,
+  paymentMethodId: unknown,
+  setAsDefault?: unknown
+) {
+  const validation = validateSavePaymentMethodInput(paymentMethodId, setAsDefault);
+  if (!validation.success) {
+    return validation;
+  }
+
+  const { paymentMethodId: validPaymentMethodId, setAsDefault: shouldBeDefaultInput } = validation.data;
+
+  try {
+    // 1. Retrieve card details from Stripe
+    const pm = await stripe.paymentMethods.retrieve(validPaymentMethodId);
+    if (!pm.card) {
+      return {
+        success: false as const,
+        status: 400,
+        errors: ["Invalid payment method"],
+        message: "The provided payment method is not a card",
+      };
+    }
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, name: true, phone: true, stripeCustomerId: true },
+    });
+
+    if (!dbUser) {
+      return {
+        success: false as const,
+        status: 404,
+        errors: ["User not found"],
+        message: "User not found",
+      };
+    }
+
+    let customerId = dbUser.stripeCustomerId;
+    if (!customerId) {
+      customerId = await createOrGetStripeCustomer({
+        userId: dbUser.id,
+        email: dbUser.email,
+        name: dbUser.name,
+        phone: dbUser.phone,
+      });
+    }
+
+    // 2. Attach payment method to customer if not already attached
+    if (customerId && pm.customer !== customerId) {
+      await stripe.paymentMethods.attach(validPaymentMethodId, {
+        customer: customerId,
+      });
+    }
+
+    const existingCardsCount = await prisma.paymentMethod.count({
+      where: { userId },
+    });
+
+    const isFirstCard = existingCardsCount === 0;
+    const shouldBeDefault = shouldBeDefaultInput || isFirstCard;
+
+    if (shouldBeDefault && customerId) {
+      try {
+        await stripe.customers.update(customerId, {
+          invoice_settings: {
+            default_payment_method: validPaymentMethodId,
+          },
+        });
+      } catch (stripeErr) {
+        logStripeError("savePaymentMethodServer:setDefaultOnStripe", stripeErr, { customerId });
+      }
+    }
+
+    // 3. Save locally in DB
+    const savedCard = await prisma.$transaction(async (tx) => {
+      if (shouldBeDefault) {
+        await tx.paymentMethod.updateMany({
+          where: { userId },
+          data: { isDefault: false },
+        });
+      }
+
+      return tx.paymentMethod.upsert({
+        where: { stripePaymentMethodId: validPaymentMethodId },
+        create: {
+          userId,
+          stripePaymentMethodId: validPaymentMethodId,
+          brand: pm.card!.brand,
+          last4: pm.card!.last4,
+          expMonth: pm.card!.exp_month,
+          expYear: pm.card!.exp_year,
+          isDefault: shouldBeDefault,
+        },
+        update: {
+          brand: pm.card!.brand,
+          last4: pm.card!.last4,
+          expMonth: pm.card!.exp_month,
+          expYear: pm.card!.exp_year,
+          isDefault: shouldBeDefault,
+        },
+      });
+    });
+
+    return {
+      success: true as const,
+      status: 201,
+      message: "Payment method saved successfully",
+      data: {
+        paymentMethod: {
+          id: savedCard.id,
+          stripePaymentMethodId: savedCard.stripePaymentMethodId,
+          brand: savedCard.brand,
+          last4: savedCard.last4,
+          expMonth: savedCard.expMonth,
+          expYear: savedCard.expYear,
+          isDefault: savedCard.isDefault,
+          createdAt: savedCard.createdAt.toISOString(),
+        },
+      },
+    };
+  } catch (error) {
+    logStripeError("savePaymentMethodServer", error, { userId, paymentMethodId: validPaymentMethodId });
+    return {
+      success: false as const,
+      status: 500,
+      errors: [(error as Error).message],
+      message: "Failed to save payment method",
+    };
+  }
+}
+
+/**
+ * Deletes a saved payment method card from Stripe and local database.
+ */
+export async function deletePaymentMethodServer(userId: string, paymentMethodRecordId: unknown) {
+  const validation = validatePaymentMethodIdInput(paymentMethodRecordId);
+  if (!validation.success) {
+    return validation;
+  }
+
+  const validId = validation.data;
+
+  try {
+    const card = await prisma.paymentMethod.findFirst({
+      where: {
+        id: validId,
+        userId,
+      },
+      include: {
+        user: { select: { stripeCustomerId: true } },
+      },
+    });
+
+    if (!card) {
+      return {
+        success: false as const,
+        status: 404,
+        errors: ["Payment method not found"],
+        message: "Payment method not found",
+      };
+    }
+
+    // 1. Detach from Stripe
+    try {
+      await stripe.paymentMethods.detach(card.stripePaymentMethodId);
+    } catch (stripeErr) {
+      logStripeError("deletePaymentMethodServer:detach", stripeErr, {
+        paymentMethodId: card.stripePaymentMethodId,
+      });
+    }
+
+    // 2. Delete local record and reassign default if needed
+    await prisma.$transaction(async (tx) => {
+      await tx.paymentMethod.delete({
+        where: { id: card.id },
+      });
+
+      if (card.isDefault) {
+        const nextCard = await tx.paymentMethod.findFirst({
+          where: { userId },
+          orderBy: { createdAt: "desc" },
+        });
+
+        if (nextCard) {
+          await tx.paymentMethod.update({
+            where: { id: nextCard.id },
+            data: { isDefault: true },
+          });
+
+          if (card.user.stripeCustomerId) {
+            try {
+              await stripe.customers.update(card.user.stripeCustomerId, {
+                invoice_settings: {
+                  default_payment_method: nextCard.stripePaymentMethodId,
+                },
+              });
+            } catch (updateErr) {
+              logStripeError("deletePaymentMethodServer:reassignDefault", updateErr);
+            }
+          }
+        }
+      }
+    });
+
+    return {
+      success: true as const,
+      status: 200,
+      message: "Payment method deleted successfully",
+    };
+  } catch (error) {
+    logStripeError("deletePaymentMethodServer", error, { userId, paymentMethodRecordId: validId });
+    return {
+      success: false as const,
+      status: 500,
+      errors: [(error as Error).message],
+      message: "Failed to delete payment method",
+    };
+  }
+}
+
+/**
+ * Updates a saved card as the default payment method.
+ */
+export async function setDefaultPaymentMethodServer(userId: string, paymentMethodRecordId: unknown) {
+  const validation = validatePaymentMethodIdInput(paymentMethodRecordId);
+  if (!validation.success) {
+    return validation;
+  }
+
+  const validId = validation.data;
+
+  try {
+    const card = await prisma.paymentMethod.findFirst({
+      where: {
+        id: validId,
+        userId,
+      },
+      include: {
+        user: { select: { stripeCustomerId: true } },
+      },
+    });
+
+    if (!card) {
+      return {
+        success: false as const,
+        status: 404,
+        errors: ["Payment method not found"],
+        message: "Payment method not found",
+      };
+    }
+
+    // Update default payment method on Stripe
+    if (card.user.stripeCustomerId) {
+      try {
+        await stripe.customers.update(card.user.stripeCustomerId, {
+          invoice_settings: {
+            default_payment_method: card.stripePaymentMethodId,
+          },
+        });
+      } catch (stripeErr) {
+        logStripeError("setDefaultPaymentMethodServer:stripeCustomerUpdate", stripeErr, {
+          customerId: card.user.stripeCustomerId,
+          paymentMethodId: card.stripePaymentMethodId,
+        });
+      }
+    }
+
+    // Update isDefault in DB transaction
+    await prisma.$transaction(async (tx) => {
+      await tx.paymentMethod.updateMany({
+        where: { userId },
+        data: { isDefault: false },
+      });
+
+      await tx.paymentMethod.update({
+        where: { id: card.id },
+        data: { isDefault: true },
+      });
+    });
+
+    return {
+      success: true as const,
+      status: 200,
+      message: "Default payment method updated successfully",
+    };
+  } catch (error) {
+    logStripeError("setDefaultPaymentMethodServer", error, { userId, paymentMethodRecordId: validId });
+    return {
+      success: false as const,
+      status: 500,
+      errors: [(error as Error).message],
+      message: "Failed to update default payment method",
+    };
+  }
+}
+
+/**
+ * Creates a Stripe SetupIntent for saving a new card.
+ */
+export async function createSetupIntentServer(userId: string) {
+  try {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, name: true, phone: true, stripeCustomerId: true },
+    });
+
+    if (!dbUser) {
+      return {
+        success: false as const,
+        status: 404,
+        errors: ["User not found"],
+        message: "User not found",
+      };
+    }
+
+    let customerId = dbUser.stripeCustomerId;
+    if (!customerId) {
+      customerId = await createOrGetStripeCustomer({
+        userId: dbUser.id,
+        email: dbUser.email,
+        name: dbUser.name,
+        phone: dbUser.phone,
+      });
+    }
+
+    if (!customerId) {
+      return {
+        success: false as const,
+        status: 500,
+        errors: ["Customer initialization failed"],
+        message: "Failed to initialize Stripe customer",
+      };
+    }
+
+    const setupIntent = await stripe.setupIntents.create({
+      customer: customerId,
+      automatic_payment_methods: {
+        enabled: true,
+      },
+      metadata: {
+        userId,
+      },
+    });
+
+    if (!setupIntent.client_secret) {
+      return {
+        success: false as const,
+        status: 500,
+        errors: ["Missing client secret"],
+        message: "Failed to create setup intent",
+      };
+    }
+
+    return {
+      success: true as const,
+      status: 200,
+      message: "Setup intent created successfully",
+      data: {
+        clientSecret: setupIntent.client_secret,
+      },
+    };
+  } catch (error) {
+    logStripeError("createSetupIntentServer", error, { userId });
+    return {
+      success: false as const,
+      status: 500,
+      errors: [(error as Error).message],
+      message: "Failed to initialize payment setup",
+    };
+  }
+}
+
