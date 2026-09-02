@@ -38,6 +38,7 @@ export interface OrderDetail extends OrderListItem {
   tax: number;
   totalAmount: number;
   shippingAddress?: string | null;
+  paymentMethod?: string;
   products: OrderProductLine[];
   payment?: OrderPaymentSummary | null;
 }
