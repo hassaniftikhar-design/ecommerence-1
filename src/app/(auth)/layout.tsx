@@ -1,16 +1,18 @@
-import type { ReactNode } from "react";
-import { redirect } from "next/navigation";
-import { getServerAuthSession } from "@/lib/auth";
+import type { ReactNode } from 'react';
+
+import { redirect } from 'next/navigation';
+
+import { getServerAuthSession } from '@/lib/auth';
 
 export default async function AuthLayout({
-  children,
+  children
 }: {
   children: ReactNode;
 }) {
   const session = await getServerAuthSession();
 
   if (session) {
-    redirect("/");
+    redirect('/');
   }
 
   return (

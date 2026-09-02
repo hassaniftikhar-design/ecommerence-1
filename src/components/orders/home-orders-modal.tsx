@@ -1,10 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from 'react';
 
-import { OrdersModal } from "@/components/orders/orders-modal";
-import { ROUTES } from "@/constants/routes";
+import { useRouter } from 'next/navigation';
+
+import { OrdersModal } from '@/components/orders/orders-modal';
+import { ROUTES } from '@/constants/routes';
 
 interface HomeOrdersModalProps {
   openOrders?: boolean;
@@ -13,7 +14,7 @@ interface HomeOrdersModalProps {
 
 export function HomeOrdersModal({
   openOrders = false,
-  initialOrderId,
+  initialOrderId
 }: HomeOrdersModalProps) {
   const router = useRouter();
   const shouldBeOpen = openOrders || Boolean(initialOrderId);

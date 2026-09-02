@@ -1,5 +1,6 @@
-import nodemailer from "nodemailer";
-import { PASSWORD_RESET_EXPIRATION_MINUTES } from "@/constants";
+import nodemailer from 'nodemailer';
+
+import { PASSWORD_RESET_EXPIRATION_MINUTES } from '@/constants';
 
 const smtpHost = process.env.SMTP_HOST;
 const smtpPort = process.env.SMTP_PORT;
@@ -15,7 +16,7 @@ function getTransporter() {
     !smtpUser ||
     !smtpPass ||
     !emailFrom ||
-    smtpUser.includes("placeholder")
+    smtpUser.includes('placeholder')
   ) {
     return null;
   }
@@ -25,8 +26,8 @@ function getTransporter() {
     secure: Number(smtpPort) === 465,
     auth: {
       user: smtpUser,
-      pass: smtpPass,
-    },
+      pass: smtpPass
+    }
   });
 }
 
@@ -34,7 +35,7 @@ export async function sendEmail({
   to,
   subject,
   text,
-  html,
+  html
 }: {
   to: string;
   subject: string;
@@ -43,11 +44,11 @@ export async function sendEmail({
 }) {
   const transporter = getTransporter();
   if (!transporter) {
-    console.log(`\n========================================`);
+    console.log('\n========================================');
     console.log(`[SMTP Unconfigured / Dev Mode] Email to: ${to}`);
     console.log(`Subject: ${subject}`);
     console.log(`Content:\n${text}`);
-    console.log(`========================================\n`);
+    console.log('========================================\n');
     return;
   }
   return transporter.sendMail({
@@ -55,17 +56,17 @@ export async function sendEmail({
     to,
     subject,
     text,
-    html,
+    html
   });
 }
 
 export async function sendResetPasswordEmail(
   to: string,
-  token: string,
+  token: string
 ): Promise<void> {
-  const origin = nextAuthUrl ?? "http://localhost:3000";
+  const origin = nextAuthUrl ?? 'http://localhost:3000';
   const resetUrl = `${origin}/reset-password?token=${encodeURIComponent(token)}`;
-  const subject = "Reset your ShopFastStore password";
+  const subject = 'Reset your ShopFastStore password';
   const text = `You requested a password reset. Click here to reset your password: ${resetUrl}\n\nThis link will expire in ${PASSWORD_RESET_EXPIRATION_MINUTES} minutes.\n\nIf you did not request this, ignore this message.`;
   const html = `<p>You requested a password reset. Click <a href="${resetUrl}" style="text-decoration: underline;">here</a> to reset your password.</p><p>This link will expire in ${PASSWORD_RESET_EXPIRATION_MINUTES} minutes.</p><p>If you did not request this, ignore this email.</p>`;
 

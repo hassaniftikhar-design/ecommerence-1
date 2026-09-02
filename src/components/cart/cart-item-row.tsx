@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
-import Image from "next/image";
-import { Trash2 } from "lucide-react";
+import Image from 'next/image';
 
-import { Checkbox } from "@/components/ui/checkbox";
-import { TableCell, TableRow } from "@/components/ui/table";
-import { QuantitySelector } from "@/components/home/quantity-selector";
-import { VariantBadge } from "@/components/common/variant-badge";
-import { ConfirmDialog } from "@/components/common/confirm-dialog";
-import type { CartItem } from "@/types/cart.types";
+import { Trash2 } from 'lucide-react';
+
+import { Checkbox } from '@/components/ui/checkbox';
+import { TableCell, TableRow } from '@/components/ui/table';
+import { QuantitySelector } from '@/components/home/quantity-selector';
+import { ConfirmDialog } from '@/components/common/confirm-dialog';
+import type { CartItem } from '@/types/cart.types';
 
 interface CartItemRowProps {
   item: CartItem;
@@ -23,9 +23,10 @@ export function CartItemRow({
   checked,
   onToggle,
   onUpdateQuantity,
-  onRemove,
+  onRemove
 }: CartItemRowProps) {
   const itemTotalPrice = item.totalPrice ?? item.quantity * item.price;
+  const colorName = typeof item.color === 'string' ? item.color : item.color?.name;
 
   return (
     <TableRow className="hover:bg-slate-50/50 border-b border-slate-100">
@@ -53,12 +54,26 @@ export function CartItemRow({
         </div>
       </TableCell>
 
-      {/* 2. Variant (Compact Color Circle + Size Overlay) */}
+      {/* 2. Color (Dot + Label) */}
       <TableCell className="text-xs sm:text-sm text-slate-700">
-        <VariantBadge
-          color={typeof item.color === "string" ? item.color : item.color?.name}
-          size={item.size}
-        />
+        <div className="flex items-center gap-2">
+          <span
+            className="h-3 w-3 rounded-full border border-slate-300 shrink-0"
+            style={{
+              backgroundColor: colorName?.toLowerCase() || '#94a3b8'
+            }}
+          />
+          <span className="font-medium text-slate-700 capitalize">
+            {colorName || 'Default'}
+          </span>
+        </div>
+      </TableCell>
+
+      {/* 3. Size */}
+      <TableCell className="text-xs sm:text-sm text-slate-700">
+        <span className="inline-block px-2.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-[11px] font-medium text-slate-700">
+          {item.size || 'Fixed'}
+        </span>
       </TableCell>
 
       {/* 4. Quantity */}
@@ -70,26 +85,26 @@ export function CartItemRow({
         />
       </TableCell>
 
-      {/* 5. Unit Price */}
+      {/* 5. Unit Price / Rate */}
       <TableCell className="text-xs sm:text-sm font-medium text-slate-700">
         ${item.price.toFixed(2)}
       </TableCell>
 
-      {/* 6. Total Price (NEW Column as shown in design!) */}
-      <TableCell className="text-xs sm:text-sm font-semibold text-slate-900">
+      {/* 6. Total Price */}
+      <TableCell className="text-xs sm:text-sm font-bold text-slate-900">
         ${itemTotalPrice.toFixed(2)}
       </TableCell>
 
       {/* 7. Actions */}
-      <TableCell>
+      <TableCell className="text-right pr-4">
         <ConfirmDialog
           trigger={
             <button
               type="button"
               aria-label={`Remove ${item.name} from cart`}
-              className="text-red-500 hover:text-red-700 transition p-1"
+              className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded-lg transition cursor-pointer"
             >
-              <Trash2 className="h-5 w-5" />
+              <Trash2 className="h-4 w-4" />
             </button>
           }
           title="Remove Product"

@@ -1,6 +1,9 @@
-"use client";
+'use client';
 
-import React from "react";
+import React from 'react';
+
+import { AlertCircle } from 'lucide-react';
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,9 +12,8 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { AlertCircle } from "lucide-react";
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog';
 
 export interface PriceChangedModalProps {
   isOpen: boolean;
@@ -24,7 +26,7 @@ export function PriceChangedModal({
   isOpen,
   newTotal,
   onAccept,
-  onCancel,
+  onCancel
 }: PriceChangedModalProps) {
   return (
     <AlertDialog open={isOpen}>

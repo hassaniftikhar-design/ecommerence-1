@@ -1,11 +1,11 @@
-import { apiSuccess, apiError } from "@/lib/api-response";
-import { getCurrentUser } from "@/lib/server-auth";
+import { apiSuccess, apiError } from '@/lib/api-response';
+import { getCurrentUser } from '@/lib/server-auth';
 import {
   getSavedPaymentMethodsServer,
-  savePaymentMethodServer,
-} from "@/server/services/payment.service";
+  savePaymentMethodServer
+} from '@/server/services/payment.service';
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
   try {
@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const userId = user?.id || user?.sub;
 
     if (!user || !userId) {
-      return apiError("Unauthorized: Please log in", [], 401);
+      return apiError('Unauthorized: Please log in', [], 401);
     }
 
     const result = await getSavedPaymentMethodsServer(userId);
@@ -24,8 +24,8 @@ export async function GET(request: Request) {
 
     return apiSuccess(result.message, result.data, result.status);
   } catch (error) {
-    return apiError("Failed to fetch payment methods", [
-      (error as Error).message,
+    return apiError('Failed to fetch payment methods', [
+      (error as Error).message
     ], 500);
   }
 }
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     const userId = user?.id || user?.sub;
 
     if (!user || !userId) {
-      return apiError("Unauthorized: Please log in", [], 401);
+      return apiError('Unauthorized: Please log in', [], 401);
     }
 
     const body = await request.json();
@@ -48,8 +48,8 @@ export async function POST(request: Request) {
 
     return apiSuccess(result.message, result.data, result.status);
   } catch (error) {
-    return apiError("Failed to save payment method", [
-      (error as Error).message,
+    return apiError('Failed to save payment method', [
+      (error as Error).message
     ], 500);
   }
 }

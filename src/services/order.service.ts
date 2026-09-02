@@ -1,5 +1,5 @@
-import type { OrderDetail, OrderListItem } from "@/types/order.types";
-import type { ApiResponse } from "@/lib/api-response";
+import type { OrderDetail, OrderListItem } from '@/types/order.types';
+import type { ApiResponse } from '@/lib/api-response';
 
 async function parseApiResponse<T>(response: Response): Promise<T> {
   let json: ApiResponse<T> | null = null;
@@ -12,23 +12,23 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
   }
 
   if (!response.ok || (json && json.success === false)) {
-    let errorMsg = "";
+    let errorMsg = '';
 
     if (json?.message) {
       errorMsg = json.message;
     } else if (json?.errors && Array.isArray(json.errors) && json.errors.length > 0) {
       errorMsg = json.errors
         .map((err) =>
-          typeof err === "string"
+          typeof err === 'string'
             ? err
             : (err as { message?: string })?.message || JSON.stringify(err)
         )
         .filter(Boolean)
-        .join(", ");
+        .join(', ');
     }
 
     if (!errorMsg) {
-      errorMsg = `Request failed (${response.status || "Error"}). Please try again.`;
+      errorMsg = `Request failed (${response.status || 'Error'}). Please try again.`;
     }
 
     throw new Error(errorMsg);
@@ -48,11 +48,11 @@ export async function getOrders(
   totalAmount: number;
   pageSize: number;
 }> {
-  const searchQuery = search ? `&search=${encodeURIComponent(search)}` : "";
+  const searchQuery = search ? `&search=${encodeURIComponent(search)}` : '';
   const response = await fetch(
     `/api/orders?page=${page}&limit=${limit}${searchQuery}`,
     {
-      cache: "no-store",
+      cache: 'no-store'
     }
   );
   return parseApiResponse<{
@@ -66,7 +66,7 @@ export async function getOrders(
 
 export async function getOrderById(orderId: string): Promise<OrderDetail> {
   const response = await fetch(`/api/orders/${orderId}`, {
-    cache: "no-store",
+    cache: 'no-store'
   });
   const data = await parseApiResponse<{ order: OrderDetail }>(response);
   return data.order;
@@ -77,9 +77,9 @@ export async function updateOrderStatus(
   status: string
 ): Promise<void> {
   const response = await fetch(`/api/orders/${orderId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status }),
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status })
   });
   await parseApiResponse(response);
 }

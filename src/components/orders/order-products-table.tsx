@@ -1,8 +1,10 @@
-"use client";
+'use client';
 
-import React, { useState, useMemo } from "react";
-import Image from "next/image";
-import { ChevronDown, ChevronUp, PackageCheck } from "lucide-react";
+import React, { useState, useMemo } from 'react';
+
+import Image from 'next/image';
+
+import { ChevronDown, ChevronUp, PackageCheck } from 'lucide-react';
 
 import {
   Table,
@@ -10,10 +12,10 @@ import {
   TableCell,
   TableHead,
   TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import type { OrderProductLine } from "@/types/order.types";
-import { VariantBadge } from "@/components/common/variant-badge";
+  TableRow
+} from '@/components/ui/table';
+import type { OrderProductLine } from '@/types/order.types';
+import { VariantBadge } from '@/components/common/variant-badge';
 
 interface GroupedProductOrder {
   key: string;
@@ -26,7 +28,7 @@ interface GroupedProductOrder {
 }
 
 export function OrderProductsTable({
-  products,
+  products
 }: {
   products: OrderProductLine[];
 }) {
@@ -56,7 +58,7 @@ export function OrderProductsTable({
           imageUrl: item.imageUrl,
           totalQuantity: item.quantity,
           totalAmount: item.price * item.quantity,
-          items: [item],
+          items: [item]
         });
       }
     }
@@ -69,10 +71,10 @@ export function OrderProductsTable({
       <Table>
         <TableHeader>
           <TableRow className="bg-slate-50/60 border-b border-slate-200">
-            <TableHead className="font-semibold text-slate-600 text-xs py-3.5">Title</TableHead>
-            <TableHead className="font-semibold text-slate-600 text-xs py-3.5">Total Price</TableHead>
-            <TableHead className="font-semibold text-slate-600 text-xs py-3.5">Total Quantity</TableHead>
-            <TableHead className="font-semibold text-slate-600 text-xs py-3.5">Variants</TableHead>
+            <TableHead className="font-semibold text-slate-600 text-xs py-3.5 w-[40%]">Title</TableHead>
+            <TableHead className="font-semibold text-slate-600 text-xs py-3.5">Price</TableHead>
+            <TableHead className="font-semibold text-slate-600 text-xs py-3.5">Quantity</TableHead>
+            <TableHead className="font-semibold text-slate-600 text-xs py-3.5 text-right">Stock</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -86,6 +88,8 @@ export function OrderProductsTable({
             groupedProducts.map((group) => {
               const isExpanded = expandedGroupKey === group.key;
               const variantCount = group.items.length;
+              const unitPrice = group.items[0]?.price ?? (group.totalAmount / (group.totalQuantity || 1));
+              const totalStock = group.items.reduce((acc, it) => acc + (it.stock || 0), 0);
 
               return (
                 <React.Fragment key={group.key}>
@@ -99,7 +103,7 @@ export function OrderProductsTable({
                           <Image
                             src={
                               group.imageUrl ||
-                              "/placeholder-product.png"
+                              '/placeholder-product.png'
                             }
                             alt={group.title}
                             fill
@@ -109,28 +113,28 @@ export function OrderProductsTable({
                           />
                         </div>
                         <span className="text-xs text-slate-800 font-semibold max-w-md line-clamp-2">
-                          {group.title}
+                          {group.title.replace(/\s*\([^)]*\)$/, '')}
                         </span>
                       </div>
                     </TableCell>
 
                     <TableCell className="text-xs text-slate-700 font-medium py-3">
-                      ${group.totalAmount.toFixed(2)}
+                      ${unitPrice.toFixed(2)}
                     </TableCell>
 
                     <TableCell className="text-xs text-slate-700 font-medium py-3">
-                      {group.totalQuantity} {group.totalQuantity === 1 ? "unit" : "units"}
+                      {String(group.totalQuantity).padStart(2, '0')}
                     </TableCell>
 
-                    <TableCell className="text-xs text-slate-600 font-medium py-3">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold bg-blue-50 text-[#007BFF] hover:bg-blue-100 transition">
-                        <span>
-                          {variantCount} {variantCount === 1 ? "variant" : "variants"}
-                        </span>
-                        {isExpanded ? (
-                          <ChevronUp className="h-3.5 w-3.5 text-[#007BFF]" />
-                        ) : (
-                          <ChevronDown className="h-3.5 w-3.5 text-[#007BFF]" />
+                    <TableCell className="text-xs text-slate-700 font-medium py-3 text-right pr-6">
+                      <div className="inline-flex items-center gap-2">
+                        <span>{totalStock}</span>
+                        {variantCount > 0 && (
+                          isExpanded ? (
+                            <ChevronUp className="h-3.5 w-3.5 text-[#007BFF]" />
+                          ) : (
+                            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                          )
                         )}
                       </div>
                     </TableCell>
@@ -160,14 +164,14 @@ export function OrderProductsTable({
                                     <div className="flex items-center gap-2">
                                       <VariantBadge color={item.color} size={item.size} />
                                       <span className="font-semibold text-slate-800">
-                                        {item.color || "Standard"} {item.size || ""}
+                                        {item.color || 'Standard'} {item.size || ''}
                                       </span>
                                     </div>
                                     <span
                                       className={
                                         item.stock > 0
-                                          ? "text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200"
-                                          : "text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200"
+                                          ? 'text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200'
+                                          : 'text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200'
                                       }
                                     >
                                       Stock: {item.stock}

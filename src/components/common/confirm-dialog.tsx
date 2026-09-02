@@ -1,7 +1,8 @@
-"use client";
+'use client';
 
-import type { ReactNode } from "react";
-import { TriangleAlert } from "lucide-react";
+import type { ReactNode } from 'react';
+
+import { TriangleAlert } from 'lucide-react';
 
 import {
   AlertDialog,
@@ -10,8 +11,8 @@ import {
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+  AlertDialogTrigger
+} from '@/components/ui/alert-dialog';
 
 interface ConfirmDialogProps {
   trigger: ReactNode;
@@ -32,9 +33,9 @@ export function ConfirmDialog({
   trigger,
   title,
   description,
-  confirmLabel = "Yes",
-  cancelLabel = "No",
-  onConfirm,
+  confirmLabel = 'Yes',
+  cancelLabel = 'No',
+  onConfirm
 }: ConfirmDialogProps) {
   return (
     <AlertDialog>

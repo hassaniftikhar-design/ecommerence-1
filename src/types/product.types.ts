@@ -28,7 +28,7 @@ export interface ProductVariant {
   updatedAt: string;
 }
 
-export type ProductStatusFilter = "all" | "active" | "inactive";
+export type ProductStatusFilter = 'all' | 'active' | 'inactive';
 
 export interface Product {
   id: string;
@@ -74,7 +74,7 @@ export interface ProductFormValues {
 }
 
 export interface ProductFormProps {
-  mode: "create" | "edit";
+  mode: 'create' | 'edit';
   initialData?: Product;
   onSubmitSuccess?: () => void;
 }

@@ -1,51 +1,40 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { Edit2, Search, ChevronDown, ChevronUp, X } from "lucide-react";
-import { useSession } from "next-auth/react";
+import React, { useState, useEffect } from 'react';
 
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import Link from 'next/link';
+import Image from 'next/image';
+
+import { Edit2, Search, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { AddProductDrawer } from "@/components/forms/add-product-drawer";
-import { ROUTES } from "@/constants/routes";
-import { getProductsPaginated, type ProductsPaginationMeta } from "@/services/product.service";
-import { VariantBadge } from "@/components/common/variant-badge";
-import type { Product, ProductStatusFilter } from "@/types/product.types";
-import { useDebounce } from "@/hooks/use-debounce";
-import { useToast } from "@/components/ui/toast";
-import { WelcomeToast } from "@/components/common/welcome-toast";
-import { Tooltip } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+  TableRow
+} from '@/components/ui/table';
+import { ROUTES } from '@/constants/routes';
+import { getProductsPaginated, type ProductsPaginationMeta } from '@/services/product.service';
+import { VariantBadge } from '@/components/common/variant-badge';
+import type { Product, ProductStatusFilter } from '@/types/product.types';
+import { useDebounce } from '@/hooks/use-debounce';
+import { useToast } from '@/components/ui/toast';
+import { WelcomeToast } from '@/components/common/welcome-toast';
+import { Tooltip } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
-export interface AdminProductsViewProps {
-  initialOpenAddDrawer?: boolean;
-  initialEditProductId?: string | null;
-  onCloseAddDrawer?: () => void;
-  onCloseEditDrawer?: () => void;
-}
-
-export function AdminProductsView({
-  initialOpenAddDrawer = false,
-  initialEditProductId = null,
-  onCloseAddDrawer,
-  onCloseEditDrawer,
-}: AdminProductsViewProps = {}) {
+export function AdminProductsView() {
   const { data: session, status } = useSession();
   const { showError } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<ProductStatusFilter>("all");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<ProductStatusFilter>('all');
   const debouncedSearchQuery = useDebounce(searchQuery, 400);
   const [currentPage, setCurrentPage] = useState(1);
   const [paginationMeta, setPaginationMeta] = useState<ProductsPaginationMeta>({
@@ -54,19 +43,13 @@ export function AdminProductsView({
     totalItems: 0,
     totalPages: 1,
     hasNextPage: false,
-    hasPrevPage: false,
+    hasPrevPage: false
   });
 
-  const [addDrawerOpen, setAddDrawerOpen] = useState<boolean>(initialOpenAddDrawer);
-  const [editProductId, setEditProductId] = useState<string | null>(initialEditProductId);
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
 
   // Image preview modal state
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
-
-  useEffect(() => {
-    setEditProductId(initialEditProductId);
-  }, [initialEditProductId]);
 
   const toggleRowExpand = (productId: string) => {
     setExpandedProductId((prev) => (prev === productId ? null : productId));
@@ -83,13 +66,13 @@ export function AdminProductsView({
         page: targetPage,
         limit: 10,
         search: targetSearch,
-        status: targetFilter,
+        status: targetFilter
       });
       setProducts(result.products);
       setPaginationMeta(result.pagination);
     } catch (err) {
-      console.error("Failed to load products:", err);
-      showError((err as Error).message || "Failed to load products", "Error");
+      console.error('Failed to load products:', err);
+      showError((err as Error).message || 'Failed to load products', 'Error');
     } finally {
       setLoading(false);
     }
@@ -99,21 +82,13 @@ export function AdminProductsView({
   useEffect(() => {
     setCurrentPage(1);
     fetchProductsList(1, debouncedSearchQuery, statusFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearchQuery, statusFilter]);
 
   // Page change
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
     fetchProductsList(newPage, debouncedSearchQuery, statusFilter);
-  };
-
-  useEffect(() => {
-    setAddDrawerOpen(initialOpenAddDrawer);
-  }, [initialOpenAddDrawer]);
-
-  const handleCloseAddDrawer = () => {
-    setAddDrawerOpen(false);
-    onCloseAddDrawer?.();
   };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,9 +99,7 @@ export function AdminProductsView({
     setStatusFilter(filterOpt);
   };
 
-
-
-  if (status !== "loading" && (!session || session.user?.role !== "ADMIN")) {
+  if (status !== 'loading' && (!session || session.user?.role !== 'ADMIN')) {
     return (
       <div className="mx-auto max-w-lg py-16 text-center">
         <h1 className="text-2xl font-bold text-red-600">Access Denied</h1>
@@ -157,31 +130,32 @@ export function AdminProductsView({
           </div>
 
           <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 shrink-0 h-9">
-            {(["all", "active", "inactive"] as const).map((filterOpt) => (
+            {(['all', 'active', 'inactive'] as const).map((filterOpt) => (
               <button
                 key={filterOpt}
                 type="button"
                 onClick={() => handleStatusFilterChange(filterOpt)}
                 className={cn(
-                  "px-3 h-7 flex items-center justify-center text-xs font-semibold rounded-md capitalize transition-all cursor-pointer",
+                  'px-3 h-7 flex items-center justify-center text-xs font-semibold rounded-md capitalize transition-all cursor-pointer',
                   statusFilter === filterOpt
-                    ? "bg-white text-[#007BFF] shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? 'bg-white text-[#007BFF] shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
                 )}
               >
-                {filterOpt === "all" ? "All" : filterOpt === "active" ? "Active" : "Inactive"}
+                {filterOpt === 'all' ? 'All' : filterOpt === 'active' ? 'Active' : 'Inactive'}
               </button>
             ))}
           </div>
 
-          <Button
-            type="button"
-            onClick={() => setAddDrawerOpen(true)}
-            variant="outline"
-            className="w-full sm:w-auto h-9 border-[#007BFF] text-[#007BFF] hover:bg-blue-50 font-medium px-4 text-sm cursor-pointer"
-          >
-            + Add a Single Product
-          </Button>
+          <Link href={ROUTES.adminAddSingleProduct} className="w-full sm:w-auto">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto h-9 border-[#007BFF] text-[#007BFF] hover:bg-blue-50 font-medium px-4 text-sm cursor-pointer"
+            >
+              + Add a Single Product
+            </Button>
+          </Link>
 
           <Link href={ROUTES.adminAddMultipleProducts} className="w-full sm:w-auto">
             <Button className="w-full sm:w-auto h-9 bg-[#007BFF] hover:bg-blue-600 text-white font-medium px-4 text-sm shadow-sm">
@@ -240,21 +214,21 @@ export function AdminProductsView({
                     <TableRow
                       onClick={() => toggleRowExpand(product.id)}
                       className={cn(
-                        "hover:bg-slate-50/70 border-b border-slate-100 cursor-pointer transition-colors",
-                        !product.isActive && "bg-slate-50/40 opacity-85"
+                        'hover:bg-slate-50/70 border-b border-slate-100 cursor-pointer transition-colors',
+                        !product.isActive && 'bg-slate-50/40 opacity-85'
                       )}
                     >
                       <TableCell className="py-3">
                         <div className="flex items-start gap-3">
                           <Image
-                            src={displayImage || "/placeholder-product.png"}
+                            src={displayImage || '/placeholder-product.png'}
                             alt={product.name}
                             title="Click to view full image"
                             width={40}
                             height={40}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setPreviewImage({ url: displayImage || "", title: product.name });
+                              setPreviewImage({ url: displayImage || '', title: product.name });
                             }}
                             className="h-10 w-10 shrink-0 rounded object-cover border border-slate-200 cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-2xs"
                           />
@@ -282,7 +256,7 @@ export function AdminProductsView({
                       <TableCell className="text-xs sm:text-sm text-slate-600 font-medium">
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold bg-blue-50 text-[#007BFF] hover:bg-blue-100 transition">
                           <span>
-                            {displayVariantCount} {displayVariantCount === 1 ? "variant" : "variants"}
+                            {displayVariantCount} {displayVariantCount === 1 ? 'variant' : 'variants'}
                           </span>
                           {isExpanded ? (
                             <ChevronUp className="h-3.5 w-3.5 text-[#007BFF]" />
@@ -301,7 +275,7 @@ export function AdminProductsView({
                         ) : (
                           <span
                             className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/80"
-                            title={product.inactiveAt ? `Deactivated: ${new Date(product.inactiveAt).toLocaleString()}` : "Inactive"}
+                            title={product.inactiveAt ? `Deactivated: ${new Date(product.inactiveAt).toLocaleString()}` : 'Inactive'}
                           >
                             <span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
                             Inactive
@@ -311,17 +285,14 @@ export function AdminProductsView({
 
                       <TableCell className="text-right pr-16">
                         <div className="flex items-center justify-end gap-3">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditProductId(product.id);
-                            }}
+                          <Link
+                            href={ROUTES.adminEditProduct(product.id)}
+                            onClick={(e) => e.stopPropagation()}
                             className="text-blue-500 hover:text-blue-700 p-1.5 rounded-lg hover:bg-blue-50 cursor-pointer transition shrink-0"
                             title="Edit Product"
                           >
                             <Edit2 className="h-4 w-4" />
-                          </button>
+                          </Link>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -344,16 +315,16 @@ export function AdminProductsView({
                                     variant.attributes?.Color ||
                                     variant.attributes?.color ||
                                     variant.variantOptions?.find(
-                                      (vo) => vo.optionName.toLowerCase() === "color"
+                                      (vo) => vo.optionName.toLowerCase() === 'color'
                                     )?.value ||
-                                    "Standard";
+                                    'Standard';
                                   const size =
                                     variant.attributes?.Size ||
                                     variant.attributes?.size ||
                                     variant.variantOptions?.find(
-                                      (vo) => vo.optionName.toLowerCase() === "size"
+                                      (vo) => vo.optionName.toLowerCase() === 'size'
                                     )?.value ||
-                                    "Standard";
+                                    'Standard';
 
                                   return (
                                     <div
@@ -362,7 +333,7 @@ export function AdminProductsView({
                                     >
                                       <div className="flex items-center gap-2.5">
                                         <Image
-                                           src={variant.images?.[0] || displayImage || "/placeholder-product.png"}
+                                           src={variant.images?.[0] || displayImage || '/placeholder-product.png'}
                                            alt={`${product.name} variant`}
                                            title="Click to view full image"
                                            width={36}
@@ -370,18 +341,18 @@ export function AdminProductsView({
                                            onClick={(e) => {
                                              e.stopPropagation();
                                              setPreviewImage({
-                                               url: variant.images?.[0] || displayImage || "",
-                                               title: `${product.name} - ${color} ${size}`,
+                                               url: variant.images?.[0] || displayImage || '',
+                                               title: `${product.name} - ${color} ${size}`
                                              });
                                            }}
                                            className="h-9 w-9 shrink-0 rounded object-cover border border-slate-200 cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-2xs"
                                         />
                                         <VariantBadge
-                                          color={color !== "Standard" ? color : undefined}
-                                          size={size !== "Standard" ? size : undefined}
+                                          color={color !== 'Standard' ? color : undefined}
+                                          size={size !== 'Standard' ? size : undefined}
                                         />
                                         <span className="text-xs font-semibold text-slate-800">
-                                          {color !== "Standard" ? color : ""} {size !== "Standard" ? size : ""}
+                                          {color !== 'Standard' ? color : ''} {size !== 'Standard' ? size : ''}
                                         </span>
                                       </div>
                                       <span className="text-xs font-bold text-slate-700 bg-white border border-slate-200 px-2.5 py-1 rounded-md shadow-xs">
@@ -412,14 +383,14 @@ export function AdminProductsView({
       {paginationMeta.totalPages > 1 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
           <p className="text-xs text-slate-500 font-medium">
-            Showing{" "}
+            Showing{' '}
             <span className="font-semibold text-slate-800">
               {Math.min((paginationMeta.page - 1) * paginationMeta.limit + 1, paginationMeta.totalItems)}
-            </span>{" "}
-            to{" "}
+            </span>{' '}
+            to{' '}
             <span className="font-semibold text-slate-800">
               {Math.min(paginationMeta.page * paginationMeta.limit, paginationMeta.totalItems)}
-            </span>{" "}
+            </span>{' '}
             of <span className="font-semibold text-slate-800">{paginationMeta.totalItems}</span> products
           </p>
           <div className="inline-flex items-center border border-slate-200 rounded-lg overflow-hidden text-xs bg-white shadow-2xs">
@@ -434,7 +405,7 @@ export function AdminProductsView({
               <button
                 key={page}
                 onClick={() => handlePageChange(page)}
-                className={`px-3 py-1.5 font-semibold border-r border-slate-200 last:border-r-0 transition cursor-pointer ${paginationMeta.page === page ? "text-[#007BFF] bg-blue-50/90" : "text-slate-600 hover:bg-slate-50"
+                className={`px-3 py-1.5 font-semibold border-r border-slate-200 last:border-r-0 transition cursor-pointer ${paginationMeta.page === page ? 'text-[#007BFF] bg-blue-50/90' : 'text-slate-600 hover:bg-slate-50'
                   }`}
               >
                 {page}
@@ -473,8 +444,8 @@ export function AdminProductsView({
             onClick={(e) => e.stopPropagation()}
           >
             <Image
-              src={previewImage.url || "/placeholder-product.png"}
-              alt={previewImage.title || "Full size preview"}
+              src={previewImage.url || '/placeholder-product.png'}
+              alt={previewImage.title || 'Full size preview'}
               fill
               unoptimized
               className="object-contain rounded-2xl shadow-2xl"
@@ -483,27 +454,6 @@ export function AdminProductsView({
         </div>
       )}
 
-
-
-      {/* Add Product Drawer Slider (696px width) */}
-      <AddProductDrawer
-        isOpen={addDrawerOpen}
-        onClose={handleCloseAddDrawer}
-        mode="create"
-        onSuccess={fetchProductsList}
-      />
-
-      {/* Edit Product Drawer Slider (696px width) */}
-      <AddProductDrawer
-        isOpen={!!editProductId}
-        onClose={() => {
-          setEditProductId(null);
-          onCloseEditDrawer?.();
-        }}
-        mode="edit"
-        productId={editProductId}
-        onSuccess={fetchProductsList}
-      />
       <WelcomeToast />
     </div>
   );

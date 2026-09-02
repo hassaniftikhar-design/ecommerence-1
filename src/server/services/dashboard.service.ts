@@ -1,22 +1,23 @@
-import { prisma } from "@/lib/prisma";
-import { OrderStatus } from "@prisma/client";
+import { OrderStatus } from '@prisma/client';
+
+import { prisma } from '@/lib/prisma';
 
 export async function getAdminDashboardStatsServer() {
   const totalOrders = await prisma.order.count();
   const totalProducts = await prisma.product.count();
   const activeProducts = await prisma.product.count({
-    where: { isActive: true },
+    where: { isActive: true }
   });
 
   const validOrdersRevenue = await prisma.order.aggregate({
     _sum: {
-      totalAmount: true,
+      totalAmount: true
     },
     where: {
       status: {
-        not: OrderStatus.REJECTED,
-      },
-    },
+        not: OrderStatus.REJECTED
+      }
+    }
   });
 
   const totalRevenue = Number(validOrdersRevenue._sum.totalAmount || 0);
@@ -38,7 +39,7 @@ export async function getAdminDashboardStatsServer() {
       IN_PROGRESS: inProgressCount,
       DISPATCHED: dispatchedCount,
       DELIVERED: deliveredCount,
-      REJECTED: rejectedCount,
-    },
+      REJECTED: rejectedCount
+    }
   };
 }

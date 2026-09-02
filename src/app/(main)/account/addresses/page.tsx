@@ -1,17 +1,20 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState, useCallback } from "react";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { AlertCircle } from "lucide-react";
-import { BackHeading } from "@/components/common/back-heading";
-import { RequireLoginModal } from "@/components/auth/require-login-modal";
-import { ShippingAddressCard } from "@/components/checkout/shipping-address-card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/components/ui/toast";
-import { getUserAddress } from "@/services/user.service";
-import { ROUTES } from "@/constants/routes";
-import type { UserAddress } from "@/types/user.types";
+import React, { useEffect, useState, useCallback } from 'react';
+
+import { useRouter } from 'next/navigation';
+
+import { useSession } from 'next-auth/react';
+import { AlertCircle } from 'lucide-react';
+
+import { BackHeading } from '@/components/common/back-heading';
+import { RequireLoginModal } from '@/components/auth/require-login-modal';
+import { ShippingAddressCard } from '@/components/checkout/shipping-address-card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/components/ui/toast';
+import { getUserAddress } from '@/services/user.service';
+import { ROUTES } from '@/constants/routes';
+import type { UserAddress } from '@/types/user.types';
 
 export default function AddressesPage() {
   const { status } = useSession();
@@ -23,23 +26,23 @@ export default function AddressesPage() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchAddress = useCallback(async () => {
-    if (status !== "authenticated") return;
+    if (status !== 'authenticated') return;
     try {
       setLoading(true);
       setError(null);
       const data = await getUserAddress();
       setAddress(data);
-    } catch (err: any) {
-      setError(err.message || "Failed to load address");
+    } catch (err: unknown) {
+      setError((err as Error).message || 'Failed to load address');
     } finally {
       setLoading(false);
     }
   }, [status]);
 
   useEffect(() => {
-    if (status === "authenticated") {
+    if (status === 'authenticated') {
       fetchAddress();
-    } else if (status === "unauthenticated") {
+    } else if (status === 'unauthenticated') {
       setLoading(false);
     }
   }, [status, fetchAddress]);
@@ -72,14 +75,14 @@ export default function AddressesPage() {
             address={address}
             onAddressUpdated={(newAddr) => {
               setAddress(newAddr);
-              showSuccess("Address updated successfully");
+              showSuccess('Address updated successfully');
             }}
           />
         </div>
       )}
 
       <RequireLoginModal
-        isOpen={status === "unauthenticated"}
+        isOpen={status === 'unauthenticated'}
         onClose={() => router.push(ROUTES.home)}
         title="Login Required"
         description="Please log in to manage your delivery address."

@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react';
 
-import { SiteHeader } from "@/components/home/site-header";
+import { SiteHeader } from '@/components/home/site-header';
 
 // Every "logged-in area" page (Home, Cart, Orders, Order Detail) shares
 // the exact same header + content container in the Figma. Before this

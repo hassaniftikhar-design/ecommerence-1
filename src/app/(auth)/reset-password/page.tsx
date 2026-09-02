@@ -1,14 +1,15 @@
-import { Suspense } from "react";
-import type { Metadata } from "next";
+import { Suspense } from 'react';
 
-import { AuthCard } from "@/components/auth/auth-card";
-import { AuthTitle } from "@/components/auth/auth-title";
-import { ResetPasswordForm } from "@/components/auth/reset-password-form";
+import type { Metadata } from 'next';
+
+import { AuthCard } from '@/components/auth/auth-card';
+import { AuthTitle } from '@/components/auth/auth-title';
+import { ResetPasswordForm } from '@/components/auth/reset-password-form';
 
 export const metadata: Metadata = {
-  title: "Reset Password",
-  description: "Choose a new password for your E-commerce account.",
-  openGraph: { title: "Reset Password | E-commerce" },
+  title: 'Reset Password',
+  description: 'Choose a new password for your E-commerce account.',
+  openGraph: { title: 'Reset Password | E-commerce' }
 };
 
 export default function ResetPasswordPage() {

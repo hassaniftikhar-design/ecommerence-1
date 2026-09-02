@@ -1,13 +1,15 @@
-"use client";
+'use client';
 
-import { useState, useRef, type ChangeEvent, type FormEvent } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, Upload as UploadIcon, FileText, Trash2, Check } from "lucide-react";
-import { useSession } from "next-auth/react";
+import { useState, useRef, type ChangeEvent, type FormEvent } from 'react';
 
-import { Button } from "@/components/ui/button";
-import { ROUTES } from "@/constants/routes";
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+
+import { ArrowLeft, Upload as UploadIcon, FileText, Trash2, Check } from 'lucide-react';
+import { useSession } from 'next-auth/react';
+
+import { Button } from '@/components/ui/button';
+import { ROUTES } from '@/constants/routes';
 
 export default function AddMultipleProductsPage() {
   const router = useRouter();
@@ -38,7 +40,7 @@ export default function AddMultipleProductsPage() {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!selectedFile) {
-      setError("Please select a CSV or JSON file to upload.");
+      setError('Please select a CSV or JSON file to upload.');
       return;
     }
 
@@ -60,7 +62,7 @@ export default function AddMultipleProductsPage() {
     }
   };
 
-  if (session?.user?.role !== "ADMIN") {
+  if (session?.user?.role !== 'ADMIN') {
     return (
       <div className="py-12 text-center text-slate-600 font-medium">
         Access Denied. Please Login again.
@@ -113,12 +115,12 @@ export default function AddMultipleProductsPage() {
             <button
               type="button"
               onClick={() => {
-                const csvData = "Title,Price,Stock,Category\nSample Product,99.99,10,General";
-                const blob = new Blob([csvData], { type: "text/csv" });
+                const csvData = 'Title,Price,Stock,Category\nSample Product,99.99,10,General';
+                const blob = new Blob([csvData], { type: 'text/csv' });
                 const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
+                const a = document.createElement('a');
                 a.href = url;
-                a.download = "sample_products.csv";
+                a.download = 'sample_products.csv';
                 a.click();
               }}
               className="mt-1 text-xs text-[#007BFF] underline hover:text-blue-700 font-medium"
@@ -181,7 +183,7 @@ export default function AddMultipleProductsPage() {
             disabled={!selectedFile || uploading}
             className="bg-[#007BFF] hover:bg-blue-600 text-white font-semibold px-8 py-2.5 text-sm rounded-lg shadow-sm"
           >
-            {uploading ? "Uploading..." : "Upload File"}
+            {uploading ? 'Uploading...' : 'Upload File'}
           </Button>
         </div>
       </form>

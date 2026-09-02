@@ -1,14 +1,16 @@
-import { randomBytes } from "crypto";
-import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
-import { DEFAULT_PRODUCT_IMAGE, PRODUCT_FETCH_BATCH_SIZE } from "@/constants/generalconstants";
+import { randomBytes } from 'crypto';
+
+import { Prisma } from '@prisma/client';
+
+import { prisma } from '@/lib/prisma';
+import { DEFAULT_PRODUCT_IMAGE, PRODUCT_FETCH_BATCH_SIZE } from '@/constants/generalconstants';
 import {
   validateCreateProductInput,
-  validateUpdateProductInput,
-} from "@/server/middlewares";
+  validateUpdateProductInput
+} from '@/server/middlewares';
 
 function generateSku(): string {
-  return `SKU-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`;
+  return `SKU-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString('hex').toUpperCase()}`;
 }
 
 export interface RawVariantOption {
@@ -90,7 +92,7 @@ export function formatProductResponse(product: RawProduct) {
       attributes,
       variantOptions: variantOptionsInfo,
       createdAt: v.createdAt instanceof Date ? v.createdAt.toISOString() : v.createdAt,
-      updatedAt: v.updatedAt instanceof Date ? v.updatedAt.toISOString() : v.updatedAt,
+      updatedAt: v.updatedAt instanceof Date ? v.updatedAt.toISOString() : v.updatedAt
     };
   });
 
@@ -111,8 +113,8 @@ export function formatProductResponse(product: RawProduct) {
       values: (opt.values || []).map((val) => ({
         id: val.id,
         optionId: val.optionId,
-        value: val.value,
-      })),
+        value: val.value
+      }))
     })),
     variants: variantsFormatted,
     price: productPrice,
@@ -122,7 +124,7 @@ export function formatProductResponse(product: RawProduct) {
     totalStock,
     variantCount: variantsFormatted.length,
     createdAt: product.createdAt instanceof Date ? product.createdAt.toISOString() : product.createdAt,
-    updatedAt: product.updatedAt instanceof Date ? product.updatedAt.toISOString() : product.updatedAt,
+    updatedAt: product.updatedAt instanceof Date ? product.updatedAt.toISOString() : product.updatedAt
   };
 }
 
@@ -139,14 +141,14 @@ export interface GetProductsServerParams {
 
 export async function getProductsServer(params: GetProductsServerParams) {
   const {
-    searchQuery = "",
-    categoryQuery = "",
-    sortQuery = "newest",
-    statusQuery = "",
+    searchQuery = '',
+    categoryQuery = '',
+    sortQuery = 'newest',
+    statusQuery = '',
     pageNumber = 1,
     limitNumber = PRODUCT_FETCH_BATCH_SIZE,
     isPaginatedCall = false,
-    userIsAdmin = false,
+    userIsAdmin = false
   } = params;
 
   const whereClause: Prisma.ProductWhereInput = {};
@@ -154,35 +156,35 @@ export async function getProductsServer(params: GetProductsServerParams) {
   if (!userIsAdmin) {
     whereClause.isActive = true;
   } else {
-    if (statusQuery === "active") {
+    if (statusQuery === 'active') {
       whereClause.isActive = true;
-    } else if (statusQuery === "inactive") {
+    } else if (statusQuery === 'inactive') {
       whereClause.isActive = false;
     }
   }
 
   if (searchQuery) {
     whereClause.OR = [
-      { name: { contains: searchQuery, mode: "insensitive" } },
-      { category: { name: { contains: searchQuery, mode: "insensitive" } } },
+      { name: { contains: searchQuery, mode: 'insensitive' } },
+      { category: { name: { contains: searchQuery, mode: 'insensitive' } } }
     ];
   }
 
   if (categoryQuery) {
-    whereClause.category = { name: { equals: categoryQuery, mode: "insensitive" } };
+    whereClause.category = { name: { equals: categoryQuery, mode: 'insensitive' } };
   }
 
-  let orderByClause: Prisma.ProductOrderByWithRelationInput = { createdAt: "desc" };
-  if (sortQuery === "price-asc") {
-    orderByClause = { price: "asc" };
-  } else if (sortQuery === "price-desc") {
-    orderByClause = { price: "desc" };
-  } else if (sortQuery === "name-asc") {
-    orderByClause = { name: "asc" };
-  } else if (sortQuery === "name-desc") {
-    orderByClause = { name: "desc" };
-  } else if (sortQuery === "newest") {
-    orderByClause = { createdAt: "desc" };
+  let orderByClause: Prisma.ProductOrderByWithRelationInput = { createdAt: 'desc' };
+  if (sortQuery === 'price-asc') {
+    orderByClause = { price: 'asc' };
+  } else if (sortQuery === 'price-desc') {
+    orderByClause = { price: 'desc' };
+  } else if (sortQuery === 'name-asc') {
+    orderByClause = { name: 'asc' };
+  } else if (sortQuery === 'name-desc') {
+    orderByClause = { name: 'desc' };
+  } else if (sortQuery === 'newest') {
+    orderByClause = { createdAt: 'desc' };
   }
 
   const totalCount = await prisma.product.count({ where: whereClause });
@@ -194,8 +196,8 @@ export async function getProductsServer(params: GetProductsServerParams) {
       createdBy: { select: { id: true, name: true } },
       options: {
         include: {
-          values: true,
-        },
+          values: true
+        }
       },
       variants: {
         include: {
@@ -203,21 +205,21 @@ export async function getProductsServer(params: GetProductsServerParams) {
             include: {
               optionValue: {
                 include: {
-                  option: true,
-                },
-              },
-            },
-          },
-        },
-      },
+                  option: true
+                }
+              }
+            }
+          }
+        }
+      }
     },
     orderBy: orderByClause,
     ...(isPaginatedCall
       ? {
         skip: (pageNumber - 1) * limitNumber,
-        take: limitNumber,
+        take: limitNumber
       }
-      : {}),
+      : {})
   });
 
   const formattedProducts = products.map(formatProductResponse);
@@ -237,8 +239,8 @@ export async function getProductsServer(params: GetProductsServerParams) {
       totalItems: totalCount,
       totalPages: isPaginatedCall ? totalPages : 1,
       hasNextPage: isPaginatedCall ? pageNumber < totalPages : false,
-      hasPrevPage: isPaginatedCall ? pageNumber > 1 : false,
-    },
+      hasPrevPage: isPaginatedCall ? pageNumber > 1 : false
+    }
   };
 }
 
@@ -250,8 +252,8 @@ export async function getProductByIdServer(id: string, userIsAdmin: boolean) {
       createdBy: { select: { id: true, name: true } },
       options: {
         include: {
-          values: true,
-        },
+          values: true
+        }
       },
       variants: {
         include: {
@@ -259,14 +261,14 @@ export async function getProductByIdServer(id: string, userIsAdmin: boolean) {
             include: {
               optionValue: {
                 include: {
-                  option: true,
-                },
-              },
-            },
-          },
-        },
-      },
-    },
+                  option: true
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   });
 
   if (!product || (!userIsAdmin && !product.isActive)) {
@@ -277,7 +279,7 @@ export async function getProductByIdServer(id: string, userIsAdmin: boolean) {
 }
 
 export async function createProductServer(body: unknown, adminUserId: string) {
-  if (body && typeof body === "object" && "createdById" in body) {
+  if (body && typeof body === 'object' && 'createdById' in body) {
     delete (body as Record<string, unknown>).createdById;
   }
 
@@ -294,7 +296,7 @@ export async function createProductServer(body: unknown, adminUserId: string) {
     variants = [],
     price,
     stock,
-    imageUrl,
+    imageUrl
   } = validation.data;
 
   let category = null;
@@ -304,12 +306,12 @@ export async function createProductServer(body: unknown, adminUserId: string) {
     category = await prisma.category.upsert({
       where: { name: categoryName.trim() },
       update: {},
-      create: { name: categoryName.trim() },
+      create: { name: categoryName.trim() }
     });
   }
 
   if (!category) {
-    return { success: false as const, status: 400, errors: [], message: "Category is required" };
+    return { success: false as const, status: 400, errors: [], message: 'Category is required' };
   }
 
   const createdProduct = await prisma.$transaction(async (tx) => {
@@ -317,19 +319,19 @@ export async function createProductServer(body: unknown, adminUserId: string) {
 
     const candidates = await tx.product.findMany({
       where: {
-        name: { equals: name.trim(), mode: "insensitive" },
-        categoryId: category.id,
+        name: { equals: name.trim(), mode: 'insensitive' },
+        categoryId: category.id
       },
       include: {
         options: { include: { values: true } },
         variants: {
           include: {
             variantOptions: {
-              include: { optionValue: { include: { option: true } } },
-            },
-          },
-        },
-      },
+              include: { optionValue: { include: { option: true } } }
+            }
+          }
+        }
+      }
     });
 
     let product = candidates.find((p) => Number(p.price) === Number(targetPrice)) || null;
@@ -340,18 +342,18 @@ export async function createProductServer(body: unknown, adminUserId: string) {
           name: name.trim(),
           price: targetPrice,
           categoryId: category.id,
-          createdById: adminUserId,
+          createdById: adminUserId
         },
         include: {
           options: { include: { values: true } },
           variants: {
             include: {
               variantOptions: {
-                include: { optionValue: { include: { option: true } } },
-              },
-            },
-          },
-        },
+                include: { optionValue: { include: { option: true } } }
+              }
+            }
+          }
+        }
       });
     }
 
@@ -372,9 +374,9 @@ export async function createProductServer(body: unknown, adminUserId: string) {
         const createdOpt = await tx.productOption.create({
           data: {
             productId: product.id,
-            name: optName,
+            name: optName
           },
-          include: { values: true },
+          include: { values: true }
         });
         targetOpt = createdOpt;
       }
@@ -389,8 +391,8 @@ export async function createProductServer(body: unknown, adminUserId: string) {
           const createdVal = await tx.productOptionValue.create({
             data: {
               optionId: targetOpt.id,
-              value: valTrimmed,
-            },
+              value: valTrimmed
+            }
           });
           targetVal = createdVal;
         }
@@ -419,8 +421,8 @@ export async function createProductServer(body: unknown, adminUserId: string) {
             where: { id: existingVariantMatch.id },
             data: {
               stock: existingVariantMatch.stock + v.stock,
-              images: v.images && v.images.length > 0 ? v.images : existingVariantMatch.images,
-            },
+              images: v.images && v.images.length > 0 ? v.images : existingVariantMatch.images
+            }
           });
         } else {
           const variantSku = v.sku || generateSku();
@@ -429,8 +431,8 @@ export async function createProductServer(body: unknown, adminUserId: string) {
               productId: product.id,
               sku: variantSku,
               stock: v.stock,
-              images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE],
-            },
+              images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE]
+            }
           });
 
           if (v.attributes) {
@@ -440,8 +442,8 @@ export async function createProductServer(body: unknown, adminUserId: string) {
                 await tx.variantOption.create({
                   data: {
                     variantId: createdVariant.id,
-                    optionValueId: valId,
-                  },
+                    optionValueId: valId
+                  }
                 });
               }
             }
@@ -450,7 +452,7 @@ export async function createProductServer(body: unknown, adminUserId: string) {
       }
     } else {
       const finalStock = stock || 0;
-      const finalImage = imageUrl && imageUrl.trim() !== "" ? imageUrl.trim() : DEFAULT_PRODUCT_IMAGE;
+      const finalImage = imageUrl && imageUrl.trim() !== '' ? imageUrl.trim() : DEFAULT_PRODUCT_IMAGE;
 
       const firstVariant = product.variants[0];
       if (firstVariant) {
@@ -458,8 +460,8 @@ export async function createProductServer(body: unknown, adminUserId: string) {
           where: { id: firstVariant.id },
           data: {
             stock: firstVariant.stock + finalStock,
-            images: [finalImage],
-          },
+            images: [finalImage]
+          }
         });
       } else {
         await tx.productVariant.create({
@@ -467,8 +469,8 @@ export async function createProductServer(body: unknown, adminUserId: string) {
             productId: product.id,
             sku: generateSku(),
             stock: finalStock,
-            images: [finalImage],
-          },
+            images: [finalImage]
+          }
         });
       }
     }
@@ -485,32 +487,32 @@ export async function createProductServer(body: unknown, adminUserId: string) {
       variants: {
         include: {
           variantOptions: {
-            include: { optionValue: { include: { option: true } } },
-          },
-        },
-      },
-    },
+            include: { optionValue: { include: { option: true } } }
+          }
+        }
+      }
+    }
   });
 
   if (!fullProduct) {
-    return { success: false as const, status: 500, errors: [], message: "Product created but could not be re-fetched" };
+    return { success: false as const, status: 500, errors: [], message: 'Product created but could not be re-fetched' };
   }
 
   return { success: true as const, status: 201, product: formatProductResponse(fullProduct) };
 }
 
 export async function updateProductServer(id: string, body: unknown) {
-  if (body && typeof body === "object" && "createdById" in body) {
+  if (body && typeof body === 'object' && 'createdById' in body) {
     delete (body as Record<string, unknown>).createdById;
   }
 
   const existingProduct = await prisma.product.findUnique({
     where: { id },
-    include: { options: true, variants: true },
+    include: { options: true, variants: true }
   });
 
   if (!existingProduct) {
-    return { success: false as const, status: 404, errors: [], message: "Product not found" };
+    return { success: false as const, status: 404, errors: [], message: 'Product not found' };
   }
 
   const validation = validateUpdateProductInput(body);
@@ -526,7 +528,7 @@ export async function updateProductServer(id: string, body: unknown) {
     variants,
     price,
     stock,
-    imageUrl,
+    imageUrl
   } = validation.data;
 
   let targetCategoryId = categoryId;
@@ -534,7 +536,7 @@ export async function updateProductServer(id: string, body: unknown) {
     const category = await prisma.category.upsert({
       where: { name: categoryName.trim() },
       update: {},
-      create: { name: categoryName.trim() },
+      create: { name: categoryName.trim() }
     });
     targetCategoryId = category.id;
   }
@@ -545,13 +547,13 @@ export async function updateProductServer(id: string, body: unknown) {
       data: {
         ...(name !== undefined ? { name: name.trim() } : {}),
         ...(targetCategoryId ? { categoryId: targetCategoryId } : {}),
-        ...(price !== undefined ? { price } : {}),
-      },
+        ...(price !== undefined ? { price } : {})
+      }
     });
 
     if (options !== undefined) {
       await tx.productOption.deleteMany({
-        where: { productId: id },
+        where: { productId: id }
       });
 
       const optionValueMap: Record<string, string> = {};
@@ -560,8 +562,8 @@ export async function updateProductServer(id: string, body: unknown) {
         const createdOpt = await tx.productOption.create({
           data: {
             productId: id,
-            name: opt.name.trim(),
-          },
+            name: opt.name.trim()
+          }
         });
 
         for (const valStr of opt.values) {
@@ -569,8 +571,8 @@ export async function updateProductServer(id: string, body: unknown) {
           const createdVal = await tx.productOptionValue.create({
             data: {
               optionId: createdOpt.id,
-              value: valTrimmed,
-            },
+              value: valTrimmed
+            }
           });
           optionValueMap[`${opt.name.trim()}:${valTrimmed}`] = createdVal.id;
         }
@@ -593,11 +595,11 @@ export async function updateProductServer(id: string, body: unknown) {
               where: { id: existingVar.id },
               data: {
                 stock: v.stock,
-                images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE],
-              },
+                images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE]
+              }
             });
             await tx.variantOption.deleteMany({
-              where: { variantId: existingVar.id },
+              where: { variantId: existingVar.id }
             });
             targetVariantId = existingVar.id;
           } else {
@@ -607,8 +609,8 @@ export async function updateProductServer(id: string, body: unknown) {
                 productId: id,
                 sku: variantSku,
                 stock: v.stock,
-                images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE],
-              },
+                images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE]
+              }
             });
             targetVariantId = createdVariant.id;
           }
@@ -622,8 +624,8 @@ export async function updateProductServer(id: string, body: unknown) {
                 await tx.variantOption.create({
                   data: {
                     variantId: targetVariantId,
-                    optionValueId: valId,
-                  },
+                    optionValueId: valId
+                  }
                 });
               }
             }
@@ -633,7 +635,7 @@ export async function updateProductServer(id: string, body: unknown) {
         const unusedOldVariants = oldVariants.filter((ov) => !newVariantIds.includes(ov.id));
         for (const unusedVar of unusedOldVariants) {
           await tx.productVariant.delete({
-            where: { id: unusedVar.id },
+            where: { id: unusedVar.id }
           });
         }
       }
@@ -654,8 +656,8 @@ export async function updateProductServer(id: string, body: unknown) {
             where: { id: existingVar.id },
             data: {
               stock: v.stock,
-              images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE],
-            },
+              images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE]
+            }
           });
           targetVariantId = existingVar.id;
         } else {
@@ -665,8 +667,8 @@ export async function updateProductServer(id: string, body: unknown) {
               productId: id,
               sku: variantSku,
               stock: v.stock,
-              images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE],
-            },
+              images: v.images && v.images.length > 0 ? v.images : [imageUrl || DEFAULT_PRODUCT_IMAGE]
+            }
           });
           targetVariantId = createdVariant.id;
         }
@@ -677,7 +679,7 @@ export async function updateProductServer(id: string, body: unknown) {
       const unusedOldVariants = oldVariants.filter((ov) => !newVariantIds.includes(ov.id));
       for (const unusedVar of unusedOldVariants) {
         await tx.productVariant.delete({
-          where: { id: unusedVar.id },
+          where: { id: unusedVar.id }
         });
       }
     } else if (stock !== undefined || imageUrl !== undefined) {
@@ -687,8 +689,8 @@ export async function updateProductServer(id: string, body: unknown) {
           where: { id: firstVariant.id },
           data: {
             ...(stock !== undefined ? { stock } : {}),
-            ...(imageUrl !== undefined ? { images: [imageUrl || DEFAULT_PRODUCT_IMAGE] } : {}),
-          },
+            ...(imageUrl !== undefined ? { images: [imageUrl || DEFAULT_PRODUCT_IMAGE] } : {})
+          }
         });
       }
     }
@@ -703,15 +705,15 @@ export async function updateProductServer(id: string, body: unknown) {
       variants: {
         include: {
           variantOptions: {
-            include: { optionValue: { include: { option: true } } },
-          },
-        },
-      },
-    },
+            include: { optionValue: { include: { option: true } } }
+          }
+        }
+      }
+    }
   });
 
   if (!fullProduct) {
-    return { success: false as const, status: 500, errors: [], message: "Product updated but could not be retrieved" };
+    return { success: false as const, status: 500, errors: [], message: 'Product updated but could not be retrieved' };
   }
 
   return { success: true as const, status: 200, product: formatProductResponse(fullProduct) };
@@ -719,11 +721,11 @@ export async function updateProductServer(id: string, body: unknown) {
 
 export async function updateProductStatusServer(id: string, isActive: boolean) {
   const existingProduct = await prisma.product.findUnique({
-    where: { id },
+    where: { id }
   });
 
   if (!existingProduct) {
-    return { success: false as const, status: 404, errors: [], message: "Product not found" };
+    return { success: false as const, status: 404, errors: [], message: 'Product not found' };
   }
 
   const inactiveAt = isActive ? null : new Date();
@@ -732,15 +734,15 @@ export async function updateProductStatusServer(id: string, isActive: boolean) {
     where: { id },
     data: {
       isActive,
-      inactiveAt,
+      inactiveAt
     },
     include: {
       category: { select: { id: true, name: true } },
       createdBy: { select: { id: true, name: true } },
       options: {
         include: {
-          values: true,
-        },
+          values: true
+        }
       },
       variants: {
         include: {
@@ -748,14 +750,14 @@ export async function updateProductStatusServer(id: string, isActive: boolean) {
             include: {
               optionValue: {
                 include: {
-                  option: true,
-                },
-              },
-            },
-          },
-        },
-      },
-    },
+                  option: true
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   });
 
   return {
@@ -763,27 +765,27 @@ export async function updateProductStatusServer(id: string, isActive: boolean) {
     status: 200,
     product: formatProductResponse(updatedProduct),
     message: isActive
-      ? "Product restored and activated successfully"
-      : "Product inactivated successfully",
+      ? 'Product restored and activated successfully'
+      : 'Product inactivated successfully'
   };
 }
 
 export async function deactivateProductServer(id: string) {
   const existingProduct = await prisma.product.findUnique({
-    where: { id },
+    where: { id }
   });
 
   if (!existingProduct) {
-    return { success: false as const, status: 404, errors: [], message: "Product not found" };
+    return { success: false as const, status: 404, errors: [], message: 'Product not found' };
   }
 
   await prisma.product.update({
     where: { id },
     data: {
       isActive: false,
-      inactiveAt: new Date(),
-    },
+      inactiveAt: new Date()
+    }
   });
 
-  return { success: true as const, status: 200, message: "Product inactivated successfully" };
+  return { success: true as const, status: 200, message: 'Product inactivated successfully' };
 }

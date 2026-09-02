@@ -1,16 +1,19 @@
-"use client";
+'use client';
 
-import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
-import { AlertCircle, ShoppingBag } from "lucide-react";
-import { BackHeading } from "@/components/common/back-heading";
-import { OrdersTable } from "@/components/orders/orders-table";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { getOrders } from "@/services/order.service";
-import { ROUTES } from "@/constants/routes";
-import type { OrderListItem } from "@/types/order.types";
-import { cn } from "@/lib/utils";
+import { useEffect, useState, useCallback } from 'react';
+
+import Link from 'next/link';
+
+import { AlertCircle, ShoppingBag } from 'lucide-react';
+
+import { BackHeading } from '@/components/common/back-heading';
+import { OrdersTable } from '@/components/orders/orders-table';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { getOrders } from '@/services/order.service';
+import { ROUTES } from '@/constants/routes';
+import type { OrderListItem } from '@/types/order.types';
+import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 10;
 
@@ -94,7 +97,7 @@ export default function OrdersPage() {
           {/* Pagination & Total Count Footer */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
             <p className="text-xs font-medium text-slate-500">
-              {totalCount} Total {totalCount === 1 ? "Order" : "Orders"}
+              {totalCount} Total {totalCount === 1 ? 'Order' : 'Orders'}
             </p>
 
             {totalPages > 1 && (
@@ -114,10 +117,10 @@ export default function OrdersPage() {
                     type="button"
                     onClick={() => setCurrentPage(p)}
                     className={cn(
-                      "px-3 py-1.5 font-semibold rounded-md transition cursor-pointer",
+                      'px-3 py-1.5 font-semibold rounded-md transition cursor-pointer',
                       currentPage === p
-                        ? "bg-blue-50 text-[#007BFF]"
-                        : "text-slate-600 hover:bg-slate-50"
+                        ? 'bg-blue-50 text-[#007BFF]'
+                        : 'text-slate-600 hover:bg-slate-50'
                     )}
                   >
                     {p}

@@ -1,14 +1,15 @@
-import { Suspense } from "react";
-import type { Metadata } from "next";
+import { Suspense } from 'react';
 
-import { AuthCard } from "@/components/auth/auth-card";
-import { AuthTitle } from "@/components/auth/auth-title";
-import { LoginForm } from "@/components/auth/login-form";
+import type { Metadata } from 'next';
+
+import { AuthCard } from '@/components/auth/auth-card';
+import { AuthTitle } from '@/components/auth/auth-title';
+import { LoginForm } from '@/components/auth/login-form';
 
 export const metadata: Metadata = {
-  title: "Login",
-  description: "Log in to your E-commerce account.",
-  openGraph: { title: "Login | E-commerce" },
+  title: 'Login',
+  description: 'Log in to your E-commerce account.',
+  openGraph: { title: 'Login | E-commerce' }
 };
 
 export default function LoginPage() {

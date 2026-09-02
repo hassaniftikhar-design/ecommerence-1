@@ -1,9 +1,12 @@
-"use client";
+'use client';
 
-import React, { useRef } from "react";
-import Image from "next/image";
-import { Upload, X, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import React, { useRef } from 'react';
+
+import Image from 'next/image';
+
+import { Upload, X, ChevronDown } from 'lucide-react';
+
+import { cn } from '@/lib/utils';
 
 export interface FormImageItem {
   id: string;
@@ -23,7 +26,7 @@ export function MultiImageUpload({
   images,
   onChange,
   availableColors,
-  disabled = false,
+  disabled = false
 }: MultiImageUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -35,13 +38,13 @@ export function MultiImageUpload({
       id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}-${idx}`,
       file,
       previewUrl: URL.createObjectURL(file),
-      colorAssignment: "GLOBAL",
+      colorAssignment: 'GLOBAL'
     }));
 
     onChange([...images, ...newItems]);
     // Reset file input so same files can be re-selected if deleted
     if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+      fileInputRef.current.value = '';
     }
   };
 
@@ -70,8 +73,8 @@ export function MultiImageUpload({
       <div
         onClick={() => !disabled && fileInputRef.current?.click()}
         className={cn(
-          "relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white p-6 text-center shadow-xs transition-all cursor-pointer hover:border-[#007BFF] hover:bg-blue-50/20 active:scale-[0.99]",
-          disabled && "opacity-50 cursor-not-allowed"
+          'relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white p-6 text-center shadow-xs transition-all cursor-pointer hover:border-[#007BFF] hover:bg-blue-50/20 active:scale-[0.99]',
+          disabled && 'opacity-50 cursor-not-allowed'
         )}
       >
         <input

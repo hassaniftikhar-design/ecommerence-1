@@ -1,9 +1,12 @@
-"use client";
+'use client';
 
-import React, { useRef } from "react";
-import Image from "next/image";
-import { Upload as UploadIcon, X, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import React, { useRef } from 'react';
+
+import Image from 'next/image';
+
+import { Upload as UploadIcon, X, RefreshCw } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 
 interface DefaultImageUploadProps {
   file?: File;
@@ -16,7 +19,7 @@ export function DefaultImageUpload({
   file,
   previewUrl,
   onChange,
-  disabled = false,
+  disabled = false
 }: DefaultImageUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -34,7 +37,7 @@ export function DefaultImageUpload({
     onChange(selectedFile, localUrl);
 
     if (e.target) {
-      e.target.value = "";
+      e.target.value = '';
     }
   };
 

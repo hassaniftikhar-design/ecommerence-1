@@ -1,6 +1,6 @@
-import type { PaymentStatus } from "./payment.types";
+import type { PaymentStatus } from './payment.types';
 
-export type OrderStatusType = "IN_PROGRESS" | "DISPATCHED" | "DELIVERED" | "REJECTED";
+export type OrderStatusType = 'IN_PROGRESS' | 'DISPATCHED' | 'DELIVERED' | 'REJECTED';
 
 export interface OrderListItem {
   id: string;
@@ -37,6 +37,7 @@ export interface OrderDetail extends OrderListItem {
   subTotal: number;
   tax: number;
   totalAmount: number;
+  shippingAddress?: string | null;
   products: OrderProductLine[];
   payment?: OrderPaymentSummary | null;
 }

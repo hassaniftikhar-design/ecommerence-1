@@ -1,4 +1,4 @@
-import type { PaymentStatus } from "@prisma/client";
+import type { PaymentStatus } from '@prisma/client';
 
 export type { PaymentStatus };
 

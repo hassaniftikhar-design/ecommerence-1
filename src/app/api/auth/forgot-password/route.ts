@@ -1,5 +1,5 @@
-import { apiSuccess, apiError } from "@/lib/api-response";
-import { forgotPasswordServer } from "@/server/services/auth.service";
+import { apiSuccess, apiError } from '@/lib/api-response';
+import { forgotPasswordServer } from '@/server/services/auth.service';
 
 export async function POST(request: Request) {
   try {
@@ -12,6 +12,6 @@ export async function POST(request: Request) {
 
     return apiSuccess(result.message);
   } catch (error) {
-    return apiError("An internal server error occurred", [(error as Error).message], 500);
+    return apiError('An internal server error occurred', [(error as Error).message], 500);
   }
 }

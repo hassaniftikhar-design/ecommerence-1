@@ -1,8 +1,8 @@
-import { apiSuccess, apiError } from "@/lib/api-response";
+import { apiSuccess, apiError } from '@/lib/api-response';
 import {
   updateCartItemQuantityServer,
-  removeCartItemServer,
-} from "@/server/services/cart.service";
+  removeCartItemServer
+} from '@/server/services/cart.service';
 
 export async function PATCH(
   request: Request,
@@ -34,7 +34,7 @@ async function handleQuantityUpdate(
 
     return apiSuccess(result.message, result.cartData);
   } catch (error) {
-    return apiError("Failed to update item quantity", [(error as Error).message], 500);
+    return apiError('Failed to update item quantity', [(error as Error).message], 500);
   }
 }
 
@@ -52,6 +52,6 @@ export async function DELETE(
 
     return apiSuccess(result.message, result.cartData);
   } catch (error) {
-    return apiError("Failed to remove item from cart", [(error as Error).message], 500);
+    return apiError('Failed to remove item from cart', [(error as Error).message], 500);
   }
 }

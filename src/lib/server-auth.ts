@@ -1,10 +1,10 @@
 
+import type { NextRequest } from 'next/server';
 
-import { getToken } from "next-auth/jwt";
-import type { NextRequest } from "next/server";
-import type { Role } from "@prisma/client";
+import { getToken } from 'next-auth/jwt';
+import type { Role } from '@prisma/client';
 
-import { isSessionExpired } from "@/constants";
+import { isSessionExpired } from '@/constants';
 
 const secret = process.env.NEXTAUTH_SECRET;
 
@@ -22,14 +22,12 @@ export async function getCurrentUser(
 ): Promise<AuthToken | null> {
   const token = (await getToken({
     req: request as unknown as NextRequest,
-    secret,
+    secret
   })) as AuthToken | null;
-
 
   if (!token?.sub || !token?.email) {
     return null;
   }
-
 
   if (isSessionExpired(token.sessionExpiresAt)) {
     return null;
@@ -39,5 +37,5 @@ export async function getCurrentUser(
 }
 
 export function isAdmin(user: AuthToken | null): boolean {
-  return user?.role === "ADMIN";
+  return user?.role === 'ADMIN';
 }

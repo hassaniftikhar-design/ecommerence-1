@@ -13,7 +13,7 @@ function createModelMock() {
     count: jest.fn(),
     aggregate: jest.fn(),
     upsert: jest.fn(),
-    groupBy: jest.fn(),
+    groupBy: jest.fn()
   };
 }
 
@@ -53,11 +53,11 @@ export const mockPrisma: MockPrismaClient = {
   order: createModelMock(),
   orderItem: createModelMock(),
   $transaction: jest.fn((callback: (tx: MockPrismaClient) => unknown) => {
-    if (typeof callback === "function") {
+    if (typeof callback === 'function') {
       return callback(mockPrisma);
     }
     return Promise.resolve(callback);
-  }),
+  })
 };
 
 /**
@@ -65,9 +65,9 @@ export const mockPrisma: MockPrismaClient = {
  */
 export function resetPrismaMock() {
   Object.values(mockPrisma).forEach((model) => {
-    if (typeof model === "object" && model !== null) {
+    if (typeof model === 'object' && model !== null) {
       Object.values(model).forEach((method) => {
-        if (typeof method === "function" && "mockReset" in method) {
+        if (typeof method === 'function' && 'mockReset' in method) {
           (method as jest.Mock).mockReset();
         }
       });
@@ -76,6 +76,6 @@ export function resetPrismaMock() {
 }
 
 // Auto-mock the `@/lib/prisma` module
-jest.mock("@/lib/prisma", () => ({
-  prisma: mockPrisma,
+jest.mock('@/lib/prisma', () => ({
+  prisma: mockPrisma
 }));

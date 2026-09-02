@@ -1,6 +1,6 @@
-import { getCurrentUser, isAdmin } from "@/lib/server-auth";
-import { apiSuccess, apiError } from "@/lib/api-response";
-import { updateProductStatusServer } from "@/server/services/product.service";
+import { getCurrentUser, isAdmin } from '@/lib/server-auth';
+import { apiSuccess, apiError } from '@/lib/api-response';
+import { updateProductStatusServer } from '@/server/services/product.service';
 
 export async function PATCH(
   request: Request,
@@ -10,14 +10,14 @@ export async function PATCH(
     const user = await getCurrentUser(request);
 
     if (!user || !isAdmin(user)) {
-      return apiError("Forbidden: Only ADMIN users can update product status", [], 403);
+      return apiError('Forbidden: Only ADMIN users can update product status', [], 403);
     }
 
     const { id } = await params;
     const body = await request.json();
 
-    if (typeof body.isActive !== "boolean") {
-      return apiError("Validation failed", ["isActive boolean field is required"], 400);
+    if (typeof body.isActive !== 'boolean') {
+      return apiError('Validation failed', ['isActive boolean field is required'], 400);
     }
 
     const result = await updateProductStatusServer(id, body.isActive);
@@ -28,6 +28,6 @@ export async function PATCH(
 
     return apiSuccess(result.message, { product: result.product }, result.status);
   } catch (error) {
-    return apiError("Failed to update product status", [(error as Error).message], 500);
+    return apiError('Failed to update product status', [(error as Error).message], 500);
   }
 }

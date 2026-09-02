@@ -1,14 +1,16 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { ArrowLeft, X } from "lucide-react";
-import { OrdersTable } from "@/components/orders/orders-table";
-import { OrderSummaryFields } from "@/components/orders/order-summary-fields";
-import { OrderProductsTable } from "@/components/orders/order-products-table";
-import { getOrders, getOrderById } from "@/services/order.service";
-import type { OrderDetail, OrderListItem } from "@/types/order.types";
-import { cn } from "@/lib/utils";
+import React, { useEffect, useState } from 'react';
+
+import { createPortal } from 'react-dom';
+import { ArrowLeft, X } from 'lucide-react';
+
+import { OrdersTable } from '@/components/orders/orders-table';
+import { OrderSummaryFields } from '@/components/orders/order-summary-fields';
+import { OrderProductsTable } from '@/components/orders/order-products-table';
+import { getOrders, getOrderById } from '@/services/order.service';
+import type { OrderDetail, OrderListItem } from '@/types/order.types';
+import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 13;
 
@@ -20,7 +22,7 @@ interface OrdersModalProps {
 
 export function OrdersModal({ isOpen, onClose, initialOrderId }: OrdersModalProps) {
   const [mounted, setMounted] = useState(false);
-  const [view, setView] = useState<"list" | "detail">("list");
+  const [view, setView] = useState<'list' | 'detail'>('list');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   // List view state
@@ -41,12 +43,12 @@ export function OrdersModal({ isOpen, onClose, initialOrderId }: OrdersModalProp
   // Lock body scroll when drawer is open
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = "hidden";
+      document.body.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = "";
+      document.body.style.overflow = '';
     }
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = '';
     };
   }, [isOpen]);
 
@@ -56,14 +58,14 @@ export function OrdersModal({ isOpen, onClose, initialOrderId }: OrdersModalProp
 
     if (initialOrderId) {
       setSelectedOrderId(initialOrderId);
-      setView("detail");
+      setView('detail');
     } else {
-      setView("list");
+      setView('list');
     }
   }, [isOpen, initialOrderId]);
 
   useEffect(() => {
-    if (!isOpen || view !== "list") return;
+    if (!isOpen || view !== 'list') return;
 
     async function fetchOrders() {
       try {
@@ -83,7 +85,7 @@ export function OrdersModal({ isOpen, onClose, initialOrderId }: OrdersModalProp
 
   // Fetch order detail when selectedOrderId changes
   useEffect(() => {
-    if (!isOpen || view !== "detail" || !selectedOrderId) return;
+    if (!isOpen || view !== 'detail' || !selectedOrderId) return;
 
     async function fetchDetail() {
       if (!selectedOrderId) return;
@@ -103,11 +105,11 @@ export function OrdersModal({ isOpen, onClose, initialOrderId }: OrdersModalProp
 
   const handleSelectOrder = (orderId: string) => {
     setSelectedOrderId(orderId);
-    setView("detail");
+    setView('detail');
   };
 
   const handleBackToList = () => {
-    setView("list");
+    setView('list');
     setSelectedOrderId(null);
     setOrderDetail(null);
   };
@@ -127,14 +129,14 @@ export function OrdersModal({ isOpen, onClose, initialOrderId }: OrdersModalProp
       {/* Right-Side Slider Drawer Container (1144px width, Full height 100vh) */}
       <div
         className={cn(
-          "relative z-[10000] flex flex-col h-screen h-full bg-[#F8FAFC] shadow-2xl border-l border-slate-200 overflow-hidden transition-all duration-300 ease-in-out animate-in slide-in-from-right",
-          "w-full max-w-[1144px]"
+          'relative z-[10000] flex flex-col h-screen h-full bg-[#F8FAFC] shadow-2xl border-l border-slate-200 overflow-hidden transition-all duration-300 ease-in-out animate-in slide-in-from-right',
+          'w-full max-w-[1144px]'
         )}
       >
         {/* Top Header Bar */}
         <div className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
           <div className="flex items-center gap-3">
-            {view === "detail" ? (
+            {view === 'detail' ? (
               <button
                 type="button"
                 onClick={handleBackToList}
@@ -167,7 +169,7 @@ export function OrdersModal({ isOpen, onClose, initialOrderId }: OrdersModalProp
             </div>
           )}
 
-          {view === "list" ? (
+          {view === 'list' ? (
             /* VIEW 1: MY ORDERS TABLE */
             <div className="flex flex-col h-full justify-between space-y-6">
               {loadingOrders ? (
@@ -200,10 +202,10 @@ export function OrdersModal({ isOpen, onClose, initialOrderId }: OrdersModalProp
                           type="button"
                           onClick={() => setCurrentPage(p)}
                           className={cn(
-                            "px-3 py-1.5 font-semibold rounded-md transition",
+                            'px-3 py-1.5 font-semibold rounded-md transition',
                             currentPage === p
-                              ? "bg-blue-50 text-[#007BFF]"
-                              : "text-slate-600 hover:bg-slate-50"
+                              ? 'bg-blue-50 text-[#007BFF]'
+                              : 'text-slate-600 hover:bg-slate-50'
                           )}
                         >
                           {p}

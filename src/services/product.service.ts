@@ -1,6 +1,6 @@
-import type { Product } from "@/types/product.types";
-import { DEFAULT_PRODUCT_IMAGE, PRODUCT_FETCH_BATCH_SIZE } from "@/constants/generalconstants";
-import type { ApiResponse } from "@/lib/api-response";
+import type { Product } from '@/types/product.types';
+import { DEFAULT_PRODUCT_IMAGE, PRODUCT_FETCH_BATCH_SIZE } from '@/constants/generalconstants';
+import type { ApiResponse } from '@/lib/api-response';
 
 async function parseApiResponse<T>(response: Response): Promise<T> {
   let json: ApiResponse<T> | null = null;
@@ -13,21 +13,21 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
   }
 
   if (!response.ok || (json && json.success === false)) {
-    let errorMsg = "";
+    let errorMsg = '';
 
     const formattedErrors =
       json?.errors && Array.isArray(json.errors) && json.errors.length > 0
         ? json.errors
             .map((err) =>
-              typeof err === "string"
+              typeof err === 'string'
                 ? err
                 : (err as { message?: string })?.message || JSON.stringify(err)
             )
             .filter(Boolean)
-            .join(", ")
-        : "";
+            .join(', ')
+        : '';
 
-    if (json?.message && json.message !== "Validation failed") {
+    if (json?.message && json.message !== 'Validation failed') {
       errorMsg = json.message;
     } else if (formattedErrors) {
       errorMsg = formattedErrors;
@@ -36,7 +36,7 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
     }
 
     if (!errorMsg) {
-      errorMsg = `Request failed (${response.status || "Error"}). Please try again.`;
+      errorMsg = `Request failed (${response.status || 'Error'}). Please try again.`;
     }
 
     throw new Error(errorMsg);
@@ -47,11 +47,11 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
 
 export async function uploadImage(file: File): Promise<string> {
   const formData = new FormData();
-  formData.append("file", file);
+  formData.append('file', file);
 
-  const response = await fetch("/api/upload", {
-    method: "POST",
-    body: formData,
+  const response = await fetch('/api/upload', {
+    method: 'POST',
+    body: formData
   });
 
   const data = await parseApiResponse<{ url: string }>(response);
@@ -83,58 +83,58 @@ export async function getProducts(
 ): Promise<PaginatedProductsResponse> {
   let page = 1;
   let limit = PRODUCT_FETCH_BATCH_SIZE;
-  let q = "";
-  let category = "";
-  let sort = "";
-  let status = "";
+  let q = '';
+  let category = '';
+  let sort = '';
+  let status = '';
 
-  if (typeof paramsOrQuery === "object" && paramsOrQuery !== null) {
+  if (typeof paramsOrQuery === 'object' && paramsOrQuery !== null) {
     page = paramsOrQuery.page || 1;
     limit = paramsOrQuery.limit || PRODUCT_FETCH_BATCH_SIZE;
-    q = paramsOrQuery.q || "";
-    category = paramsOrQuery.category || "";
-    sort = paramsOrQuery.sort || "";
-    status = paramsOrQuery.status || "";
+    q = paramsOrQuery.q || '';
+    category = paramsOrQuery.category || '';
+    sort = paramsOrQuery.sort || '';
+    status = paramsOrQuery.status || '';
   } else {
-    q = paramsOrQuery || "";
-    category = categoryArg || "";
-    sort = sortArg || "";
-    status = statusArg || "";
+    q = paramsOrQuery || '';
+    category = categoryArg || '';
+    sort = sortArg || '';
+    status = statusArg || '';
   }
 
-  if (typeof window === "undefined") {
-    const { prisma } = await import("@/lib/prisma");
+  if (typeof window === 'undefined') {
+    const { prisma } = await import('@/lib/prisma');
 
     const whereClause: Record<string, unknown> = {};
-    if (status === "active") {
+    if (status === 'active') {
       whereClause.isActive = true;
-    } else if (status === "inactive") {
+    } else if (status === 'inactive') {
       whereClause.isActive = false;
-    } else if (status !== "all") {
+    } else if (status !== 'all') {
       whereClause.isActive = true;
     }
 
     if (q && q.trim()) {
       whereClause.OR = [
-        { name: { contains: q.trim(), mode: "insensitive" } },
-        { category: { name: { contains: q.trim(), mode: "insensitive" } } },
+        { name: { contains: q.trim(), mode: 'insensitive' } },
+        { category: { name: { contains: q.trim(), mode: 'insensitive' } } }
       ];
     }
     if (category && category.trim()) {
-      whereClause.category = { name: { equals: category.trim(), mode: "insensitive" } };
+      whereClause.category = { name: { equals: category.trim(), mode: 'insensitive' } };
     }
 
-    let orderByClause: Record<string, unknown> = { createdAt: "desc" };
-    if (sort === "price-asc") {
-      orderByClause = { price: "asc" };
-    } else if (sort === "price-desc") {
-      orderByClause = { price: "desc" };
-    } else if (sort === "name-asc") {
-      orderByClause = { name: "asc" };
-    } else if (sort === "name-desc") {
-      orderByClause = { name: "desc" };
-    } else if (sort === "newest") {
-      orderByClause = { createdAt: "desc" };
+    let orderByClause: Record<string, unknown> = { createdAt: 'desc' };
+    if (sort === 'price-asc') {
+      orderByClause = { price: 'asc' };
+    } else if (sort === 'price-desc') {
+      orderByClause = { price: 'desc' };
+    } else if (sort === 'name-asc') {
+      orderByClause = { name: 'asc' };
+    } else if (sort === 'name-desc') {
+      orderByClause = { name: 'desc' };
+    } else if (sort === 'newest') {
+      orderByClause = { createdAt: 'desc' };
     }
 
     const total = await prisma.product.count({ where: whereClause });
@@ -146,7 +146,7 @@ export async function getProducts(
         category: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
         options: {
-          include: { values: true },
+          include: { values: true }
         },
         variants: {
           include: {
@@ -154,17 +154,17 @@ export async function getProducts(
               include: {
                 optionValue: {
                   include: {
-                    option: true,
-                  },
-                },
-              },
-            },
-          },
-        },
+                    option: true
+                  }
+                }
+              }
+            }
+          }
+        }
       },
       orderBy: orderByClause,
       skip,
-      take: limit,
+      take: limit
     });
 
     const formatted = products.map((product) => {
@@ -186,7 +186,7 @@ export async function getProducts(
           attributes,
           variantOptions: variantOptionsInfo,
           createdAt: v.createdAt.toISOString(),
-          updatedAt: v.updatedAt.toISOString(),
+          updatedAt: v.updatedAt.toISOString()
         };
       });
 
@@ -210,8 +210,8 @@ export async function getProducts(
           values: opt.values.map((val) => ({
             id: val.id,
             optionId: val.optionId,
-            value: val.value,
-          })),
+            value: val.value
+          }))
         })),
         variants: variantsFormatted,
         price: productPrice,
@@ -221,7 +221,7 @@ export async function getProducts(
         totalStock,
         variantCount: variantsFormatted.length,
         createdAt: product.createdAt.toISOString(),
-        updatedAt: product.updatedAt.toISOString(),
+        updatedAt: product.updatedAt.toISOString()
       };
     });
 
@@ -232,21 +232,21 @@ export async function getProducts(
       page,
       limit,
       total,
-      hasMore,
+      hasMore
     };
   }
 
   const queryParams = new URLSearchParams();
-  queryParams.set("page", String(page));
-  queryParams.set("limit", String(limit));
-  if (q) queryParams.set("q", q);
-  if (category) queryParams.set("category", category);
-  if (sort) queryParams.set("sort", sort);
-  if (status) queryParams.set("status", status);
+  queryParams.set('page', String(page));
+  queryParams.set('limit', String(limit));
+  if (q) queryParams.set('q', q);
+  if (category) queryParams.set('category', category);
+  if (sort) queryParams.set('sort', sort);
+  if (status) queryParams.set('status', status);
 
-  const queryString = queryParams.toString() ? `?${queryParams.toString()}` : "";
+  const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
   const response = await fetch(`/api/products${queryString}`, {
-    cache: "no-store",
+    cache: 'no-store'
   });
   const data = await parseApiResponse<{
     products: Product[];
@@ -267,7 +267,7 @@ export async function getProducts(
     page: pageNum,
     limit: limitNum,
     total,
-    hasMore,
+    hasMore
   };
 }
 
@@ -294,16 +294,16 @@ export async function getProductsPaginated(params: {
   status?: string;
 }): Promise<GetProductsPaginatedResult> {
   const queryParams = new URLSearchParams();
-  if (params.page !== undefined) queryParams.set("page", String(params.page));
-  if (params.limit !== undefined) queryParams.set("limit", String(params.limit));
-  if (params.search) queryParams.set("search", params.search);
-  if (params.category) queryParams.set("category", params.category);
-  if (params.sort) queryParams.set("sort", params.sort);
-  if (params.status) queryParams.set("status", params.status);
+  if (params.page !== undefined) queryParams.set('page', String(params.page));
+  if (params.limit !== undefined) queryParams.set('limit', String(params.limit));
+  if (params.search) queryParams.set('search', params.search);
+  if (params.category) queryParams.set('category', params.category);
+  if (params.sort) queryParams.set('sort', params.sort);
+  if (params.status) queryParams.set('status', params.status);
 
-  const queryString = queryParams.toString() ? `?${queryParams.toString()}` : "";
+  const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
   const response = await fetch(`/api/products${queryString}`, {
-    cache: "no-store",
+    cache: 'no-store'
   });
   const data = await parseApiResponse<{
     products: Product[];
@@ -318,8 +318,8 @@ export async function getProductsPaginated(params: {
       totalItems: data.products?.length || 0,
       totalPages: Math.ceil((data.products?.length || 0) / (params.limit || 10)) || 1,
       hasNextPage: false,
-      hasPrevPage: false,
-    },
+      hasPrevPage: false
+    }
   };
 }
 
@@ -337,7 +337,6 @@ export interface AdminDashboardStats {
   };
 }
 
-
 let categoriesCache: { id: string; name: string }[] | null = null;
 let categoriesPromise: Promise<{ id: string; name: string }[]> | null = null;
 
@@ -346,10 +345,10 @@ export function clearCategoriesCache() {
 }
 
 export async function getCategories(): Promise<{ id: string; name: string }[]> {
-  if (typeof window === "undefined") {
-    const { prisma } = await import("@/lib/prisma");
+  if (typeof window === 'undefined') {
+    const { prisma } = await import('@/lib/prisma');
     return prisma.category.findMany({
-      orderBy: { name: "asc" },
+      orderBy: { name: 'asc' }
     });
   }
 
@@ -363,8 +362,8 @@ export async function getCategories(): Promise<{ id: string; name: string }[]> {
 
   categoriesPromise = (async () => {
     try {
-      const response = await fetch("/api/categories", {
-        cache: "no-store",
+      const response = await fetch('/api/categories', {
+        cache: 'no-store'
       });
       if (!response.ok) {
         return [];
@@ -373,7 +372,7 @@ export async function getCategories(): Promise<{ id: string; name: string }[]> {
       categoriesCache = data.categories;
       return data.categories;
     } catch (err) {
-      console.error("Failed to fetch categories:", err);
+      console.error('Failed to fetch categories:', err);
       return [];
     } finally {
       categoriesPromise = null;
@@ -384,15 +383,15 @@ export async function getCategories(): Promise<{ id: string; name: string }[]> {
 }
 
 export async function getProductById(id: string): Promise<Product> {
-  if (typeof window === "undefined") {
-    const { prisma } = await import("@/lib/prisma");
+  if (typeof window === 'undefined') {
+    const { prisma } = await import('@/lib/prisma');
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
         category: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
         options: {
-          include: { values: true },
+          include: { values: true }
         },
         variants: {
           include: {
@@ -400,18 +399,18 @@ export async function getProductById(id: string): Promise<Product> {
               include: {
                 optionValue: {
                   include: {
-                    option: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+                    option: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     });
 
     if (!product) {
-      throw new Error("Product not found");
+      throw new Error('Product not found');
     }
 
     const variantsFormatted = product.variants.map((v) => {
@@ -432,7 +431,7 @@ export async function getProductById(id: string): Promise<Product> {
         attributes,
         variantOptions: variantOptionsInfo,
         createdAt: v.createdAt.toISOString(),
-        updatedAt: v.updatedAt.toISOString(),
+        updatedAt: v.updatedAt.toISOString()
       };
     });
 
@@ -456,8 +455,8 @@ export async function getProductById(id: string): Promise<Product> {
         values: opt.values.map((val) => ({
           id: val.id,
           optionId: val.optionId,
-          value: val.value,
-        })),
+          value: val.value
+        }))
       })),
       variants: variantsFormatted,
       price: productPrice,
@@ -467,12 +466,12 @@ export async function getProductById(id: string): Promise<Product> {
       totalStock,
       variantCount: variantsFormatted.length,
       createdAt: product.createdAt.toISOString(),
-      updatedAt: product.updatedAt.toISOString(),
+      updatedAt: product.updatedAt.toISOString()
     };
   }
 
   const response = await fetch(`/api/products/${id}`, {
-    cache: "no-store",
+    cache: 'no-store'
   });
   const data = await parseApiResponse<{ product: Product }>(response);
   return data.product;
@@ -505,10 +504,10 @@ export interface CreateProductInput {
 }
 
 export async function createProduct(payload: CreateProductInput): Promise<Product> {
-  const response = await fetch("/api/products", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+  const response = await fetch('/api/products', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
   });
   const data = await parseApiResponse<{ product: Product }>(response);
   clearCategoriesCache();
@@ -520,9 +519,9 @@ export async function updateProduct(
   payload: Partial<CreateProductInput>
 ): Promise<Product> {
   const response = await fetch(`/api/products/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
   });
   const data = await parseApiResponse<{ product: Product }>(response);
   clearCategoriesCache();
@@ -531,9 +530,9 @@ export async function updateProduct(
 
 export async function activateProduct(id: string): Promise<Product> {
   const response = await fetch(`/api/products/${id}/status`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ isActive: true }),
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ isActive: true })
   });
   const data = await parseApiResponse<{ product: Product }>(response);
   return data.product;
@@ -541,9 +540,9 @@ export async function activateProduct(id: string): Promise<Product> {
 
 export async function deactivateProduct(id: string): Promise<Product> {
   const response = await fetch(`/api/products/${id}/status`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ isActive: false }),
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ isActive: false })
   });
   const data = await parseApiResponse<{ product: Product }>(response);
   return data.product;

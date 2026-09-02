@@ -1,6 +1,6 @@
-import Link from "next/link";
+import Link from 'next/link';
 
-import { ROUTES } from "@/constants/routes";
+import { ROUTES } from '@/constants/routes';
 
 // Rendered automatically for any unmatched route, or manually via
 // Next's notFound() helper later once real data lookups exist

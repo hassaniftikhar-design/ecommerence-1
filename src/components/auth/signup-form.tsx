@@ -1,63 +1,64 @@
-"use client";
+'use client';
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useState, type ChangeEvent, type FormEvent } from 'react';
 
-import { Button } from "@/components/ui/button";
-import { AuthFooterLink } from "@/components/auth/auth-footer-link";
-import { FormField } from "@/components/forms/form-field";
-import { GoogleAuthButton } from "@/components/auth/google-auth-button";
-import { ROUTES } from "@/constants/routes";
-import { isValidEmail, isStrongPassword } from "@/utils/validation";
-import type { SignupPayload } from "@/types/auth.types";
-import { signup } from "@/services/auth.service";
-import { useToast } from "@/components/ui/toast";
+import { useRouter } from 'next/navigation';
+
+import { Button } from '@/components/ui/button';
+import { AuthFooterLink } from '@/components/auth/auth-footer-link';
+import { FormField } from '@/components/forms/form-field';
+import { GoogleAuthButton } from '@/components/auth/google-auth-button';
+import { ROUTES } from '@/constants/routes';
+import { isValidEmail, isStrongPassword } from '@/utils/validation';
+import type { SignupPayload } from '@/types/auth.types';
+import { signup } from '@/services/auth.service';
+import { useToast } from '@/components/ui/toast';
 
 export function SignupForm() {
   const router = useRouter();
-  const { showSuccess, showError } = useToast();
+  const { showError } = useToast();
 
   const [formData, setFormData] = useState<SignupPayload>({
-    fullName: "",
-    email: "",
-    mobile: "",
-    password: "",
-    confirmPassword: "",
+    fullName: '',
+    email: '',
+    mobile: '',
+    password: '',
+    confirmPassword: ''
   });
   const [errors, setErrors] = useState<Partial<Record<keyof SignupPayload, string>>>({});
   const [touched, setTouched] = useState<Partial<Record<keyof SignupPayload, boolean>>>({});
   const [loading, setLoading] = useState(false);
 
   const validateField = (name: keyof SignupPayload, value: string | undefined, currentData = formData): string | undefined => {
-    const val = (value || "").trim();
+    const val = (value || '').trim();
     switch (name) {
-      case "fullName":
-        if (!val) return "Full name is required";
-        if (val.length < 2) return "Enter your full name";
+      case 'fullName':
+        if (!val) return 'Full name is required';
+        if (val.length < 2) return 'Enter your full name';
         return undefined;
 
-      case "email":
-        if (!val) return "Email is required";
-        if (!isValidEmail(val)) return "Enter a valid email address";
+      case 'email':
+        if (!val) return 'Email is required';
+        if (!isValidEmail(val)) return 'Enter a valid email address';
         return undefined;
 
-      case "mobile":
-        if (val && (!/^[+0-9\s-]+$/.test(val) || val.replace(/\D/g, "").length < 10)) {
-          return "Enter a valid phone number (at least 10 digits)";
+      case 'mobile':
+        if (val && (!/^[+0-9\s-]+$/.test(val) || val.replace(/\D/g, '').length < 10)) {
+          return 'Enter a valid phone number (at least 10 digits)';
         }
         return undefined;
 
-      case "password":
-        if (!value) return "Password is required";
-        if (value.length < 8) return "Password must be at least 8 characters";
+      case 'password':
+        if (!value) return 'Password is required';
+        if (value.length < 8) return 'Password must be at least 8 characters';
         if (!isStrongPassword(value)) {
-          return "Password must contain uppercase, lowercase, number and symbols";
+          return 'Password must contain uppercase, lowercase, number and symbols';
         }
         return undefined;
 
-      case "confirmPassword":
-        if (!value) return "Confirm password is required";
-        if (value !== currentData.password) return "Passwords must match";
+      case 'confirmPassword':
+        if (!value) return 'Confirm password is required';
+        if (value !== currentData.password) return 'Passwords must match';
         return undefined;
 
       default:
@@ -74,14 +75,14 @@ export function SignupForm() {
     if (touched[fieldName]) {
       setErrors((prev) => ({
         ...prev,
-        [fieldName]: validateField(fieldName, value, updatedData),
+        [fieldName]: validateField(fieldName, value, updatedData)
       }));
     }
 
-    if (fieldName === "password" && touched.confirmPassword) {
+    if (fieldName === 'password' && touched.confirmPassword) {
       setErrors((prev) => ({
         ...prev,
-        confirmPassword: validateField("confirmPassword", formData.confirmPassword, updatedData),
+        confirmPassword: validateField('confirmPassword', formData.confirmPassword, updatedData)
       }));
     }
   };
@@ -90,7 +91,7 @@ export function SignupForm() {
     setTouched((prev) => ({ ...prev, [fieldName]: true }));
     setErrors((prev) => ({
       ...prev,
-      [fieldName]: validateField(fieldName, formData[fieldName], formData),
+      [fieldName]: validateField(fieldName, formData[fieldName], formData)
     }));
   };
 
@@ -102,16 +103,16 @@ export function SignupForm() {
       email: true,
       mobile: true,
       password: true,
-      confirmPassword: true,
+      confirmPassword: true
     };
     setTouched(allTouched);
 
     const validationErrors: Partial<Record<keyof SignupPayload, string>> = {
-      fullName: validateField("fullName", formData.fullName, formData),
-      email: validateField("email", formData.email, formData),
-      mobile: validateField("mobile", formData.mobile, formData),
-      password: validateField("password", formData.password, formData),
-      confirmPassword: validateField("confirmPassword", formData.confirmPassword, formData),
+      fullName: validateField('fullName', formData.fullName, formData),
+      email: validateField('email', formData.email, formData),
+      mobile: validateField('mobile', formData.mobile, formData),
+      password: validateField('password', formData.password, formData),
+      confirmPassword: validateField('confirmPassword', formData.confirmPassword, formData)
     };
 
     const hasErrors = Object.values(validationErrors).some(Boolean);
@@ -125,14 +126,14 @@ export function SignupForm() {
     try {
       setLoading(true);
       await signup(formData);
-      router.push("/login?registered=true");
+      router.push('/login?registered=true');
     } catch (err) {
       const msg = (err as Error).message;
       const displayMsg =
-        msg === "CredentialsSignin" || msg.includes("CredentialsSignin")
-          ? "Wrong credentials, please try again"
-          : msg || "Failed to create account. Please check your details.";
-      showError(displayMsg, "Registration Failed");
+        msg === 'CredentialsSignin' || msg.includes('CredentialsSignin')
+          ? 'Wrong credentials, please try again'
+          : msg || 'Failed to create account. Please check your details.';
+      showError(displayMsg, 'Registration Failed');
     } finally {
       setLoading(false);
     }
@@ -146,7 +147,7 @@ export function SignupForm() {
         placeholder="Fullname"
         value={formData.fullName}
         onChange={handleChange}
-        onBlur={() => handleBlur("fullName")}
+        onBlur={() => handleBlur('fullName')}
         error={errors.fullName}
         autoComplete="name"
         required
@@ -158,7 +159,7 @@ export function SignupForm() {
         placeholder="email address"
         value={formData.email}
         onChange={handleChange}
-        onBlur={() => handleBlur("email")}
+        onBlur={() => handleBlur('email')}
         error={errors.email}
         autoComplete="email"
         required
@@ -170,7 +171,7 @@ export function SignupForm() {
         placeholder="mobile number"
         value={formData.mobile}
         onChange={handleChange}
-        onBlur={() => handleBlur("mobile")}
+        onBlur={() => handleBlur('mobile')}
         error={errors.mobile}
         autoComplete="tel"
       />
@@ -181,7 +182,7 @@ export function SignupForm() {
         placeholder="Password"
         value={formData.password}
         onChange={handleChange}
-        onBlur={() => handleBlur("password")}
+        onBlur={() => handleBlur('password')}
         error={errors.password}
         autoComplete="new-password"
         required
@@ -193,14 +194,14 @@ export function SignupForm() {
         placeholder="Password"
         value={formData.confirmPassword}
         onChange={handleChange}
-        onBlur={() => handleBlur("confirmPassword")}
+        onBlur={() => handleBlur('confirmPassword')}
         error={errors.confirmPassword}
         autoComplete="new-password"
         required
       />
 
       <Button type="submit" className="mb-4 mt-2 w-full" disabled={loading}>
-        {loading ? "Creating Account..." : "SignUp"}
+        {loading ? 'Creating Account...' : 'SignUp'}
       </Button>
 
       <div className="relative my-5">

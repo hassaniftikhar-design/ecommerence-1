@@ -1,10 +1,11 @@
-import { getCurrentUser, isAdmin } from "@/lib/server-auth";
-import { apiSuccess, apiError } from "@/lib/api-response";
-import type { OrderStatus } from "@prisma/client";
+import type { OrderStatus } from '@prisma/client';
+
+import { getCurrentUser, isAdmin } from '@/lib/server-auth';
+import { apiSuccess, apiError } from '@/lib/api-response';
 import {
   getOrderByIdServer,
-  updateOrderStatusServer,
-} from "@/server/services/order.service";
+  updateOrderStatusServer
+} from '@/server/services/order.service';
 
 export async function GET(
   request: Request,
@@ -21,9 +22,9 @@ export async function GET(
       return apiError(result.message, result.errors, result.status);
     }
 
-    return apiSuccess("Order retrieved successfully", { order: result.order });
+    return apiSuccess('Order retrieved successfully', { order: result.order });
   } catch (error) {
-    return apiError("Failed to fetch order", [(error as Error).message], 500);
+    return apiError('Failed to fetch order', [(error as Error).message], 500);
   }
 }
 
@@ -35,7 +36,7 @@ export async function PATCH(
     const user = await getCurrentUser(request);
 
     if (!user || !isAdmin(user)) {
-      return apiError("Forbidden: Only ADMIN users can update order status", [], 403);
+      return apiError('Forbidden: Only ADMIN users can update order status', [], 403);
     }
 
     const { id } = await params;
@@ -48,8 +49,8 @@ export async function PATCH(
       return apiError(result.message, result.errors, result.status);
     }
 
-    return apiSuccess("Order status updated successfully", { order: result.order });
+    return apiSuccess('Order status updated successfully', { order: result.order });
   } catch (error) {
-    return apiError("Failed to update order status", [(error as Error).message], 500);
+    return apiError('Failed to update order status', [(error as Error).message], 500);
   }
 }

@@ -1,20 +1,22 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { LayoutGrid, Package, LogOut, Menu, X, User, ChevronDown } from "lucide-react";
+import { useState } from 'react';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+
+import { useSession } from 'next-auth/react';
+import { LayoutGrid, Package, LogOut, Menu, X, User, ChevronDown } from 'lucide-react';
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ROUTES } from "@/constants/routes";
-import { logout } from "@/services/auth.service";
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+import { ROUTES } from '@/constants/routes';
+import { logout } from '@/services/auth.service';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -25,10 +27,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     await logout();
   };
 
-  const isProductsActive = pathname.startsWith("/admin/products");
-  const isOrdersActive = pathname.startsWith("/admin/orders");
+  const isProductsActive = pathname.startsWith('/admin/products');
+  const isOrdersActive = pathname.startsWith('/admin/orders');
 
-  const userName = session?.user?.name || "Admin User";
+  const userName = session?.user?.name || 'Admin User';
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-white font-sans w-full">
@@ -72,7 +74,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Admin Sidebar Navigation (Sticky top-0 h-screen) */}
       <aside
-        className={`${mobileMenuOpen ? "block" : "hidden"
+        className={`${mobileMenuOpen ? 'block' : 'hidden'
           } lg:flex w-full lg:w-64 border-r border-slate-100 bg-white p-6 flex-col justify-between shrink-0 lg:sticky lg:top-0 lg:h-screen overflow-y-auto`}
       >
         <div>
@@ -87,8 +89,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               href={ROUTES.adminProducts}
               onClick={() => setMobileMenuOpen(false)}
               className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${isProductsActive
-                ? "bg-[#007BFF] text-white shadow-md shadow-blue-500/20"
-                : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+                ? 'bg-[#007BFF] text-white shadow-md shadow-blue-500/20'
+                : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
                 }`}
             >
               <LayoutGrid className="h-5 w-5" />
@@ -99,8 +101,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               href={ROUTES.adminOrders}
               onClick={() => setMobileMenuOpen(false)}
               className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition ${isOrdersActive
-                ? "bg-[#007BFF] text-white shadow-md shadow-blue-500/20"
-                : "bg-slate-50 text-slate-700 hover:bg-slate-100"
+                ? 'bg-[#007BFF] text-white shadow-md shadow-blue-500/20'
+                : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
                 }`}
             >
               <Package className="h-5 w-5" />
@@ -124,7 +126,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem className="text-xs font-semibold text-slate-500 disabled cursor-default">
-                {session?.user?.email || "Admin Account"}
+                {session?.user?.email || 'Admin Account'}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={handleLogout} className="text-red-600 focus:text-red-600 cursor-pointer font-medium flex items-center gap-2">

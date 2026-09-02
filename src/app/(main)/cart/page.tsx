@@ -1,25 +1,31 @@
-"use client";
+'use client';
 
-import { useEffect, useState, useCallback } from "react";
-import { useSession } from "next-auth/react";
-import { AlertCircle } from "lucide-react";
-import { BackHeading } from "@/components/common/back-heading";
-import { CartSkeleton } from "@/components/cart/cart-skeleton";
-import { CartTable } from "@/components/cart/cart-table";
-import { CartSummary } from "@/components/cart/cart-summary";
-import { RequireLoginModal } from "@/components/auth/require-login-modal";
+import { useEffect, useState, useCallback } from 'react';
+
+import Link from 'next/link';
+
+import { useRouter } from 'next/navigation';
+
+import { useSession } from 'next-auth/react';
+import { AlertCircle, ArrowLeft } from 'lucide-react';
+
+import { CartSkeleton } from '@/components/cart/cart-skeleton';
+import { CartTable } from '@/components/cart/cart-table';
+import { CartSummary } from '@/components/cart/cart-summary';
+import { RequireLoginModal } from '@/components/auth/require-login-modal';
+import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import {
   getCart,
   updateCartItemQuantity,
   removeCartItem,
-} from "@/services/cart.service";
-import { ROUTES } from "@/constants/routes";
-import { TAX_RATE } from "@/constants/generalconstants";
-import type { CartItem, CartTotals } from "@/types/cart.types";
+  removeMultipleCartItems
+} from '@/services/cart.service';
+import { ROUTES } from '@/constants/routes';
+import { TAX_RATE } from '@/constants/generalconstants';
+import type { CartItem, CartTotals } from '@/types/cart.types';
 
-import { useRouter } from "next/navigation";
-import { OrderSuccessModal } from "@/components/orders/order-success-modal";
-import { OutOfStockModal } from "@/components/cart/out-of-stock-modal";
+import { OrderSuccessModal } from '@/components/orders/order-success-modal';
+import { OutOfStockModal } from '@/components/cart/out-of-stock-modal';
 
 const computeTotals = (itemList: CartItem[], selectedIds: string[]): CartTotals => {
   const selectedItems = itemList.filter((item) => selectedIds.includes(item.id));
@@ -33,15 +39,15 @@ const computeTotals = (itemList: CartItem[], selectedIds: string[]): CartTotals 
 export default function CartPage() {
   const router = useRouter();
   const { status } = useSession();
-  const isAuthenticated = status === "authenticated";
-  const isUnauthenticated = status === "unauthenticated";
+  const isAuthenticated = status === 'authenticated';
+  const isUnauthenticated = status === 'unauthenticated';
 
   const [items, setItems] = useState<CartItem[]>([]);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [totals, setTotals] = useState<CartTotals>({
     subTotal: 0,
     tax: 0,
-    total: 0,
+    total: 0
   });
   const [placedOrderInfo, setPlacedOrderInfo] = useState<{
     orderId: string;
@@ -50,6 +56,7 @@ export default function CartPage() {
   const [outOfStockMessage, setOutOfStockMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkingStock, setCheckingStock] = useState(false);
+  const [deletingBulk, setDeletingBulk] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchCartData = useCallback(async () => {
@@ -98,17 +105,17 @@ export default function CartPage() {
 
       // Live stock verified, proceed to checkout
       router.push(ROUTES.checkout);
-    } catch (err: any) {
-      setError(err.message || "Failed to verify product stock. Please try again.");
+    } catch (err: unknown) {
+      setError((err as Error).message || 'Failed to verify product stock. Please try again.');
     } finally {
       setCheckingStock(false);
     }
   };
 
   useEffect(() => {
-    if (status === "authenticated") {
+    if (status === 'authenticated') {
       fetchCartData();
-    } else if (status === "unauthenticated") {
+    } else if (status === 'unauthenticated') {
       setLoading(false);
     }
   }, [status, fetchCartData]);
@@ -126,7 +133,7 @@ export default function CartPage() {
           ? {
             ...item,
             quantity: newQuantity,
-            totalPrice: Math.round(item.price * newQuantity * 100) / 100,
+            totalPrice: Math.round(item.price * newQuantity * 100) / 100
           }
           : item
       );
@@ -161,9 +168,66 @@ export default function CartPage() {
     }
   };
 
+  const handleRemoveSelectedItems = async () => {
+    if (selectedItemIds.length === 0) return;
+    try {
+      setDeletingBulk(true);
+      const updatedItems = items.filter((i) => !selectedItemIds.includes(i.id));
+      setItems(updatedItems);
+      setSelectedItemIds([]);
+      setTotals(computeTotals(updatedItems, []));
+
+      const response = await removeMultipleCartItems(selectedItemIds);
+      setItems(response.items);
+      setSelectedItemIds([]);
+      setTotals(computeTotals(response.items, []));
+    } catch (err: unknown) {
+      setError((err as Error).message || 'Failed to remove selected items');
+      fetchCartData();
+    } finally {
+      setDeletingBulk(false);
+    }
+  };
+
   return (
     <div className="space-y-6 mx-auto px-2 sm:px-4 md:px-[56px] lg:px-[60px] pb-12">
-      <BackHeading title="Your Shopping Bag" href={ROUTES.home} />
+      {/* Top Header Row with Title & Delete Selected Button */}
+      <div className="flex items-center justify-between gap-4 pt-2">
+        <Link
+          href={ROUTES.home}
+          className="inline-flex items-center gap-2 text-lg sm:text-xl font-bold text-[#007BFF] hover:opacity-80 transition cursor-pointer"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          Your Shopping Bag
+        </Link>
+
+        {items.length > 0 && selectedItemIds.length > 0 && (
+          <ConfirmDialog
+            trigger={
+              <button
+                type="button"
+                disabled={deletingBulk}
+                className="border border-red-200 text-red-500 hover:bg-red-50 hover:text-red-600 hover:border-red-300 font-medium px-4 py-2 text-xs sm:text-sm rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {deletingBulk
+                  ? 'Deleting...'
+                  : `Delete Items (${selectedItemIds.length})`}
+              </button>
+            }
+            title="Remove Selected Items"
+            description={`Are you sure you want to delete ${selectedItemIds.length} item(s) from your shopping bag?`}
+            onConfirm={handleRemoveSelectedItems}
+          />
+        )}
+      </div>
+
+      {/* Expiration/Reservation Note */}
+      {items.length > 0 && (
+        <p className="text-xs text-slate-500 -mt-2">
+          Items in your cart are reserved. The earliest item will expire in{' '}
+          <span className="font-semibold text-slate-700">0h 59m 36s</span>
+        </p>
+      )}
 
       {error && (
         <div className="rounded-xl bg-red-50 p-4 text-xs font-semibold text-red-700 border border-red-200 flex items-start gap-2.5 shadow-2xs">

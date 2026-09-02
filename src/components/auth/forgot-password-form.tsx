@@ -1,26 +1,26 @@
-"use client";
+'use client';
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent } from 'react';
 
-import { Button } from "@/components/ui/button";
-import { AuthFooterLink } from "@/components/auth/auth-footer-link";
-import { FormField } from "@/components/forms/form-field";
-import { ROUTES } from "@/constants/routes";
-import { isValidEmail } from "@/utils/validation";
+import { Button } from '@/components/ui/button';
+import { AuthFooterLink } from '@/components/auth/auth-footer-link';
+import { FormField } from '@/components/forms/form-field';
+import { ROUTES } from '@/constants/routes';
+import { isValidEmail } from '@/utils/validation';
 
-import { forgotPassword } from "@/services/auth.service";
-import { useToast } from "@/components/ui/toast";
+import { forgotPassword } from '@/services/auth.service';
+import { useToast } from '@/components/ui/toast';
 
 export function ForgotPasswordForm() {
   const { showSuccess, showError } = useToast();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState('');
   const [touched, setTouched] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(false);
 
   const validateEmail = (val: string): string | undefined => {
-    if (!val.trim()) return "Email is required";
-    if (!isValidEmail(val)) return "Enter a valid email address";
+    if (!val.trim()) return 'Email is required';
+    if (!isValidEmail(val)) return 'Enter a valid email address';
     return undefined;
   };
 
@@ -44,17 +44,17 @@ export function ForgotPasswordForm() {
     try {
       setLoading(true);
       await forgotPassword({ email });
-      setEmail("");
+      setEmail('');
       setTouched(false);
       setError(undefined);
       showSuccess(
-        "Password reset instructions have been sent to your email.",
-        "Email Sent"
+        'Password reset instructions have been sent to your email.',
+        'Email Sent'
       );
     } catch (err) {
       const errMsg =
-        (err as Error).message || "This email does not exist in our Store.";
-      showError(errMsg, "Password Reset Failed");
+        (err as Error).message || 'This email does not exist in our Store.';
+      showError(errMsg, 'Password Reset Failed');
     } finally {
       setLoading(false);
     }
@@ -81,7 +81,7 @@ export function ForgotPasswordForm() {
       />
 
       <Button type="submit" className="mb-6 mt-3 w-full" disabled={loading}>
-        {loading ? "Sending..." : "Forgot Password"}
+        {loading ? 'Sending...' : 'Forgot Password'}
       </Button>
 
       <AuthFooterLink

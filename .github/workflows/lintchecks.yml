@@ -2,12 +2,17 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - feat/workflows
+
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - feat/workflows
 
 jobs:
-  lint-and-typecheck:
+  quality-check:
     name: Lint & Type Check
     runs-on: ubuntu-latest
 

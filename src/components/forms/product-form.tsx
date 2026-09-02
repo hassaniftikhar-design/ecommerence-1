@@ -1,24 +1,26 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2, AlertCircle, ArrowLeft } from "lucide-react";
+import React, { useState, useEffect } from 'react';
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { FormField } from "@/components/forms/form-field";
-import { useToast } from "@/components/ui/toast";
-import { ROUTES, COLOR_OPTIONS, SIZE_OPTIONS } from "@/constants";
-import { DefaultImageUpload } from "@/components/ui/default-image-upload";
-import { VariantImageUpload } from "@/components/ui/variant-image-upload";
-import { uploadImage, createProduct, updateProduct, getCategories, activateProduct, deactivateProduct } from "@/services/product.service";
-import { productFormSchema, type ProductFormSchemaValues } from "@/lib/validators";
-import type { ProductFormProps } from "@/types/product.types";
-import { cn } from "@/lib/utils";
+import { useRouter } from 'next/navigation';
+
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Plus, Trash2, AlertCircle, ArrowLeft } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { FormField } from '@/components/forms/form-field';
+import { useToast } from '@/components/ui/toast';
+import { ROUTES, COLOR_OPTIONS, SIZE_OPTIONS } from '@/constants';
+import { DefaultImageUpload } from '@/components/ui/default-image-upload';
+import { VariantImageUpload } from '@/components/ui/variant-image-upload';
+import { uploadImage, createProduct, updateProduct, getCategories, activateProduct, deactivateProduct } from '@/services/product.service';
+import { productFormSchema, type ProductFormSchemaValues } from '@/lib/validators';
+import type { ProductFormProps } from '@/types/product.types';
+import { cn } from '@/lib/utils';
 
 interface ColorImageItem {
   file?: File;
@@ -41,7 +43,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
     initialData?.isActive !== undefined ? initialData.isActive : true
   );
   const [togglingStatus, setTogglingStatus] = useState(false);
-  const [pendingStatusChange, setPendingStatusChange] = useState<"activate" | "deactivate" | null>(null);
+  const [pendingStatusChange, setPendingStatusChange] = useState<'activate' | 'deactivate' | null>(null);
 
   useEffect(() => {
     if (initialData?.isActive !== undefined) {
@@ -50,15 +52,15 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   }, [initialData?.isActive]);
 
   const handleStatusSelectChange = (newVal: string) => {
-    if (mode === "create") {
-      setIsActive(newVal === "Active");
+    if (mode === 'create') {
+      setIsActive(newVal === 'Active');
       return;
     }
 
-    if (newVal === "Inactive" && isActive) {
-      setPendingStatusChange("deactivate");
-    } else if (newVal === "Active" && !isActive) {
-      setPendingStatusChange("activate");
+    if (newVal === 'Inactive' && isActive) {
+      setPendingStatusChange('deactivate');
+    } else if (newVal === 'Active' && !isActive) {
+      setPendingStatusChange('activate');
     }
   };
 
@@ -67,20 +69,20 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
     try {
       setTogglingStatus(true);
-      if (pendingStatusChange === "deactivate") {
+      if (pendingStatusChange === 'deactivate') {
         await deactivateProduct(initialData.id);
         setIsActive(false);
-        showSuccess("Product deactivated successfully!", "Status Updated");
+        showSuccess('Product deactivated successfully!', 'Status Updated');
       } else {
         await activateProduct(initialData.id);
         setIsActive(true);
-        showSuccess("Product restored successfully!", "Status Updated");
+        showSuccess('Product restored successfully!', 'Status Updated');
       }
       if (onSubmitSuccess) {
         onSubmitSuccess();
       }
     } catch (err) {
-      showError((err as Error).message || "Failed to update product status", "Status Error");
+      showError((err as Error).message || 'Failed to update product status', 'Status Error');
     } finally {
       setTogglingStatus(false);
       setPendingStatusChange(null);
@@ -93,30 +95,30 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         const cats = await getCategories();
         setDbCategories(cats);
       } catch (err) {
-        console.error("Failed to load categories", err);
+        console.error('Failed to load categories', err);
       }
     }
     loadCategories();
   }, []);
 
   // Quick variant addition state
-  const [draftColor, setDraftColor] = useState("");
-  const [draftSize, setDraftSize] = useState("");
-  const [draftQty, setDraftQty] = useState("");
+  const [draftColor, setDraftColor] = useState('');
+  const [draftSize, setDraftSize] = useState('');
+  const [draftQty, setDraftQty] = useState('');
   const [draftError, setDraftError] = useState<string | null>(null);
   const draftQtyInputRef = React.useRef<HTMLInputElement>(null);
 
   // Initialize color images when editing
   useEffect(() => {
-    if (mode === "edit" && initialData && initialData.variants) {
-      const primaryUrl = initialData.imageUrl || "";
+    if (mode === 'edit' && initialData && initialData.variants) {
+      const primaryUrl = initialData.imageUrl || '';
       const extracted: Record<string, ColorImageItem> = {};
 
       for (const v of initialData.variants) {
         const color =
           v.attributes?.Color ||
           v.attributes?.color ||
-          v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === "color")?.value;
+          v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === 'color')?.value;
 
         if (color && v.images && v.images.length > 0) {
           const imgUrl = v.images[0];
@@ -132,8 +134,8 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
   // Compute default values from initialData if mode === "edit"
   const getDefaultValues = (): ProductFormSchemaValues => {
-    if (mode === "edit" && initialData) {
-      const primaryUrl = initialData.imageUrl || initialData.variants?.[0]?.images?.[0] || "";
+    if (mode === 'edit' && initialData) {
+      const primaryUrl = initialData.imageUrl || initialData.variants?.[0]?.images?.[0] || '';
 
       const formattedVariants =
         initialData.variants && initialData.variants.length > 0
@@ -141,45 +143,45 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
             const color =
               v.attributes?.Color ||
               v.attributes?.color ||
-              v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === "color")
+              v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === 'color')
                 ?.value ||
-              "";
+              '';
             const size =
               v.attributes?.Size ||
               v.attributes?.size ||
-              v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === "size")
+              v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === 'size')
                 ?.value ||
-              "";
+              '';
             return {
               id: v.id,
               color,
               size,
-              quantity: v.stock,
+              quantity: v.stock
             };
           })
           : [
             {
-              color: "Black",
-              size: "M",
-              quantity: initialData.stock || 5,
-            },
+              color: 'Black',
+              size: 'M',
+              quantity: initialData.stock || 5
+            }
           ];
 
       return {
-        name: initialData.name || "",
-        categoryName: initialData.category?.name || "General",
+        name: initialData.name || '',
+        categoryName: initialData.category?.name || 'General',
         price: initialData.lowestPrice ?? initialData.price ?? 0,
         defaultImageUrl: primaryUrl,
-        variants: formattedVariants,
+        variants: formattedVariants
       };
     }
 
     return {
-      name: "",
-      categoryName: "General",
+      name: '',
+      categoryName: 'General',
       price: 0,
-      defaultImageUrl: "",
-      variants: [],
+      defaultImageUrl: '',
+      variants: []
     };
   };
 
@@ -189,26 +191,26 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
     handleSubmit,
     watch,
     setValue,
-    formState: { errors },
+    formState: { errors }
   } = useForm<ProductFormSchemaValues>({
     resolver: zodResolver(productFormSchema),
-    defaultValues: getDefaultValues(),
+    defaultValues: getDefaultValues()
   });
 
   const { fields, append, remove } = useFieldArray({
     control,
-    name: "variants",
+    name: 'variants'
   });
 
   const [savedDropdownCategory, setSavedDropdownCategory] = useState<string>(
-    mode === "edit" && initialData?.category?.name ? initialData.category.name : "General"
+    mode === 'edit' && initialData?.category?.name ? initialData.category.name : 'General'
   );
   const [customCategoryError, setCustomCategoryError] = useState<string | null>(null);
 
   const validateCustomCategory = (val: string): boolean => {
     const trimmed = val.trim();
     if (!trimmed) {
-      setCustomCategoryError("Category name is required.");
+      setCustomCategoryError('Category name is required.');
       return false;
     }
     const duplicate = dbCategories.find(
@@ -223,23 +225,23 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   };
 
   const handleSwitchToAddMode = () => {
-    const currentVal = watch("categoryName");
+    const currentVal = watch('categoryName');
     if (currentVal && !isCustomCategory) {
       setSavedDropdownCategory(currentVal);
     }
     setIsCustomCategory(true);
-    setValue("categoryName", "");
+    setValue('categoryName', '');
     setCustomCategoryError(null);
   };
 
   const handleSwitchToDropdownMode = () => {
     setIsCustomCategory(false);
-    setValue("categoryName", savedDropdownCategory || "General");
+    setValue('categoryName', savedDropdownCategory || 'General');
     setCustomCategoryError(null);
   };
 
   // Calculate Total Stock automatically as sum of variant quantities
-  const watchedVariants = watch("variants") || [];
+  const watchedVariants = watch('variants') || [];
   const totalStock = watchedVariants.reduce((sum, v) => {
     const qty = Number(v?.quantity);
     return sum + (isNaN(qty) || qty < 0 ? 0 : qty);
@@ -267,21 +269,21 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
       qtyNum = 0;
     }
 
-    const colorVal = (draftColor || "").trim();
-    const sizeVal = (draftSize || "").trim();
+    const colorVal = (draftColor || '').trim();
+    const sizeVal = (draftSize || '').trim();
 
     // Duplicate check for variants
     const isDuplicate = watchedVariants.some(
       (v) =>
-        (v.color || "").trim().toLowerCase() === colorVal.toLowerCase() &&
-        (v.size || "").trim().toLowerCase() === sizeVal.toLowerCase()
+        (v.color || '').trim().toLowerCase() === colorVal.toLowerCase() &&
+        (v.size || '').trim().toLowerCase() === sizeVal.toLowerCase()
     );
 
     if (isDuplicate) {
       setDraftError(
         !colorVal && !sizeVal
-          ? "General variant already exists"
-          : "Variant with specified color and size already exists"
+          ? 'General variant already exists'
+          : 'Variant with specified color and size already exists'
       );
       return;
     }
@@ -289,13 +291,13 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
     append({
       color: colorVal,
       size: sizeVal,
-      quantity: qtyNum,
+      quantity: qtyNum
     });
 
     // Reset draft fields
-    setDraftColor("");
-    setDraftSize("");
-    setDraftQty("");
+    setDraftColor('');
+    setDraftSize('');
+    setDraftQty('');
 
     setTimeout(() => {
       draftQtyInputRef.current?.focus();
@@ -306,26 +308,26 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
     try {
       setSubmitting(true);
       if (data.price < 0) {
-        showError("Price cannot be negative", "Error");
+        showError('Price cannot be negative', 'Error');
         setSubmitting(false);
         return;
       }
 
       if (totalStock <= 0) {
-        setFormErrorMessages(["Total Quantity cannot be zero"]);
-        showError("Total Quantity cannot be zero", "Error");
+        setFormErrorMessages(['Total Quantity cannot be zero']);
+        showError('Total Quantity cannot be zero', 'Error');
         setSubmitting(false);
         return;
       }
 
       // 1. Upload mandatory Default Product Image if a new file was selected
-      let finalDefaultImageUrl = data.defaultImageUrl || "";
+      let finalDefaultImageUrl = data.defaultImageUrl || '';
       if (data.defaultImageFile) {
         finalDefaultImageUrl = await uploadImage(data.defaultImageFile);
       }
 
       if (!finalDefaultImageUrl) {
-        showError("Default Product Image is required", "Error");
+        showError('Default Product Image is required', 'Error');
         setSubmitting(false);
         return;
       }
@@ -347,17 +349,17 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
       if (data.variants && data.variants.length > 0) {
         const uniqueColors = Array.from(
-          new Set(data.variants.map((v) => (v.color || "").trim()).filter(Boolean))
+          new Set(data.variants.map((v) => (v.color || '').trim()).filter(Boolean))
         );
         const uniqueSizes = Array.from(
-          new Set(data.variants.map((v) => (v.size || "").trim()).filter(Boolean))
+          new Set(data.variants.map((v) => (v.size || '').trim()).filter(Boolean))
         );
 
-        if (uniqueColors.length > 0) options.push({ name: "Color", values: uniqueColors });
-        if (uniqueSizes.length > 0) options.push({ name: "Size", values: uniqueSizes });
+        if (uniqueColors.length > 0) options.push({ name: 'Color', values: uniqueColors });
+        if (uniqueSizes.length > 0) options.push({ name: 'Size', values: uniqueSizes });
 
         formattedVariants = data.variants.map((v) => {
-          const colorKey = (v.color || "").trim();
+          const colorKey = (v.color || '').trim();
           const attributes: Record<string, string> = {};
           if (colorKey) attributes.Color = colorKey;
           if (v.size?.trim()) attributes.Size = v.size.trim();
@@ -376,7 +378,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
             price: data.price,
             stock: v.quantity,
             images: variantImages,
-            attributes,
+            attributes
           };
         });
       } else {
@@ -385,8 +387,8 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
             price: data.price,
             stock: 1,
             images: [finalDefaultImageUrl],
-            attributes: {},
-          },
+            attributes: {}
+          }
         ];
       }
 
@@ -397,16 +399,16 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         stock: totalStock || 10,
         imageUrl: finalDefaultImageUrl,
         options,
-        variants: formattedVariants,
+        variants: formattedVariants
       };
 
-      if (mode === "create") {
+      if (mode === 'create') {
         await createProduct(payload);
-        showSuccess("Product created successfully!", "Success");
+        showSuccess('Product created successfully!', 'Success');
       } else {
-        if (!initialData?.id) throw new Error("Missing product ID for update");
+        if (!initialData?.id) throw new Error('Missing product ID for update');
         await updateProduct(initialData.id, payload);
-        showSuccess("Product updated successfully!", "Success");
+        showSuccess('Product updated successfully!', 'Success');
       }
 
       setFormErrorMessages([]);
@@ -418,13 +420,13 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         }, 800);
       }
     } catch (err) {
-      const rawMsg = (err as Error).message || "Failed to save product";
+      const rawMsg = (err as Error).message || 'Failed to save product';
       const parsedList = rawMsg
-        .split(",")
+        .split(',')
         .map((s) => s.trim())
         .filter(Boolean);
       setFormErrorMessages(parsedList.length > 0 ? parsedList : [rawMsg]);
-      showError(parsedList[0] || "Failed to save product", "Product Error");
+      showError(parsedList[0] || 'Failed to save product', 'Product Error');
     } finally {
       setSubmitting(false);
     }
@@ -460,11 +462,11 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               control={control}
               render={({ field }) => (
                 <DefaultImageUpload
-                  file={watch("defaultImageFile")}
+                  file={watch('defaultImageFile')}
                   previewUrl={field.value}
                   onChange={(newFile, newPreviewUrl) => {
-                    setValue("defaultImageFile", newFile);
-                    field.onChange(newPreviewUrl || "");
+                    setValue('defaultImageFile', newFile);
+                    field.onChange(newPreviewUrl || '');
                   }}
                   disabled={submitting}
                 />
@@ -484,7 +486,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                 label="Product Title"
                 placeholder="Enter product title..."
                 error={errors.name?.message}
-                {...register("name")}
+                {...register('name')}
               />
             </div>
 
@@ -497,13 +499,13 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                   min="0"
                   placeholder="00.00"
                   error={errors.price?.message}
-                  {...register("price", {
+                  {...register('price', {
                     valueAsNumber: true,
                     onChange: (e) => {
                       if (parseFloat(e.target.value) < 0) {
-                        e.target.value = "0";
+                        e.target.value = '0';
                       }
-                    },
+                    }
                   })}
                 />
               </div>
@@ -548,8 +550,8 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                               validateCustomCategory(e.target.value);
                             }}
                             className={cn(
-                              "h-11 bg-white border-slate-200 focus:border-[#007BFF]",
-                              customCategoryError ? "border-red-500 focus:border-red-500" : ""
+                              'h-11 bg-white border-slate-200 focus:border-[#007BFF]',
+                              customCategoryError ? 'border-red-500 focus:border-red-500' : ''
                             )}
                           />
                           <div className="pt-0.5">
@@ -568,7 +570,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                           id="categoryName"
                           value={field.value}
                           onChange={(e) => {
-                            if (e.target.value === "__ADD_NEW__") {
+                            if (e.target.value === '__ADD_NEW__') {
                               handleSwitchToAddMode();
                             } else {
                               field.onChange(e.target.value);
@@ -611,16 +613,16 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
                 <Select
                   id="productStatus"
-                  value={isActive ? "Active" : "Inactive"}
+                  value={isActive ? 'Active' : 'Inactive'}
                   onChange={(e) => handleStatusSelectChange(e.target.value)}
                   disabled={togglingStatus}
                   className={cn(
-                    "h-11 font-semibold bg-white border-slate-200 cursor-pointer",
-                    isActive ? "text-emerald-700 font-bold" : "text-amber-700 font-bold"
+                    'h-11 font-semibold bg-white border-slate-200 cursor-pointer',
+                    isActive ? 'text-emerald-700 font-bold' : 'text-amber-700 font-bold'
                   )}
                 >
                   <option value="Active">Active</option>
-                  {mode === "edit" && <option value="Inactive">Inactive</option>}
+                  {mode === 'edit' && <option value="Inactive">Inactive</option>}
                 </Select>
               </div>
             </div>
@@ -691,8 +693,8 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               value={draftQty}
               onChange={(e) => {
                 const val = e.target.value;
-                if (val !== "" && parseInt(val, 10) < 0) {
-                  setDraftQty("0");
+                if (val !== '' && parseInt(val, 10) < 0) {
+                  setDraftQty('0');
                 } else {
                   setDraftQty(val);
                 }
@@ -710,7 +712,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                 if (draftColor) {
                   handleColorImageChange(draftColor, newFile, newPreviewUrl);
                 } else {
-                  showError("Please select a Color first to attach an image", "Warning");
+                  showError('Please select a Color first to attach an image', 'Warning');
                 }
               }}
               disabled={submitting || !draftColor}
@@ -741,7 +743,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               const sizeError = errors.variants?.[index]?.size?.message;
               const qtyError = errors.variants?.[index]?.quantity?.message;
 
-              const vColor = (watch(`variants.${index}.color`) || "").trim();
+              const vColor = (watch(`variants.${index}.color`) || '').trim();
 
               return (
                 <div
@@ -810,9 +812,9 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                         valueAsNumber: true,
                         onChange: (e) => {
                           if (parseInt(e.target.value, 10) < 0) {
-                            e.target.value = "0";
+                            e.target.value = '0';
                           }
-                        },
+                        }
                       })}
                     />
                     {qtyError && (
@@ -829,7 +831,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                         if (vColor) {
                           handleColorImageChange(vColor, newFile, newPreviewUrl);
                         } else {
-                          showError("Please select a Color first to attach an image", "Warning");
+                          showError('Please select a Color first to attach an image', 'Warning');
                         }
                       }}
                       disabled={submitting || !vColor}
@@ -862,12 +864,12 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
           className="bg-[#007BFF] hover:bg-blue-600 text-white font-semibold px-10 py-3 text-base rounded-xl shadow-sm h-12"
         >
           {submitting
-            ? mode === "create"
-              ? "Saving Product..."
-              : "Updating Product..."
-            : mode === "create"
-              ? "Save Product"
-              : "Update"}
+            ? mode === 'create'
+              ? 'Saving Product...'
+              : 'Updating Product...'
+            : mode === 'create'
+              ? 'Save Product'
+              : 'Update'}
         </Button>
       </div>
 
@@ -878,20 +880,20 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
             <div className="flex items-center gap-3">
               <div
                 className={cn(
-                  "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
-                  pendingStatusChange === "deactivate" ? "bg-amber-100 text-amber-600" : "bg-emerald-100 text-emerald-600"
+                  'h-10 w-10 rounded-full flex items-center justify-center shrink-0',
+                  pendingStatusChange === 'deactivate' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'
                 )}
               >
                 <AlertCircle className="h-5 w-5 stroke-[2.25]" />
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-800">
-                  {pendingStatusChange === "deactivate" ? "Deactivate Product?" : "Restore Product?"}
+                  {pendingStatusChange === 'deactivate' ? 'Deactivate Product?' : 'Restore Product?'}
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {pendingStatusChange === "deactivate"
-                    ? "Deactivating this product will hide it from customer search and shop listings."
-                    : "Restoring this product will make it active and visible to customers again."}
+                  {pendingStatusChange === 'deactivate'
+                    ? 'Deactivating this product will hide it from customer search and shop listings.'
+                    : 'Restoring this product will make it active and visible to customers again.'}
                 </p>
               </div>
             </div>
@@ -911,17 +913,17 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                 onClick={confirmStatusChange}
                 disabled={togglingStatus}
                 className={cn(
-                  "text-xs font-semibold text-white rounded-xl shadow-xs",
-                  pendingStatusChange === "deactivate"
-                    ? "bg-amber-600 hover:bg-amber-700"
-                    : "bg-emerald-600 hover:bg-emerald-700"
+                  'text-xs font-semibold text-white rounded-xl shadow-xs',
+                  pendingStatusChange === 'deactivate'
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : 'bg-emerald-600 hover:bg-emerald-700'
                 )}
               >
                 {togglingStatus
-                  ? "Updating..."
-                  : pendingStatusChange === "deactivate"
-                    ? "Yes, Deactivate"
-                    : "Yes, Restore"}
+                  ? 'Updating...'
+                  : pendingStatusChange === 'deactivate'
+                    ? 'Yes, Deactivate'
+                    : 'Yes, Restore'}
               </Button>
             </div>
           </div>

@@ -1,40 +1,39 @@
 
+import type { NextAuthOptions } from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+import GoogleProvider from 'next-auth/providers/google';
+import { compare } from 'bcryptjs';
+import { getServerSession as getNextAuthServerSession } from 'next-auth/next';
 
-import type { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider from "next-auth/providers/google";
-import { compare } from "bcryptjs";
-import { getServerSession as getNextAuthServerSession } from "next-auth/next";
-
-import { prisma } from "@/lib/prisma";
-import { stripe } from "@/lib/stripe/stripe-server";
-import { logStripeError } from "@/lib/stripe/errors";
+import { prisma } from '@/lib/prisma';
+import { stripe } from '@/lib/stripe/stripe-server';
+import { logStripeError } from '@/lib/stripe/errors';
 import {
   SESSION_COOKIE_MAX_AGE_SECONDS,
   SESSION_DURATION_REMEMBER_ME_MS,
-  SESSION_DURATION_DEFAULT_MS,
-} from "@/constants";
+  SESSION_DURATION_DEFAULT_MS
+} from '@/constants';
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
-const providers: NextAuthOptions["providers"] = [
+const providers: NextAuthOptions['providers'] = [
   CredentialsProvider({
-    name: "Credentials",
+    name: 'Credentials',
 
     credentials: {
       email: {
-        label: "Email",
-        type: "email",
+        label: 'Email',
+        type: 'email'
       },
       password: {
-        label: "Password",
-        type: "password",
+        label: 'Password',
+        type: 'password'
       },
       rememberMe: {
-        label: "Remember Me",
-        type: "text",
-      },
+        label: 'Remember Me',
+        type: 'text'
+      }
     },
 
     async authorize(credentials) {
@@ -44,8 +43,8 @@ const providers: NextAuthOptions["providers"] = [
 
       const user = await prisma.user.findUnique({
         where: {
-          email: credentials.email.toLowerCase(),
-        },
+          email: credentials.email.toLowerCase()
+        }
       });
 
       if (!user || !user.isActive || !user.password) {
@@ -62,40 +61,40 @@ const providers: NextAuthOptions["providers"] = [
       }
 
       const isRememberMe =
-        credentials.rememberMe === "true" ||
-        credentials.rememberMe === "1";
+        credentials.rememberMe === 'true' ||
+        credentials.rememberMe === '1';
 
       return {
         id: user.id,
         name: user.name,
         email: user.email,
         role: user.role,
-        rememberMe: isRememberMe,
+        rememberMe: isRememberMe
       };
-    },
-  }),
+    }
+  })
 ];
 
 if (googleClientId && googleClientSecret) {
   providers.unshift(
     GoogleProvider({
       clientId: googleClientId,
-      clientSecret: googleClientSecret,
+      clientSecret: googleClientSecret
     })
   );
 }
 
 export const authOptions: NextAuthOptions = {
   session: {
-    strategy: "jwt",
-    maxAge: SESSION_COOKIE_MAX_AGE_SECONDS,
+    strategy: 'jwt',
+    maxAge: SESSION_COOKIE_MAX_AGE_SECONDS
   },
 
   providers,
 
   callbacks: {
     async signIn({ user, account }) {
-      if (account?.provider === "google") {
+      if (account?.provider === 'google') {
         if (!user.email) {
           return false;
         }
@@ -104,8 +103,8 @@ export const authOptions: NextAuthOptions = {
 
         let existingUser = await prisma.user.findUnique({
           where: {
-            email: normalizedEmail,
-          },
+            email: normalizedEmail
+          }
         });
 
         if (!existingUser) {
@@ -113,26 +112,26 @@ export const authOptions: NextAuthOptions = {
           try {
             const customer = await stripe.customers.create({
               email: normalizedEmail,
-              name: user.name || "Google User",
+              name: user.name || 'Google User'
             });
             stripeCustomerId = customer.id;
           } catch (stripeErr) {
-            logStripeError("authOptions:googleSignIn:stripe.customers.create", stripeErr, {
-              email: normalizedEmail,
+            logStripeError('authOptions:googleSignIn:stripe.customers.create', stripeErr, {
+              email: normalizedEmail
             });
           }
 
           existingUser = await prisma.user.create({
             data: {
               email: normalizedEmail,
-              name: user.name || "Google User",
+              name: user.name || 'Google User',
               phone: null,
               password: null,
               emailVerified: new Date(),
-              role: "USER",
+              role: 'USER',
               isActive: true,
-              stripeCustomerId,
-            },
+              stripeCustomerId
+            }
           });
         } else if (!existingUser.isActive) {
           return false;
@@ -143,8 +142,8 @@ export const authOptions: NextAuthOptions = {
             where: {
               provider_providerAccountId: {
                 provider: account.provider,
-                providerAccountId: account.providerAccountId,
-              },
+                providerAccountId: account.providerAccountId
+              }
             },
 
             update: {
@@ -153,7 +152,7 @@ export const authOptions: NextAuthOptions = {
               refresh_token: account.refresh_token,
               expires_at: account.expires_at,
               token_type: account.token_type,
-              scope: account.scope,
+              scope: account.scope
             },
 
             create: {
@@ -166,8 +165,8 @@ export const authOptions: NextAuthOptions = {
               refresh_token: account.refresh_token,
               expires_at: account.expires_at,
               token_type: account.token_type,
-              scope: account.scope,
-            },
+              scope: account.scope
+            }
           });
         }
       }
@@ -195,7 +194,7 @@ export const authOptions: NextAuthOptions = {
         /*
          * Credentials login.
          */
-        if (account?.provider !== "google") {
+        if (account?.provider !== 'google') {
           token.id = user.id;
           token.role = user.role;
           token.email = user.email;
@@ -207,11 +206,11 @@ export const authOptions: NextAuthOptions = {
          * Google users don't provide rememberMe, so they use
          * the default session duration.
          */
-        if (account?.provider === "google" && user.email) {
+        if (account?.provider === 'google' && user.email) {
           const dbUser = await prisma.user.findUnique({
             where: {
-              email: user.email.toLowerCase(),
-            },
+              email: user.email.toLowerCase()
+            }
           });
 
           if (dbUser) {
@@ -250,15 +249,15 @@ export const authOptions: NextAuthOptions = {
       }
 
       return session;
-    },
+    }
   },
 
   pages: {
-    signIn: "/login",
-    error: "/login",
+    signIn: '/login',
+    error: '/login'
   },
 
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET
 };
 
 export async function getServerAuthSession() {

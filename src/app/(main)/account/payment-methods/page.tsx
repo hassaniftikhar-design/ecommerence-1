@@ -1,20 +1,23 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState, useCallback } from "react";
-import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useState, useCallback } from 'react';
+
+import { useRouter } from 'next/navigation';
+
+import { useSession } from 'next-auth/react';
 import {
   CreditCard,
   Plus,
   Trash2,
   CheckCircle2,
   AlertCircle,
-  Star,
-} from "lucide-react";
-import { BackHeading } from "@/components/common/back-heading";
-import { RequireLoginModal } from "@/components/auth/require-login-modal";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+  Star
+} from 'lucide-react';
+
+import { BackHeading } from '@/components/common/back-heading';
+import { RequireLoginModal } from '@/components/auth/require-login-modal';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,24 +26,24 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  AlertDialogTitle
+} from '@/components/ui/alert-dialog';
 import {
   getSavedPaymentMethods,
   deletePaymentMethod,
-  setDefaultPaymentMethod,
-} from "@/services/payment.service";
-import { AddCardDialog } from "@/components/account/add-card-dialog";
-import { useToast } from "@/components/ui/toast";
-import { ROUTES } from "@/constants/routes";
-import type { SavedPaymentMethod } from "@/types/payment.types";
+  setDefaultPaymentMethod
+} from '@/services/payment.service';
+import { AddCardDialog } from '@/components/account/add-card-dialog';
+import { useToast } from '@/components/ui/toast';
+import { ROUTES } from '@/constants/routes';
+import type { SavedPaymentMethod } from '@/types/payment.types';
 
 function formatBrandName(brand: string): string {
   const b = brand.toLowerCase();
-  if (b === "visa") return "Visa";
-  if (b === "mastercard") return "Mastercard";
-  if (b === "amex" || b === "american express") return "American Express";
-  if (b === "discover") return "Discover";
+  if (b === 'visa') return 'Visa';
+  if (b === 'mastercard') return 'Mastercard';
+  if (b === 'amex' || b === 'american express') return 'American Express';
+  if (b === 'discover') return 'Discover';
   return brand.charAt(0).toUpperCase() + brand.slice(1);
 }
 
@@ -58,23 +61,23 @@ export default function PaymentMethodsPage() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const fetchCards = useCallback(async () => {
-    if (status !== "authenticated") return;
+    if (status !== 'authenticated') return;
     try {
       setLoading(true);
       setError(null);
       const data = await getSavedPaymentMethods();
       setCards(data);
-    } catch (err: any) {
-      setError(err.message || "Failed to load payment methods");
+    } catch (err: unknown) {
+      setError((err as Error).message || 'Failed to load payment methods');
     } finally {
       setLoading(false);
     }
   }, [status]);
 
   useEffect(() => {
-    if (status === "authenticated") {
+    if (status === 'authenticated') {
       fetchCards();
-    } else if (status === "unauthenticated") {
+    } else if (status === 'unauthenticated') {
       setLoading(false);
     }
   }, [status, fetchCards]);
@@ -83,15 +86,15 @@ export default function PaymentMethodsPage() {
     try {
       setActionLoading(true);
       await setDefaultPaymentMethod(cardId);
-      showSuccess("Default payment method updated");
+      showSuccess('Default payment method updated');
       setCards((prev) =>
         prev.map((c) => ({
           ...c,
-          isDefault: c.id === cardId,
+          isDefault: c.id === cardId
         }))
       );
-    } catch (err: any) {
-      showError(err.message || "Failed to update default card");
+    } catch (err: unknown) {
+      showError((err as Error).message || 'Failed to update default card');
     } finally {
       setActionLoading(false);
     }
@@ -102,11 +105,11 @@ export default function PaymentMethodsPage() {
     try {
       setActionLoading(true);
       await deletePaymentMethod(deletingCardId);
-      showSuccess("Payment method deleted");
+      showSuccess('Payment method deleted');
       setDeletingCardId(null);
       fetchCards();
-    } catch (err: any) {
-      showError(err.message || "Failed to delete card");
+    } catch (err: unknown) {
+      showError((err as Error).message || 'Failed to delete card');
     } finally {
       setActionLoading(false);
     }
@@ -205,7 +208,7 @@ export default function PaymentMethodsPage() {
               </div>
 
               <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500">
-                <span>Expires {String(card.expMonth).padStart(2, "0")}/{String(card.expYear).slice(-2)}</span>
+                <span>Expires {String(card.expMonth).padStart(2, '0')}/{String(card.expYear).slice(-2)}</span>
 
                 {!card.isDefault ? (
                   <button
@@ -230,7 +233,7 @@ export default function PaymentMethodsPage() {
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
         onCardAdded={() => {
-          showSuccess("New card added successfully");
+          showSuccess('New card added successfully');
           fetchCards();
         }}
       />
@@ -257,14 +260,14 @@ export default function PaymentMethodsPage() {
               disabled={actionLoading}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {actionLoading ? "Removing..." : "Remove Card"}
+              {actionLoading ? 'Removing...' : 'Remove Card'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       <RequireLoginModal
-        isOpen={status === "unauthenticated"}
+        isOpen={status === 'unauthenticated'}
         onClose={() => router.push(ROUTES.home)}
         title="Login Required"
         description="Please log in to manage your saved payment methods."

@@ -1,4 +1,4 @@
-import type { OrderDetail } from "@/types/order.types";
+import type { OrderDetail } from '@/types/order.types';
 
 interface Field {
   label: string;
@@ -7,13 +7,13 @@ interface Field {
 
 export function OrderSummaryFields({ order }: { order: OrderDetail }) {
   const fields: Field[] = [
-    { label: "Date", value: order.date },
-    { label: "Order #", value: order.orderNumber },
-    { label: "User", value: order.user },
-    { label: "Products", value: String(order.productsCount).padStart(2, "0") },
-    { label: "Sub Total", value: `$${(order.subTotal ?? order.amount).toFixed(2)}` },
-    { label: "Tax", value: `$${(order.tax ?? 0).toFixed(2)}` },
-    { label: "Total", value: `$${(order.totalAmount ?? order.amount).toFixed(2)}` },
+    { label: 'Date', value: order.date },
+    { label: 'Order #', value: order.orderNumber },
+    { label: 'User', value: order.user },
+    { label: 'Products', value: String(order.productsCount).padStart(2, '0') },
+    { label: 'Sub Total', value: `$${(order.subTotal ?? order.amount).toFixed(2)}` },
+    { label: 'Tax', value: `$${(order.tax ?? 0).toFixed(2)}` },
+    { label: 'Total', value: `$${(order.totalAmount ?? order.amount).toFixed(2)}` }
   ];
 
   return (

@@ -1,31 +1,32 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
+
 import {
   Elements,
   PaymentElement,
   useStripe,
-  useElements,
-} from "@stripe/react-stripe-js";
-import { getStripe } from "@/lib/stripe/stripe-client";
+  useElements
+} from '@stripe/react-stripe-js';
+
+import { AlertCircle, CreditCard, Lock, ShieldCheck } from 'lucide-react';
+
+import { getStripe } from '@/lib/stripe/stripe-client';
 import {
   getSetupIntentSecret,
-  savePaymentMethod,
-} from "@/services/payment.service";
-import { getFriendlyPaymentErrorMessage } from "@/lib/stripe/errors";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+  savePaymentMethod
+} from '@/services/payment.service';
+import { getFriendlyPaymentErrorMessage } from '@/lib/stripe/errors';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
   AlertDialogContent,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-} from "@/components/ui/alert-dialog";
-import { AlertCircle, CreditCard, Lock, ShieldCheck } from "lucide-react";
-import type { SavedPaymentMethod } from "@/types/payment.types";
+  AlertDialogDescription
+} from '@/components/ui/alert-dialog';
+import type { SavedPaymentMethod } from '@/types/payment.types';
 
 interface AddCardFormProps {
   onSuccess: (card: SavedPaymentMethod) => void;
@@ -63,10 +64,10 @@ function AddCardForm({ onSuccess, onCancel }: AddCardFormProps) {
       // Confirm SetupIntent on Stripe
       const result = await stripe.confirmSetup({
         elements,
-        redirect: "if_required",
+        redirect: 'if_required',
         confirmParams: {
-          return_url: `${window.location.origin}/account/payment-methods`,
-        },
+          return_url: `${window.location.origin}/account/payment-methods`
+        }
       });
 
       if (result.error) {
@@ -76,18 +77,18 @@ function AddCardForm({ onSuccess, onCancel }: AddCardFormProps) {
       }
 
       const paymentMethodId =
-        typeof result.setupIntent?.payment_method === "string"
+        typeof result.setupIntent?.payment_method === 'string'
           ? result.setupIntent.payment_method
           : result.setupIntent?.payment_method?.id;
 
       if (!paymentMethodId) {
-        throw new Error("Could not retrieve payment method from setup intent");
+        throw new Error('Could not retrieve payment method from setup intent');
       }
 
       // Save locally in database
       const saved = await savePaymentMethod(paymentMethodId, setAsDefault);
       onSuccess(saved);
-    } catch (err: any) {
+    } catch (err: unknown) {
       const { friendlyMessage } = getFriendlyPaymentErrorMessage(err);
       setError(friendlyMessage);
     } finally {
@@ -105,7 +106,7 @@ function AddCardForm({ onSuccess, onCancel }: AddCardFormProps) {
       )}
 
       <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-        <PaymentElement options={{ layout: "tabs" }} />
+        <PaymentElement options={{ layout: 'tabs' }} />
       </div>
 
       <div className="flex items-center space-x-2 pt-1">
@@ -147,7 +148,7 @@ function AddCardForm({ onSuccess, onCancel }: AddCardFormProps) {
           disabled={loading || !stripe}
           className="bg-[#007BFF] hover:bg-blue-600 text-white text-xs font-semibold h-9 px-5 rounded-lg shadow-sm"
         >
-          {loading ? "Saving Card..." : "Save Card"}
+          {loading ? 'Saving Card...' : 'Save Card'}
         </Button>
       </div>
     </form>
@@ -163,7 +164,7 @@ interface AddCardDialogProps {
 export function AddCardDialog({
   isOpen,
   onClose,
-  onCardAdded,
+  onCardAdded
 }: AddCardDialogProps) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loadingSecret, setLoadingSecret] = useState(false);
@@ -184,8 +185,8 @@ export function AddCardDialog({
         setInitError(null);
         const secret = await getSetupIntentSecret();
         setClientSecret(secret);
-      } catch (err: any) {
-        setInitError(err.message || "Failed to initialize payment form");
+      } catch (err: unknown) {
+        setInitError((err as Error).message || 'Failed to initialize payment form');
       } finally {
         setLoadingSecret(false);
       }
@@ -225,12 +226,12 @@ export function AddCardDialog({
             options={{
               clientSecret,
               appearance: {
-                theme: "stripe",
+                theme: 'stripe',
                 variables: {
-                  colorPrimary: "#007BFF",
-                  borderRadius: "8px",
-                },
-              },
+                  colorPrimary: '#007BFF',
+                  borderRadius: '8px'
+                }
+              }
             }}
           >
             <AddCardForm

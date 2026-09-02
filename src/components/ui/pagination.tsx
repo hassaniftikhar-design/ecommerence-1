@@ -1,6 +1,6 @@
-import Link from "next/link";
+import Link from 'next/link';
 
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 interface PaginationProps {
   currentPage: number;
@@ -18,16 +18,16 @@ interface PaginationProps {
 export function Pagination({
   currentPage,
   totalPages,
-  basePath,
+  basePath
 }: PaginationProps) {
   const pageHref = (page: number) => `${basePath}?page=${page}`;
 
   const linkClass = (disabled = false) =>
     cn(
-      "flex h-11 min-w-[44px] items-center justify-center rounded border border-primary px-4 text-sm font-medium text-primary",
+      'flex h-11 min-w-[44px] items-center justify-center rounded border border-primary px-4 text-sm font-medium text-primary',
       disabled
-        ? "pointer-events-none opacity-50"
-        : "hover:bg-surface-page",
+        ? 'pointer-events-none opacity-50'
+        : 'hover:bg-surface-page'
     );
 
   return (
@@ -44,10 +44,10 @@ export function Pagination({
         <Link
           key={page}
           href={pageHref(page)}
-          aria-current={page === currentPage ? "page" : undefined}
+          aria-current={page === currentPage ? 'page' : undefined}
           className={cn(
             linkClass(),
-            page === currentPage && "bg-primary text-white hover:bg-primary",
+            page === currentPage && 'bg-primary text-white hover:bg-primary'
           )}
         >
           {page}

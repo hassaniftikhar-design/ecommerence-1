@@ -1,10 +1,10 @@
-import { getCurrentUser, isAdmin } from "@/lib/server-auth";
-import { apiSuccess, apiError } from "@/lib/api-response";
+import { getCurrentUser, isAdmin } from '@/lib/server-auth';
+import { apiSuccess, apiError } from '@/lib/api-response';
 import {
   getProductByIdServer,
   updateProductServer,
-  deactivateProductServer,
-} from "@/server/services/product.service";
+  deactivateProductServer
+} from '@/server/services/product.service';
 
 export async function GET(
   request: Request,
@@ -18,12 +18,12 @@ export async function GET(
     const product = await getProductByIdServer(id, userIsAdmin);
 
     if (!product) {
-      return apiError("Product not found or inactive", [], 404);
+      return apiError('Product not found or inactive', [], 404);
     }
 
-    return apiSuccess("Product retrieved successfully", { product });
+    return apiSuccess('Product retrieved successfully', { product });
   } catch (error) {
-    return apiError("Failed to fetch product", [(error as Error).message], 500);
+    return apiError('Failed to fetch product', [(error as Error).message], 500);
   }
 }
 
@@ -46,7 +46,7 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
     const user = await getCurrentUser(request);
 
     if (!user || !isAdmin(user)) {
-      return apiError("Forbidden: Only ADMIN users can update products", [], 403);
+      return apiError('Forbidden: Only ADMIN users can update products', [], 403);
     }
 
     const body = await request.json();
@@ -56,9 +56,9 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
       return apiError(result.message, result.errors, result.status);
     }
 
-    return apiSuccess("Product updated successfully", { product: result.product }, result.status);
+    return apiSuccess('Product updated successfully', { product: result.product }, result.status);
   } catch (error) {
-    return apiError("Failed to update product", [(error as Error).message], 500);
+    return apiError('Failed to update product', [(error as Error).message], 500);
   }
 }
 
@@ -70,7 +70,7 @@ export async function DELETE(
     const user = await getCurrentUser(request);
 
     if (!user || !isAdmin(user)) {
-      return apiError("Forbidden: Only ADMIN users can deactivate products", [], 403);
+      return apiError('Forbidden: Only ADMIN users can deactivate products', [], 403);
     }
 
     const { id } = await params;
@@ -82,6 +82,6 @@ export async function DELETE(
 
     return apiSuccess(result.message);
   } catch (error) {
-    return apiError("Failed to deactivate product", [(error as Error).message], 500);
+    return apiError('Failed to deactivate product', [(error as Error).message], 500);
   }
 }

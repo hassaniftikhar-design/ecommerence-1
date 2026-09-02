@@ -1,14 +1,14 @@
-import { NOTIFICATIONS_PER_PAGE } from "@/constants/generalconstants";
-import type { NotificationsResponse } from "@/types/notification.types";
+import { NOTIFICATIONS_PER_PAGE } from '@/constants/generalconstants';
+import type { NotificationsResponse } from '@/types/notification.types';
 
 export async function getNotifications(
   page: number = 1,
   limit: number = NOTIFICATIONS_PER_PAGE
 ): Promise<NotificationsResponse> {
   const res = await fetch(`/api/notifications?page=${page}&limit=${limit}`, {
-    method: "GET",
-    headers: { "Content-Type": "application/json" },
-    cache: "no-store",
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store'
   });
 
   if (!res.ok) {
@@ -20,10 +20,10 @@ export async function getNotifications(
 }
 
 export async function markNotificationAsRead(id?: string, markAll: boolean = false): Promise<boolean> {
-  const res = await fetch("/api/notifications", {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ notificationId: id, markAll }),
+  const res = await fetch('/api/notifications', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ notificationId: id, markAll })
   });
 
   return res.ok;

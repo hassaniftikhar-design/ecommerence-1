@@ -1,17 +1,18 @@
-"use client";
+'use client';
 
-import { use, useEffect, useState } from "react";
-import Link from "next/link";
-import { AlertCircle, ArrowLeft } from "lucide-react";
-import { BackHeading } from "@/components/common/back-heading";
-import { OrderSummaryFields } from "@/components/orders/order-summary-fields";
-import { OrderProductsTable } from "@/components/orders/order-products-table";
-import { renderStatusBadge } from "@/components/orders/orders-table";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
-import { getOrderById } from "@/services/order.service";
-import { ROUTES } from "@/constants/routes";
-import type { OrderDetail } from "@/types/order.types";
+import { use, useEffect, useState } from 'react';
+
+import Link from 'next/link';
+
+import { AlertCircle, ArrowLeft } from 'lucide-react';
+
+import { BackHeading } from '@/components/common/back-heading';
+import { OrderProductsTable } from '@/components/orders/order-products-table';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { getOrderById } from '@/services/order.service';
+import { ROUTES } from '@/constants/routes';
+import type { OrderDetail } from '@/types/order.types';
 
 interface OrderDetailPageProps {
   params: Promise<{ orderId: string }>;
@@ -66,19 +67,18 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
 
       {loading ? (
         <div className="space-y-6">
-
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <Skeleton className="h-6 w-48" />
-              <Skeleton className="h-6 w-24 rounded-md" />
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4 pt-2">
-              {Array.from({ length: 7 }).map((_, i) => (
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs space-y-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 pb-4">
+              {Array.from({ length: 6 }).map((_, i) => (
                 <div key={i} className="space-y-2">
                   <Skeleton className="h-3 w-16" />
-                  <Skeleton className="h-5 w-20" />
+                  <Skeleton className="h-5 w-24" />
                 </div>
               ))}
+            </div>
+            <div className="border-t border-slate-100 pt-4 flex justify-between items-center">
+              <Skeleton className="h-4 w-64" />
+              <Skeleton className="h-4 w-48" />
             </div>
           </div>
 
@@ -86,7 +86,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
             <Skeleton className="h-6 w-48 mb-2" />
             <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => (
+              {Array.from({ length: 2 }).map((_, i) => (
                 <div key={i} className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
                   <div className="flex items-center gap-3">
                     <Skeleton className="h-10 w-10 rounded-md" />
@@ -102,23 +102,121 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
         </div>
       ) : order ? (
         <div className="space-y-6">
-          {/* Order Summary Card */}
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <span className="text-lg font-bold text-[#0B192C]">
-                  Order #{order.orderNumber}
-                </span>
+          {/* Upper Detail Box */}
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs space-y-5">
+            {/* Top Row: 6 Metadata Columns */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 gap-y-4 sm:gap-y-0">
+              {/* 1. DATE */}
+              <div className="px-2 sm:px-4 first:pl-0 space-y-1">
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">DATE</p>
+                <p className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">
+                  {order.date}
+                </p>
               </div>
-              <div>{renderStatusBadge(order.status)}</div>
+
+              {/* 2. ORDER # */}
+              <div className="px-2 sm:px-4 space-y-1 pt-3 sm:pt-0">
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">ORDER #</p>
+                <p className="text-xs sm:text-sm font-bold text-slate-900 leading-snug truncate">
+                  {order.orderNumber}
+                </p>
+              </div>
+
+              {/* 3. STATUS */}
+              <div className="px-2 sm:px-4 space-y-1 pt-3 sm:pt-0">
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">STATUS</p>
+                <div className="pt-0.5">
+                  {order.status === 'IN_PROGRESS' ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#007BFF] border border-blue-200">
+                      IN PROGRESS
+                    </span>
+                  ) : order.status === 'DISPATCHED' ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-50 text-purple-600 border border-purple-200">
+                      DISPATCHED
+                    </span>
+                  ) : order.status === 'DELIVERED' ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      DELIVERED
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200">
+                      REJECTED
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* 4. SUBTOTAL */}
+              <div className="px-2 sm:px-4 space-y-1 pt-3 sm:pt-0">
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">SUBTOTAL</p>
+                <p className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">
+                  ${order.subTotal.toFixed(2)}
+                </p>
+              </div>
+
+              {/* 5. TAX */}
+              <div className="px-2 sm:px-4 space-y-1 pt-3 sm:pt-0">
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">TAX</p>
+                <p className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">
+                  ${order.tax.toFixed(2)}
+                </p>
+              </div>
+
+              {/* 6. TOTAL */}
+              <div className="px-2 sm:px-4 last:pr-0 space-y-1 pt-3 sm:pt-0">
+                <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">TOTAL</p>
+                <p className="text-xs sm:text-sm font-bold text-[#007BFF] leading-snug">
+                  ${order.totalAmount.toFixed(2)}
+                </p>
+              </div>
             </div>
 
-            <OrderSummaryFields order={order} />
+            {/* Bottom Sub-row: Delivery Address, Payment Method, Payment Status */}
+            <div className="border-t border-slate-100 pt-4 flex flex-wrap items-center justify-between gap-4 text-xs">
+              {/* Left: Delivery Address */}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                  DELIVERY ADDRESS
+                </span>
+                <span className="text-xs font-medium text-slate-700">
+                  {order.shippingAddress || '123 Main St, New York, 10001, USA'}
+                </span>
+              </div>
+
+              {/* Right: Payment Method & Payment Status */}
+              <div className="flex flex-wrap items-center gap-6">
+                <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
+                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    PAYMENT METHOD:
+                  </span>
+                  <span className="font-semibold text-slate-800">💳 Card</span>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-xs font-medium">
+                  <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                    PAYMENT STATUS:
+                  </span>
+                  {order.payment?.status === 'FAILED' ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-600 border border-rose-200">
+                      FAILED
+                    </span>
+                  ) : order.payment?.status === 'SUCCEEDED' ? (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      PAID
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                      {order.payment?.status || 'PENDING'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Product Information Section */}
+          {/* Lower Product Information Table (remains same) */}
           <div className="space-y-4">
-            <h2 className="text-xl font-bold text-[#0B192C]">Product Information</h2>
+            <h2 className="text-lg font-bold text-[#0B192C]">Product Information</h2>
             <OrderProductsTable products={order.products} />
           </div>
         </div>

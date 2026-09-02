@@ -1,7 +1,8 @@
-"use client";
+'use client';
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import type { Product } from "@/types/product.types";
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+
+import type { Product } from '@/types/product.types';
 import {
   PRODUCT_RENDER_WINDOW_SIZE,
   PRODUCT_FETCH_BATCH_SIZE,
@@ -9,8 +10,8 @@ import {
   PRODUCT_GRID_GAP_DESKTOP_PX,
   PRODUCT_GRID_GAP_MOBILE_PX,
   PRODUCT_PREFETCH_ROOT_MARGIN,
-  PRODUCT_VIRTUAL_OVERSCAN_ROWS,
-} from "@/constants/generalconstants";
+  PRODUCT_VIRTUAL_OVERSCAN_ROWS
+} from '@/constants/generalconstants';
 
 export interface UseProductVirtualizationOptions {
   items: Product[];
@@ -46,7 +47,7 @@ export function useProductVirtualization({
   isFetchingPreviousPage = false,
   fetchNextPage,
   fetchPreviousPage,
-  filterKey = "",
+  filterKey = ''
 }: UseProductVirtualizationOptions): UseProductVirtualizationReturn {
   const outerWrapperRef = useRef<HTMLDivElement | null>(null);
   const topSentinelRef = useRef<HTMLDivElement | null>(null);
@@ -67,7 +68,7 @@ export function useProductVirtualization({
     itemsLength: items.length,
     startIndex,
     columns,
-    measuredRowHeight,
+    measuredRowHeight
   });
 
   callbacksRef.current = {
@@ -80,7 +81,7 @@ export function useProductVirtualization({
     itemsLength: items.length,
     startIndex,
     columns,
-    measuredRowHeight,
+    measuredRowHeight
   };
 
   // Reset window position to top whenever search, filter, or sort changes
@@ -102,8 +103,8 @@ export function useProductVirtualization({
     };
 
     updateColumns();
-    window.addEventListener("resize", updateColumns, { passive: true });
-    return () => window.removeEventListener("resize", updateColumns);
+    window.addEventListener('resize', updateColumns, { passive: true });
+    return () => window.removeEventListener('resize', updateColumns);
   }, []);
 
   // Dynamically measure actual rendered product card height once without recreating observer
@@ -112,7 +113,7 @@ export function useProductVirtualization({
     if (!container) return;
 
     const measureCard = () => {
-      const cardEl = container.querySelector<HTMLElement>("[data-product-card]");
+      const cardEl = container.querySelector<HTMLElement>('[data-product-card]');
       if (cardEl) {
         const height = cardEl.getBoundingClientRect().height;
         if (
@@ -200,7 +201,7 @@ export function useProductVirtualization({
           fetchNextPage: doFetchNext,
           itemsLength,
           startIndex: currentStart,
-          columns: currentCols,
+          columns: currentCols
         } = callbacksRef.current;
 
         // Slide window down if more cached items exist ahead
@@ -234,7 +235,7 @@ export function useProductVirtualization({
           hasPreviousPage: hasPrev,
           isFetchingPreviousPage: isFetchingPrev,
           fetchPreviousPage: doFetchPrev,
-          startIndex: currentStart,
+          startIndex: currentStart
         } = callbacksRef.current;
 
         // Slide window up if cached items exist behind
@@ -279,7 +280,7 @@ export function useProductVirtualization({
           isFetchingNextPage: isFetchingNext,
           isFetchingPreviousPage: isFetchingPrev,
           fetchNextPage: doFetchNext,
-          fetchPreviousPage: doFetchPrev,
+          fetchPreviousPage: doFetchPrev
         } = callbacksRef.current;
 
         const currentGap =
@@ -332,9 +333,9 @@ export function useProductVirtualization({
       });
     };
 
-    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener('scroll', onScroll, { passive: true });
     return () => {
-      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener('scroll', onScroll);
       if (rafId !== null) window.cancelAnimationFrame(rafId);
     };
   }, []);
@@ -348,6 +349,6 @@ export function useProductVirtualization({
     columns,
     outerWrapperRef,
     topSentinelRef,
-    bottomSentinelRef,
+    bottomSentinelRef
   };
 }

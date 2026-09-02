@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 interface CategoryDropdownProps {
   categories: { id: string; name: string }[];
@@ -10,15 +10,15 @@ export function CategoryDropdown({ categories }: CategoryDropdownProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const selectedCategory = searchParams.get("category") || "";
+  const selectedCategory = searchParams.get('category') || '';
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     const params = new URLSearchParams(searchParams.toString());
     if (value) {
-      params.set("category", value);
+      params.set('category', value);
     } else {
-      params.delete("category");
+      params.delete('category');
     }
     router.push(`${pathname}?${params.toString()}`);
   };
