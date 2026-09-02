@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 import { useSession } from 'next-auth/react';
@@ -782,12 +783,15 @@ export default function CheckoutPage() {
                     <div key={item.id} className="flex items-center gap-3 pt-3.5 first:pt-0">
                       {/* Product Thumbnail with badge */}
                       <div className="relative h-14 w-14 shrink-0 rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
-                        <img
+                        <Image
                           src={item.imageUrl}
                           alt={item.name}
-                          className="h-full w-full object-cover"
+                          fill
+                          className="object-cover"
+                          sizes="56px"
+                          unoptimized
                         />
-                        <span className="absolute top-1 left-1 flex h-4 w-4 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white shadow-xs">
+                        <span className="absolute top-1 left-1 flex h-4 w-4 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white shadow-xs z-10">
                           {item.quantity}
                         </span>
                       </div>

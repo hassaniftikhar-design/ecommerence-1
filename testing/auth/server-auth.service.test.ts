@@ -49,7 +49,6 @@ describe('Server Auth Service (auth.service.ts)', () => {
     jest.useRealTimers();
   });
 
-
   describe('signupUserServer', () => {
     it('should return validation error if payload is invalid', async () => {
       const invalidPayload = {
@@ -218,7 +217,6 @@ describe('Server Auth Service (auth.service.ts)', () => {
       );
     });
   });
-
 
   describe('forgotPasswordServer', () => {
     it('should return validation error if email format is invalid', async () => {
@@ -396,7 +394,6 @@ describe('Server Auth Service (auth.service.ts)', () => {
     });
   });
 
-
   describe('resetPasswordServer', () => {
     it('should return validation error if passwords do not match or are too weak', async () => {
       const invalidPayload = {
@@ -506,7 +503,6 @@ describe('Server Auth Service (auth.service.ts)', () => {
       await expect(resetPasswordServer(mockResetPasswordPayload)).rejects.toThrow('Database transaction failed');
     });
   });
-
 
   describe('changePasswordServer', () => {
     it('should return validation error if passwords do not match', async () => {
