@@ -419,6 +419,7 @@ export async function getOrderByIdServer(id: string, userId?: string, userRole?:
     totalAmount: Number(order.totalAmount),
     shippingAddress: shippingAddress || null,
     status: order.status,
+    paymentMethod: order.payment ? 'Card' : 'Cash on Delivery',
     payment: order.payment
       ? {
         id: order.payment.id,

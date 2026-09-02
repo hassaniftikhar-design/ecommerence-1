@@ -189,7 +189,11 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                   <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                     PAYMENT METHOD:
                   </span>
-                  <span className="font-semibold text-slate-800">💳 Card</span>
+                  <span className="font-semibold text-slate-800">
+                    {order.payment || order.paymentMethod === 'Card'
+                      ? '💳 Card'
+                      : '💵 Cash on Delivery'}
+                  </span>
                 </div>
 
                 <div className="flex items-center gap-1.5 text-xs font-medium">

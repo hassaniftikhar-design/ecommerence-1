@@ -206,7 +206,9 @@ export default function AdminOrderDetailPage({
             <div className="space-y-1">
               <p className="text-[11px] font-medium text-slate-400">Payment Method</p>
               <p className="text-xs sm:text-sm font-semibold text-slate-800 leading-snug">
-                💳 Card
+                {order.payment || order.paymentMethod === 'Card'
+                  ? '💳 Card'
+                  : '💵 Cash on Delivery'}
               </p>
             </div>
 
