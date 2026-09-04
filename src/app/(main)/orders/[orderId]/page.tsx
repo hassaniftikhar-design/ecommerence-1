@@ -80,8 +80,15 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
         return;
       }
 
-      if (errorObj?.errors?.includes?.('OUT_OF_STOCK') || errorObj?.message?.toLowerCase()?.includes('out of stock')) {
-        setOutOfStockMessage(errorObj.message || 'An item in this order is currently out of stock. Please update your cart.');
+      if (
+        errorObj?.errors?.includes?.('OUT_OF_STOCK') ||
+        errorObj?.errors?.includes?.('VARIANT_DELETED') ||
+        errorObj?.errors?.includes?.('INACTIVE_PRODUCT') ||
+        errorObj?.message?.toLowerCase()?.includes('out of stock') ||
+        errorObj?.message?.toLowerCase()?.includes('does not exist') ||
+        errorObj?.message?.toLowerCase()?.includes('inactive')
+      ) {
+        setOutOfStockMessage(errorObj.message || 'An item in this order is no longer available. Please update your cart.');
         return;
       }
 

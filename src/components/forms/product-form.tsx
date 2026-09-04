@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useForm, useFieldArray, Controller, type FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Trash2, AlertCircle, ArrowLeft } from 'lucide-react';
 
@@ -304,6 +304,43 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
     }, 50);
   };
 
+  const handleRemoveVariant = (index: number) => {
+    if (fields.length <= 1) {
+      showError(
+        'A product must have at least one variant. To delete or remove this product from the store, please deactivate or delete the product itself.',
+        'Cannot Remove Only Variant'
+      );
+      return;
+    }
+    remove(index);
+  };
+
+  const onInvalid = (fieldErrors: FieldErrors<ProductFormSchemaValues>) => {
+    const errorMessages: string[] = [];
+
+    if (fieldErrors.name?.message) errorMessages.push(fieldErrors.name.message);
+    if (fieldErrors.categoryName?.message) errorMessages.push(fieldErrors.categoryName.message);
+    if (fieldErrors.price?.message) errorMessages.push(fieldErrors.price.message);
+    if (fieldErrors.defaultImageUrl?.message) errorMessages.push(fieldErrors.defaultImageUrl.message);
+    if (fieldErrors.variants?.message) errorMessages.push(fieldErrors.variants.message);
+    if (fieldErrors.variants?.root?.message) errorMessages.push(fieldErrors.variants.root.message);
+
+    if (Array.isArray(fieldErrors.variants)) {
+      fieldErrors.variants.forEach((vErr, idx) => {
+        if (vErr?.color?.message) errorMessages.push(`Variant ${idx + 1} Color: ${vErr.color.message}`);
+        if (vErr?.size?.message) errorMessages.push(`Variant ${idx + 1} Size: ${vErr.size.message}`);
+        if (vErr?.quantity?.message) errorMessages.push(`Variant ${idx + 1} Quantity: ${vErr.quantity.message}`);
+      });
+    }
+
+    if (errorMessages.length === 0) {
+      errorMessages.push('Please check the form for invalid fields before saving.');
+    }
+
+    setFormErrorMessages(errorMessages);
+    showError(errorMessages[0] || 'Please fix the errors in the form before saving.', 'Validation Error');
+  };
+
   const onSubmit = async (data: ProductFormSchemaValues) => {
     try {
       setSubmitting(true);
@@ -433,7 +470,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pt-2">
+    <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-6 pt-2">
       {/* Prominent Error Banner */}
       {formErrorMessages.length > 0 && (
         <div className="rounded-xl bg-red-50 p-4 border border-red-200 text-red-700 space-y-1.5 animate-in fade-in duration-200">
@@ -451,27 +488,29 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
       {/* Main Card */}
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
-        <div className="flex flex-col md:flex-row items-start gap-8">
+        <div className="flex flex-col md:flex-row items-stretch gap-6 lg:gap-8">
           {/* Left Column: Required Default Product Image */}
-          <div className="w-full md:w-56 shrink-0">
+          <div className="w-full md:w-72 lg:w-80 shrink-0 flex flex-col">
             <Label className="text-sm font-semibold text-slate-700 mb-1.5 block">
               Default Product Image <span className="text-red-500">*</span>
             </Label>
-            <Controller
-              name="defaultImageUrl"
-              control={control}
-              render={({ field }) => (
-                <DefaultImageUpload
-                  file={watch('defaultImageFile')}
-                  previewUrl={field.value}
-                  onChange={(newFile, newPreviewUrl) => {
-                    setValue('defaultImageFile', newFile);
-                    field.onChange(newPreviewUrl || '');
-                  }}
-                  disabled={submitting}
-                />
-              )}
-            />
+            <div className="flex-1 flex flex-col">
+              <Controller
+                name="defaultImageUrl"
+                control={control}
+                render={({ field }) => (
+                  <DefaultImageUpload
+                    file={watch('defaultImageFile')}
+                    previewUrl={field.value}
+                    onChange={(newFile, newPreviewUrl) => {
+                      setValue('defaultImageFile', newFile);
+                      field.onChange(newPreviewUrl || '');
+                    }}
+                    disabled={submitting}
+                  />
+                )}
+              />
+            </div>
             {errors.defaultImageUrl && (
               <p className="mt-1.5 text-xs text-red-500 font-medium">
                 {errors.defaultImageUrl.message}
@@ -653,7 +692,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         )}
 
         {/* Quick Add Variant Header Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto_44px] gap-3 items-center bg-slate-50/80 p-3.5 rounded-xl border border-slate-200">
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_44px_44px] gap-3 items-center bg-slate-50/80 p-3.5 rounded-xl border border-slate-200">
           <div>
             <Select
               value={draftColor}
@@ -689,7 +728,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               ref={draftQtyInputRef}
               type="number"
               min="0"
-              placeholder="Enter Qty"
+              placeholder="Qty"
               value={draftQty}
               onChange={(e) => {
                 const val = e.target.value;
@@ -704,7 +743,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
           </div>
 
           {/* Variant Image Upload for Draft Row (Color-Synced) */}
-          <div>
+          <div className="flex justify-center shrink-0">
             <VariantImageUpload
               file={colorImages[draftColor]?.file}
               previewUrl={colorImages[draftColor]?.previewUrl}
@@ -719,7 +758,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
             />
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end shrink-0">
             <button
               type="button"
               onClick={handleAddDraftVariant}
@@ -748,7 +787,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               return (
                 <div
                   key={field.id}
-                  className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto_44px] gap-3 items-center p-3.5 rounded-xl bg-slate-50/50 border border-slate-200"
+                  className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_44px_44px] gap-3 items-center p-3.5 rounded-xl bg-slate-50/50 border border-slate-200"
                 >
                   {/* Color Select */}
                   <div>
@@ -823,7 +862,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                   </div>
 
                   {/* Image Upload Box directly in variant row (Color-Synced) */}
-                  <div>
+                  <div className="flex justify-center shrink-0">
                     <VariantImageUpload
                       file={colorImages[vColor]?.file}
                       previewUrl={colorImages[vColor]?.previewUrl}
@@ -839,12 +878,17 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                   </div>
 
                   {/* Delete Button */}
-                  <div className="flex justify-end">
+                  <div className="flex justify-end shrink-0">
                     <button
                       type="button"
-                      onClick={() => remove(index)}
-                      className="h-11 w-11 p-0 border border-red-200 bg-white text-red-500 hover:bg-red-50 hover:text-red-700 rounded-xl flex items-center justify-center shrink-0 transition-all cursor-pointer active:scale-95"
-                      title="Remove variant"
+                      onClick={() => handleRemoveVariant(index)}
+                      className={cn(
+                        'h-11 w-11 p-0 border rounded-xl flex items-center justify-center shrink-0 transition-all cursor-pointer active:scale-95',
+                        fields.length <= 1
+                          ? 'border-slate-200 bg-slate-50 text-slate-400 hover:bg-slate-100'
+                          : 'border-red-200 bg-white text-red-500 hover:bg-red-50 hover:text-red-700'
+                      )}
+                      title={fields.length <= 1 ? 'Cannot remove the only variant' : 'Remove variant'}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

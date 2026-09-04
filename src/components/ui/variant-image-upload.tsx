@@ -42,7 +42,7 @@ export function VariantImageUpload({
   };
 
   return (
-    <div className="relative inline-flex items-center">
+    <div className="relative inline-flex items-center justify-center shrink-0">
       <input
         ref={inputRef}
         type="file"
@@ -53,27 +53,33 @@ export function VariantImageUpload({
       />
 
       {previewUrl ? (
-        <div
-          onClick={() => !disabled && inputRef.current?.click()}
-          className="relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-blue-400 bg-white cursor-pointer group shadow-2xs transition-all hover:scale-105 ring-2 ring-blue-400/20"
-          title="Change variant image"
-        >
-          <Image
-            src={previewUrl}
-            alt="Variant thumbnail"
-            fill
-            className="object-cover"
-            unoptimized
-          />
-          <button
-            type="button"
-            onClick={handleRemove}
-            disabled={disabled}
-            className="absolute -right-1 -top-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white shadow-sm hover:scale-110 cursor-pointer"
-            title="Remove variant image"
+        <div className="relative h-11 w-11 shrink-0">
+          <div
+            onClick={() => !disabled && inputRef.current?.click()}
+            className={cn(
+              'relative h-11 w-11 overflow-hidden rounded-xl border border-blue-400 bg-white cursor-pointer group shadow-2xs transition-all hover:ring-2 hover:ring-blue-400/30 active:scale-95',
+              disabled && 'cursor-not-allowed'
+            )}
+            title="Change variant image"
           >
-            <X className="h-2.5 w-2.5 stroke-[3]" />
-          </button>
+            <Image
+              src={previewUrl}
+              alt="Variant thumbnail"
+              fill
+              className="object-cover transition-transform group-hover:scale-105"
+              unoptimized
+            />
+          </div>
+          {!disabled && (
+            <button
+              type="button"
+              onClick={handleRemove}
+              className="absolute -top-1.5 -right-1.5 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-white shadow-xs hover:bg-red-600 hover:scale-110 cursor-pointer transition-transform"
+              title="Remove variant image"
+            >
+              <X className="h-2.5 w-2.5 stroke-[3]" />
+            </button>
+          )}
         </div>
       ) : (
         <button
@@ -81,13 +87,12 @@ export function VariantImageUpload({
           onClick={() => !disabled && inputRef.current?.click()}
           disabled={disabled}
           className={cn(
-            'flex h-11 items-center gap-1.5 rounded-xl border border-dashed border-slate-300 bg-white px-3 text-xs font-semibold text-slate-600 hover:border-[#007BFF] hover:text-[#007BFF] hover:bg-blue-50/30 transition-all cursor-pointer shadow-2xs active:scale-95',
+            'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white text-slate-400 hover:border-[#007BFF] hover:text-[#007BFF] hover:bg-blue-50/30 transition-all cursor-pointer shadow-2xs active:scale-95',
             disabled && 'opacity-50 cursor-not-allowed'
           )}
-          title="Add variant image"
+          title="Upload variant image"
         >
-          <ImagePlus className="h-4 w-4 stroke-[2]" />
-          <span className="text-[11px] whitespace-nowrap">+ Image</span>
+          <ImagePlus className="h-5 w-5 stroke-[1.75]" />
         </button>
       )}
     </div>

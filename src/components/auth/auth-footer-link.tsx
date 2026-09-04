@@ -6,9 +6,6 @@ interface AuthFooterLinkProps {
   href: string;
 }
 
-// Renders things like "I don't have an account! SignUp" or "No, I
-// remember my password Login" -- same shape (prompt + link) appears
-// on all four auth screens with different copy/destinations.
 export function AuthFooterLink({
   promptText,
   linkText,
