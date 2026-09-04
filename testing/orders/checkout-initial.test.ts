@@ -1,17 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { mockPrisma, resetPrismaMock } from '../mocks/prisma.mock';
-import {
-  TEST_USER_ID,
-  TEST_USER_2_ID,
-  TEST_STRIPE_CUSTOMER_ID,
-  mockTestUser
-} from '../fixtures/user.fixtures';
-import {
-  mockTestProduct1,
-  mockTestProduct2,
-  mockTestVariant1,
-  mockTestInactiveProduct
-} from '../fixtures/product.fixtures';
+import { POST as checkoutRouteHandler } from '@/app/api/checkout/create-intent/route';
+import { getCurrentUser } from '@/lib/server-auth';
+import { stripe } from '@/lib/stripe/stripe-server';
+import { createCheckoutPaymentIntentServer } from '@/server/services/payment.service';
+
 import {
   mockTestCart,
   mockTestMultiItemCart,
@@ -22,13 +15,20 @@ import {
   mockTestPaymentMethod2
 } from '../fixtures/payment.fixtures';
 import {
+  mockTestProduct1,
+  mockTestProduct2,
+  mockTestVariant1,
+  mockTestInactiveProduct
+} from '../fixtures/product.fixtures';
+import {
   TEST_STRIPE_PI_ID,
   TEST_STRIPE_CLIENT_SECRET
 } from '../fixtures/stripe.fixtures';
-import { createCheckoutPaymentIntentServer } from '@/server/services/payment.service';
-import { POST as checkoutRouteHandler } from '@/app/api/checkout/create-intent/route';
-import { stripe } from '@/lib/stripe/stripe-server';
-import { getCurrentUser } from '@/lib/server-auth';
+import {
+  TEST_USER_ID,
+  TEST_STRIPE_CUSTOMER_ID,
+  mockTestUser
+} from '../fixtures/user.fixtures';
 import { createTestRequest } from '../helpers/request.helper';
 
 jest.mock('@/lib/server-auth', () => ({
