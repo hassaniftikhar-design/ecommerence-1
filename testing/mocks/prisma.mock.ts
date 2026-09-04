@@ -34,6 +34,9 @@ export interface MockPrismaClient {
   verificationToken: MockModel;
   order: MockModel;
   orderItem: MockModel;
+  payment: MockModel;
+  paymentMethod: MockModel;
+  stripeWebhookEvent: MockModel;
   $transaction: jest.Mock;
 }
 
@@ -52,6 +55,9 @@ export const mockPrisma: MockPrismaClient = {
   verificationToken: createModelMock(),
   order: createModelMock(),
   orderItem: createModelMock(),
+  payment: createModelMock(),
+  paymentMethod: createModelMock(),
+  stripeWebhookEvent: createModelMock(),
   $transaction: jest.fn((callback: (tx: MockPrismaClient) => unknown) => {
     if (typeof callback === 'function') {
       return callback(mockPrisma);

@@ -1,27 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable import/no-extraneous-dependencies */
-import fetch, {
-  Headers as NodeFetchHeaders,
-  Request as NodeFetchRequest,
-  Response as NodeFetchResponse
-} from 'node-fetch';
-
-// Polyfill Web API Request, Response, and Headers in jsdom environment using node-fetch
-if (typeof (global as any).Request === 'undefined') {
-  (global as any).Request = NodeFetchRequest;
-}
-
-if (typeof (global as any).Response === 'undefined') {
-  (global as any).Response = NodeFetchResponse;
-}
-
-if (typeof (global as any).Headers === 'undefined') {
-  (global as any).Headers = NodeFetchHeaders;
-}
-
-if (typeof (global as any).fetch === 'undefined') {
-  (global as any).fetch = fetch;
-}
 
 export function createTestRequest(
   url: string,
@@ -31,10 +8,10 @@ export function createTestRequest(
     headers?: Record<string, string>;
   }
 ): Request {
-  const method = options?.method || 'GET';
-  const headers = new NodeFetchHeaders(options?.headers || {});
-  if (options?.body && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
+  const method = (options?.method || 'GET').toUpperCase();
+  const headers = new (global as any).Headers(options?.headers || {});
+  if (options?.body && !headers.has('content-type')) {
+    headers.set('content-type', 'application/json');
   }
 
   const body =
@@ -44,13 +21,9 @@ export function createTestRequest(
         : JSON.stringify(options.body)
       : undefined;
 
-  return new NodeFetchRequest(url, {
+  return new (global as any).Request(url, {
     method,
     headers,
     body: method !== 'GET' && method !== 'HEAD' ? body : undefined
   }) as unknown as Request;
 }
-
-/* eslint-enable @typescript-eslint/no-explicit-any */
-/* eslint-enable import/no-extraneous-dependencies */
-
