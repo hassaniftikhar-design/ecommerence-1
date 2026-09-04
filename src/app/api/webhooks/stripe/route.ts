@@ -35,16 +35,23 @@ export async function POST(request: Request) {
     });
   }
 
-  // 1. Idempotency Check
-  const existingEvent = await prisma.stripeWebhookEvent.findUnique({
-    where: { id: event.id }
-  });
-
-  if (existingEvent) {
-    return new Response(JSON.stringify({ received: true, duplicate: true }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
+  // 1. Atomic Claim-First Idempotency (Prevents concurrent duplicate webhook delivery races)
+  try {
+    await prisma.stripeWebhookEvent.create({
+      data: {
+        id: event.id,
+        type: event.type
+      }
     });
+  } catch (err: unknown) {
+    if ((err as { code?: string })?.code === 'P2002') {
+      return new Response(JSON.stringify({ received: true, duplicate: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    logStripeError('stripeWebhook:claimEventError', err as Error, { eventId: event.id });
+    return new Response('Webhook idempotency claim failed', { status: 500 });
   }
 
   // 2. Process Specific Events
@@ -53,6 +60,12 @@ export async function POST(request: Request) {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
         await handlePaymentIntentSucceeded(paymentIntent);
+        break;
+      }
+
+      case 'payment_intent.processing': {
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        await handlePaymentIntentProcessing(paymentIntent);
         break;
       }
 
@@ -86,14 +99,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // 3. Record event in StripeWebhookEvent for idempotency
-    await prisma.stripeWebhookEvent.create({
-      data: {
-        id: event.id,
-        type: event.type
-      }
-    });
-
     return new Response(JSON.stringify({ received: true }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
@@ -110,6 +115,90 @@ export async function POST(request: Request) {
 }
 
 /**
+ * Resolves the Payment entity for a PaymentIntent with robust metadata fallback
+ * and strict security verification.
+ */
+async function findAndValidatePaymentForIntent(paymentIntent: Stripe.PaymentIntent) {
+  const paymentIntentId = paymentIntent.id;
+
+  // Primary lookup by stripePaymentIntentId
+  let payment = await prisma.payment.findUnique({
+    where: { stripePaymentIntentId: paymentIntentId },
+    include: {
+      order: {
+        include: {
+          items: true
+        }
+      }
+    }
+  });
+
+  // Fallback lookup via metadata if webhook arrives before backend saved stripePaymentIntentId
+  if (!payment && (paymentIntent.metadata?.paymentId || paymentIntent.metadata?.orderId)) {
+    payment = await prisma.payment.findFirst({
+      where: {
+        OR: [
+          paymentIntent.metadata.paymentId ? { id: paymentIntent.metadata.paymentId } : undefined,
+          paymentIntent.metadata.orderId ? { orderId: paymentIntent.metadata.orderId } : undefined
+        ].filter(Boolean) as Array<{ id?: string; orderId?: string }>
+      },
+      include: {
+        order: {
+          include: {
+            items: true
+          }
+        }
+      }
+    });
+
+    // Strict validation on fallback match
+    if (payment) {
+      const expectedAmount = Math.round(Number(payment.amount) * 100);
+      const isAmountValid = Math.abs(expectedAmount - paymentIntent.amount) <= 1;
+      const isCurrencyValid = payment.currency.toLowerCase() === paymentIntent.currency.toLowerCase();
+      const isOrderValid = !paymentIntent.metadata.orderId || payment.orderId === paymentIntent.metadata.orderId;
+
+      if (!isAmountValid || !isCurrencyValid || !isOrderValid) {
+        logStripeError('findAndValidatePaymentForIntent:validationMismatch', new Error('Metadata payment validation failed'), {
+          paymentIntentId,
+          paymentId: payment.id,
+          expectedAmount,
+          intentAmount: paymentIntent.amount
+        });
+        return null;
+      }
+
+      // Populate stripePaymentIntentId on DB Payment
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { stripePaymentIntentId: paymentIntentId }
+      });
+    }
+  }
+
+  return payment;
+}
+
+/**
+ * Handles payment_intent.processing event:
+ * Sets Payment.status = PROCESSING.
+ */
+async function handlePaymentIntentProcessing(paymentIntent: Stripe.PaymentIntent) {
+  const payment = await findAndValidatePaymentForIntent(paymentIntent);
+  if (!payment) return;
+
+  if (payment.status !== 'SUCCEEDED') {
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'PROCESSING',
+        stripePaymentIntentId: paymentIntent.id
+      }
+    });
+  }
+}
+
+/**
  * Handles payment_intent.succeeded event:
  * Sets Payment.status = SUCCEEDED, paidAt = now(), saves PaymentMethod if requested.
  */
@@ -120,10 +209,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       ? paymentIntent.payment_method
       : paymentIntent.payment_method?.id || null;
 
-  const payment = await prisma.payment.findUnique({
-    where: { stripePaymentIntentId: paymentIntentId },
-    include: { order: true }
-  });
+  const payment = await findAndValidatePaymentForIntent(paymentIntent);
 
   if (!payment) {
     logStripeError('handlePaymentIntentSucceeded:paymentNotFound', new Error('Payment record not found for PaymentIntent'), {
@@ -139,6 +225,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     data: {
       status: 'SUCCEEDED',
       paidAt: new Date(),
+      stripePaymentIntentId: paymentIntentId,
       stripePaymentMethodId: paymentMethodId,
       errorMessage: null,
       rawErrorCode: null
@@ -213,7 +300,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 
 /**
  * Handles payment_intent.payment_failed event:
- * Sets Payment.status = FAILED, maps decline code to friendly error, and records raw error code.
+ * Sets Payment.status = FAILED, releases reserved stock, keeps Order IN_PROGRESS for Pay Again.
  */
 async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   const paymentIntentId = paymentIntent.id;
@@ -221,23 +308,13 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
 
   const { friendlyMessage, rawErrorCode, rawErrorMessage } = getFriendlyPaymentErrorMessage(lastError);
 
-  // Log raw technical error details server-side
   logStripeError('handlePaymentIntentFailed:rawError', lastError, {
     paymentIntentId,
     rawErrorCode,
     rawErrorMessage
   });
 
-  const payment = await prisma.payment.findUnique({
-    where: { stripePaymentIntentId: paymentIntentId },
-    include: {
-      order: {
-        include: {
-          items: true
-        }
-      }
-    }
-  });
+  const payment = await findAndValidatePaymentForIntent(paymentIntent);
 
   if (!payment) {
     return;
@@ -249,22 +326,17 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
       where: { id: payment.id },
       data: {
         status: 'FAILED',
+        stripePaymentIntentId: paymentIntentId,
         errorMessage: friendlyMessage || 'Payment was unsuccessful or canceled.',
         rawErrorCode: rawErrorCode
       }
     });
   }
 
-  // 2. Release reserved stock if order hasn't already been rejected/refunded
-  if (payment.order && payment.order.status !== 'REJECTED') {
+  // 2. Release reserved stock back to product variants so inventory isn't locked
+  // Order remains IN_PROGRESS so the user can Pay Again
+  if (payment.order && payment.status !== 'FAILED') {
     await prisma.$transaction(async (tx) => {
-      // Mark order as REJECTED
-      await tx.order.update({
-        where: { id: payment.order.id },
-        data: { status: 'REJECTED' }
-      });
-
-      // Release reserved stock back to product variants
       for (const item of payment.order.items) {
         let targetVariantId = item.variantId;
         if (!targetVariantId) {
@@ -288,7 +360,7 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
     });
   }
 
-  // 3. Create notification for customer (cart remains intact)
+  // 3. Create notification for customer
   await prisma.notification.create({
     data: {
       userId: payment.order.userId,

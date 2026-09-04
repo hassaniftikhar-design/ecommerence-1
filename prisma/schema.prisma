@@ -275,9 +275,12 @@ model Payment {
 
   status PaymentStatus @default(PENDING)
 
-  stripePaymentIntentId String  @unique
+  stripePaymentIntentId String? @unique
   stripePaymentMethodId String?
   stripeCustomerId      String?
+
+  idempotencyKey String? @unique
+  attemptCount   Int     @default(1)
 
   amount   Decimal @db.Decimal(10, 2)
   currency String  @default("usd")

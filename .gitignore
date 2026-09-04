@@ -35,3 +35,9 @@ tsconfig.tsbuildinfo
 # IDE / Editor
 .vscode
 .idea
+
+# Database Backups & Dumps
+local_backup.dump
+*.dump
+*.sql
+

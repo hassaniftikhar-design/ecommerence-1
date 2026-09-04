@@ -1,4 +1,4 @@
-import { type ValidationResult } from './validation.middleware';
+import { type ValidationResult } from "./validation.middleware";
 
 export interface ValidatedMarkNotificationInput {
   notificationId?: string;
@@ -7,11 +7,11 @@ export interface ValidatedMarkNotificationInput {
 
 export function validateMarkNotificationReadInput(
   notificationId?: unknown,
-  markAll?: unknown
+  markAll?: boolean
 ): ValidationResult<ValidatedMarkNotificationInput> {
   const isMarkAll = Boolean(markAll);
   const cleanNotificationId =
-    typeof notificationId === 'string' && notificationId.trim()
+    typeof notificationId === "string" && notificationId.trim()
       ? notificationId.trim()
       : undefined;
 
@@ -20,7 +20,7 @@ export function validateMarkNotificationReadInput(
       success: false,
       status: 400,
       errors: [],
-      message: 'Missing notificationId or markAll flag'
+      message: "Missing notificationId or markAll flag",
     };
   }
 
@@ -28,7 +28,7 @@ export function validateMarkNotificationReadInput(
     success: true,
     data: {
       notificationId: cleanNotificationId,
-      markAll: isMarkAll
-    }
+      markAll: isMarkAll,
+    },
   };
 }

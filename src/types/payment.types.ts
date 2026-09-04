@@ -17,9 +17,11 @@ export interface PaymentRecord {
   id: string;
   orderId: string;
   status: PaymentStatus;
-  stripePaymentIntentId: string;
+  stripePaymentIntentId?: string | null;
   stripePaymentMethodId?: string | null;
   stripeCustomerId?: string | null;
+  idempotencyKey?: string | null;
+  attemptCount?: number;
   amount: number;
   currency: string;
   paidAt?: string | null;
@@ -35,6 +37,7 @@ export interface CreatePaymentIntentPayload {
   expectedTotal?: number;
   savedPaymentMethodId?: string;
   saveCardForFuture?: boolean;
+  idempotencyKey?: string;
 }
 
 export interface CreatePaymentIntentResponse {
@@ -42,6 +45,7 @@ export interface CreatePaymentIntentResponse {
   orderId: string;
   orderNumber: string;
   amount: number;
+  isPaid?: boolean;
 }
 
 export interface SetupIntentResponse {

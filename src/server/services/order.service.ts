@@ -446,6 +446,7 @@ export async function getOrderByIdServer(id: string, userId?: string, userRole?:
       return {
         id: item.id,
         productId: item.productId,
+        variantId: item.variantId || null,
         title: item.title,
         imageUrl: item.imageUrl,
         price: Number(item.price),
