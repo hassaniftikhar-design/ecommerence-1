@@ -147,9 +147,10 @@ export function CheckoutStripeForm({
       }
 
       // If it's a backend API error with a descriptive message, show the backend message
+      const stripeErr = typeof err === 'object' && err !== null ? (err as { type?: string; decline_code?: string }) : null;
       if (
         errorObj?.message &&
-        !((err as any)?.type === 'card_error' || (err as any)?.decline_code)
+        !(stripeErr?.type === 'card_error' || stripeErr?.decline_code)
       ) {
         setErrorMessage(errorObj.message);
         return;

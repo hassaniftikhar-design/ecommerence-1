@@ -1,34 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { mockPrisma, resetPrismaMock } from '../mocks/prisma.mock';
 import { Decimal } from '@prisma/client/runtime/library';
 
-import { mockPrisma, resetPrismaMock } from '../mocks/prisma.mock';
-import {
-  TEST_USER_ID,
-  TEST_USER_2_ID,
-  TEST_ADMIN_ID,
-  mockTestUser,
-  mockTestAdmin
-} from '../fixtures/user.fixtures';
-import {
-  TEST_ORDER_ID,
-  TEST_ORDER_NUMBER,
-  mockTestOrder,
-  mockTestOrderItem1,
-  mockTestDispatchedOrder,
-  mockTestDeliveredOrder,
-  mockTestRejectedOrder
-} from '../fixtures/order.fixtures';
-import {
-  TEST_PAYMENT_ID,
-  TEST_STRIPE_PM_ID,
-  mockTestPaymentPending,
-  mockTestPaymentSucceeded,
-  mockTestPaymentFailed,
-  mockTestPaymentProcessing,
-  mockTestPaymentMethod1,
-  mockTestPaymentMethod2
-} from '../fixtures/payment.fixtures';
-import { mockStripeCardPaymentMethod } from '../fixtures/stripe.fixtures';
+import { stripe } from '@/lib/stripe/stripe-server';
 import {
   getOrderByIdServer,
   updateOrderStatusServer,
@@ -39,10 +13,33 @@ import {
   getSavedPaymentMethodsServer,
   savePaymentMethodServer,
   deletePaymentMethodServer,
-  setDefaultPaymentMethodServer,
-  createSetupIntentServer
+  createSetupIntentServer,
+  getOrRefreshOrderPaymentIntentServer
 } from '@/server/services/payment.service';
-import { stripe } from '@/lib/stripe/stripe-server';
+
+import {
+  TEST_ORDER_ID,
+  TEST_ORDER_NUMBER,
+  mockTestOrder,
+  mockTestOrderItem1,
+  mockTestDeliveredOrder,
+  mockTestRejectedOrder
+} from '../fixtures/order.fixtures';
+import {
+  TEST_STRIPE_PM_ID,
+  mockTestPaymentPending,
+  mockTestPaymentSucceeded,
+  mockTestPaymentFailed,
+  mockTestPaymentMethod1,
+  mockTestPaymentMethod2
+} from '../fixtures/payment.fixtures';
+import { mockStripeCardPaymentMethod } from '../fixtures/stripe.fixtures';
+import {
+  TEST_USER_ID,
+  TEST_USER_2_ID,
+  TEST_ADMIN_ID,
+  mockTestUser
+} from '../fixtures/user.fixtures';
 
 describe('Order Management, State Transitions & Payment Methods Suite', () => {
   beforeEach(() => {
@@ -445,7 +442,6 @@ describe('Order Management, State Transitions & Payment Methods Suite', () => {
         user: mockTestUser
       });
 
-      const { getOrRefreshOrderPaymentIntentServer } = require('@/server/services/payment.service');
       const result = await getOrRefreshOrderPaymentIntentServer({
         orderId: mockTestRejectedOrder.id,
         userId: TEST_USER_ID

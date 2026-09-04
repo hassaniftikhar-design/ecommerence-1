@@ -1,46 +1,41 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { mockPrisma, resetPrismaMock } from '../mocks/prisma.mock';
 import { Decimal } from '@prisma/client/runtime/library';
 
-import { mockPrisma, resetPrismaMock } from '../mocks/prisma.mock';
-import {
-  TEST_USER_ID,
-  TEST_USER_2_ID,
-  TEST_STRIPE_CUSTOMER_ID,
-  mockTestUser
-} from '../fixtures/user.fixtures';
-import {
-  mockTestProduct1,
-  mockTestVariant1
-} from '../fixtures/product.fixtures';
+import { POST as orderPaymentIntentRouteHandler } from '@/app/api/orders/[id]/payment-intent/route';
+import { getCurrentUser } from '@/lib/server-auth';
+import { stripe } from '@/lib/stripe/stripe-server';
+import { getOrRefreshOrderPaymentIntentServer } from '@/server/services/payment.service';
+
 import {
   TEST_ORDER_ID,
-  TEST_ORDER_NUMBER,
   mockTestOrder,
   mockTestOrderItem1,
-  mockTestDeliveredOrder,
-  mockTestRejectedOrder
+  mockTestDeliveredOrder
 } from '../fixtures/order.fixtures';
 import {
   TEST_PAYMENT_ID,
   mockTestPaymentPending,
   mockTestPaymentSucceeded,
-  mockTestPaymentFailed,
-  mockTestPaymentProcessing,
-  mockTestPaymentMethod1
+  mockTestPaymentFailed
 } from '../fixtures/payment.fixtures';
+import {
+  mockTestProduct1,
+  mockTestVariant1
+} from '../fixtures/product.fixtures';
 import {
   TEST_STRIPE_PI_ID,
   TEST_STRIPE_CLIENT_SECRET,
   mockStripePaymentIntentRequiresPaymentMethod,
-  mockStripePaymentIntentRequiresAction,
   mockStripePaymentIntentProcessing,
   mockStripePaymentIntentSucceeded,
   mockStripePaymentIntentCanceled
 } from '../fixtures/stripe.fixtures';
-import { getOrRefreshOrderPaymentIntentServer } from '@/server/services/payment.service';
-import { POST as orderPaymentIntentRouteHandler } from '@/app/api/orders/[id]/payment-intent/route';
-import { stripe } from '@/lib/stripe/stripe-server';
-import { getCurrentUser } from '@/lib/server-auth';
+import {
+  TEST_USER_ID,
+  TEST_USER_2_ID,
+  mockTestUser
+} from '../fixtures/user.fixtures';
 import { createTestRequest } from '../helpers/request.helper';
 
 jest.mock('@/lib/server-auth', () => ({

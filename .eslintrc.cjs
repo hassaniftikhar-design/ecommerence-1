@@ -19,7 +19,7 @@ module.exports = {
   ],
   overrides: [
     {
-      files: ['.eslintrc.{js,cjs,ts,cts}', 'next.config.ts', 'seed.ts'],
+      files: ['.eslintrc.{js,cjs,ts,cts}', 'next.config.ts', 'seed.ts', 'jest.config.ts'],
       env: { node: true },
       parserOptions: { sourceType: 'script', project: null }
     },
@@ -30,10 +30,19 @@ module.exports = {
         'react/jsx-filename-extension': 'off',
         'jsx-quotes': 'off'
       }
+    },
+    {
+      files: ['testing/**/*.{ts,tsx}', 'jest.setup.ts'],
+      rules: {
+        '@typescript-eslint/no-explicit-any': 'off',
+        '@typescript-eslint/no-require-imports': 'off',
+        'import/order': 'off'
+      }
     }
   ],
-  ignorePatterns: ['.next/*', 'node_modules/*', 'prisma/*', 'app/generated/*', 'jest.config.js'],
+  ignorePatterns: ['.next/*', 'node_modules/*', 'prisma/*', 'app/generated/*', 'jest.config.js', 'jest.config.ts', 'next-env.d.ts'],
   rules: {
+    'eslint-comments/disable-enable-pair': ['error', { allowWholeFile: true }],
     'comma-dangle': [
       'error',
       'never'

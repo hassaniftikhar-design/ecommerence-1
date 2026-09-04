@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { mockPrisma, resetPrismaMock } from '../mocks/prisma.mock';
-import {
-  TEST_USER_ID,
-  TEST_STRIPE_CUSTOMER_ID,
-  mockTestUser
-} from '../fixtures/user.fixtures';
+import { headers } from 'next/headers';
+
+import { POST as stripeWebhookHandler } from '@/app/api/webhooks/stripe/route';
+import { stripe } from '@/lib/stripe/stripe-server';
+
 import {
   TEST_ORDER_ID,
-  TEST_ORDER_NUMBER,
   mockTestOrder,
   mockTestOrderItem1
 } from '../fixtures/order.fixtures';
@@ -19,15 +18,15 @@ import {
 } from '../fixtures/payment.fixtures';
 import {
   TEST_STRIPE_PI_ID,
-  TEST_STRIPE_EVENT_ID,
   mockStripePaymentIntentSucceeded,
   mockStripePaymentIntentFailed,
   mockStripePaymentIntentProcessing,
   mockStripeCardPaymentMethod,
   createMockStripeWebhookEvent
 } from '../fixtures/stripe.fixtures';
-import { POST as stripeWebhookHandler } from '@/app/api/webhooks/stripe/route';
-import { stripe } from '@/lib/stripe/stripe-server';
+import {
+  TEST_USER_ID
+} from '../fixtures/user.fixtures';
 import { createTestRequest } from '../helpers/request.helper';
 
 // Mock next/headers
@@ -490,8 +489,7 @@ describe('Stripe Webhook Suite', () => {
       });
 
       // Override mock to return null signature
-      const { headers } = require('next/headers');
-      headers.mockResolvedValueOnce({
+      (headers as jest.Mock).mockResolvedValueOnce({
         get: () => null
       });
 
