@@ -3,16 +3,21 @@
 import { use, useEffect, useState } from 'react';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
-import { AlertCircle, ArrowLeft } from 'lucide-react';
+import { AlertCircle, ArrowLeft, RotateCcw, XCircle } from 'lucide-react';
 
 import { BackHeading } from '@/components/common/back-heading';
 import { OrderProductsTable } from '@/components/orders/order-products-table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { getOrderById } from '@/services/order.service';
+import { getOrderById, retryOrderPayment } from '@/services/order.service';
+import { getOrderPaymentIntent } from '@/services/payment.service';
+import { PriceChangedModal } from '@/components/checkout/price-changed-modal';
+import { OutOfStockModal } from '@/components/cart/out-of-stock-modal';
 import { ROUTES } from '@/constants/routes';
 import type { OrderDetail } from '@/types/order.types';
+import { cn } from '@/lib/utils';
 
 interface OrderDetailPageProps {
   params: Promise<{ orderId: string }>;
@@ -20,9 +25,13 @@ interface OrderDetailPageProps {
 
 export default function OrderDetailPage({ params }: OrderDetailPageProps) {
   const { orderId } = use(params);
+  const router = useRouter();
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [priceChangedNewTotal, setPriceChangedNewTotal] = useState<number | null>(null);
+  const [outOfStockMessage, setOutOfStockMessage] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchDetail() {
@@ -42,9 +51,91 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
     fetchDetail();
   }, [orderId]);
 
+  const handleRetryPayment = async () => {
+    if (!order) return;
+    try {
+      setRetrying(true);
+      setError(null);
+
+      // 1. In-place backend validation
+      const intentRes = await getOrderPaymentIntent(order.id);
+
+      if (intentRes.isPaid) {
+        const refreshed = await getOrderById(order.id);
+        setOrder(refreshed);
+        return;
+      }
+
+      await retryOrderPayment(order);
+      router.push(ROUTES.checkout);
+    } catch (err: unknown) {
+      const errorObj = err as { errors?: string[]; data?: { newTotal?: number; currentPrice?: number }; message?: string };
+
+      // Return items to cart so user can review them
+      await retryOrderPayment(order).catch(() => {});
+
+      if (errorObj?.errors?.includes?.('PRICE_CHANGED')) {
+        const newTotal = errorObj.data?.newTotal || errorObj.data?.currentPrice || Number(order.totalAmount);
+        setPriceChangedNewTotal(newTotal);
+        return;
+      }
+
+      if (
+        errorObj?.errors?.includes?.('OUT_OF_STOCK') ||
+        errorObj?.errors?.includes?.('VARIANT_DELETED') ||
+        errorObj?.errors?.includes?.('INACTIVE_PRODUCT') ||
+        errorObj?.message?.toLowerCase()?.includes('out of stock') ||
+        errorObj?.message?.toLowerCase()?.includes('does not exist') ||
+        errorObj?.message?.toLowerCase()?.includes('inactive')
+      ) {
+        setOutOfStockMessage(errorObj.message || 'An item in this order is no longer available. Please update your cart.');
+        return;
+      }
+
+      console.error('Failed to prepare retry payment:', err);
+      router.push(ROUTES.checkout);
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  const isPaymentFailed = order?.payment?.status === 'FAILED';
+
   return (
     <div className="space-y-6 mx-auto px-2 sm:px-4 md:px-[56px] lg:px-[60px] pb-12">
       <BackHeading title="Order Detail" href={ROUTES.orders} />
+
+      {/* Payment Failure Alert Banner */}
+      {order && isPaymentFailed && (
+        <div className="rounded-2xl border border-red-200 bg-red-50/80 p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-red-600 ring-4 ring-red-50">
+              <XCircle className="h-6 w-6" />
+            </div>
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-red-900">Payment Failed</h3>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700">
+                  Action Required
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-red-700/90 max-w-xl">
+                {order.payment?.errorMessage ||
+                  'We were unable to complete your payment for this order. Please retry checkout to complete your purchase.'}
+              </p>
+            </div>
+          </div>
+
+          <Button
+            onClick={handleRetryPayment}
+            disabled={retrying}
+            className="bg-[#007BFF] hover:bg-blue-600 text-white font-semibold h-11 px-6 rounded-xl shadow-sm flex items-center justify-center gap-2 shrink-0 self-start sm:self-center transition-all cursor-pointer"
+          >
+            <RotateCcw className={cn('h-4 w-4', retrying && 'animate-spin')} />
+            {retrying ? 'Loading Checkout...' : 'Retry Payment'}
+          </Button>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center shadow-xs space-y-4">
@@ -201,9 +292,20 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                     PAYMENT STATUS:
                   </span>
                   {order.payment?.status === 'FAILED' ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-600 border border-rose-200">
-                      FAILED
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-600 border border-rose-200">
+                        FAILED
+                      </span>
+                      {/* <Button
+                        onClick={handleRetryPayment}
+                        disabled={retrying}
+                        size="sm"
+                        className="bg-[#007BFF] hover:bg-blue-600 text-white font-semibold text-[11px] h-6 px-2.5 rounded-md flex items-center gap-1 cursor-pointer"
+                      >
+                        <RotateCcw className={cn('h-3 w-3', retrying && 'animate-spin')} />
+                        Retry
+                      </Button> */}
+                    </div>
                   ) : order.payment?.status === 'SUCCEEDED' ? (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
                       PAID
@@ -218,13 +320,42 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
             </div>
           </div>
 
-          {/* Lower Product Information Table (remains same) */}
+          {/* Lower Product Information Table */}
           <div className="space-y-4">
             <h2 className="text-lg font-bold text-[#0B192C]">Product Information</h2>
             <OrderProductsTable products={order.products} />
           </div>
         </div>
       ) : null}
+
+      {/* Price Changed Modal */}
+      {priceChangedNewTotal !== null && (
+        <PriceChangedModal
+          isOpen={true}
+          newTotal={priceChangedNewTotal}
+          onAccept={() => {
+            setPriceChangedNewTotal(null);
+            router.push(ROUTES.checkout);
+          }}
+          onCancel={() => {
+            setPriceChangedNewTotal(null);
+            router.push(ROUTES.cart);
+          }}
+        />
+      )}
+
+      {/* Out of Stock Modal */}
+      {outOfStockMessage && (
+        <OutOfStockModal
+          isOpen={true}
+          message={outOfStockMessage}
+          onClose={() => {
+            setOutOfStockMessage(null);
+            router.push(ROUTES.cart);
+          }}
+        />
+      )}
     </div>
   );
 }
+

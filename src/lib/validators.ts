@@ -178,12 +178,20 @@ export const productFormSchema = z
       });
     }
 
+    if (data.variants.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'A product must have at least one variant with stock',
+        path: ['variants']
+      });
+    }
+
     const totalQty = data.variants.reduce((sum, v) => {
       const q = Number(v.quantity);
       return sum + (isNaN(q) || q < 0 ? 0 : q);
     }, 0);
 
-    if (totalQty <= 0) {
+    if (data.variants.length > 0 && totalQty <= 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Total Quantity cannot be zero',

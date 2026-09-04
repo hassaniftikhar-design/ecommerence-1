@@ -35,6 +35,30 @@ export async function createCheckoutIntent(
   return json.data;
 }
 
+export async function getOrderPaymentIntent(
+  orderId: string,
+  savedPaymentMethodId?: string
+): Promise<CreatePaymentIntentResponse> {
+  const response = await fetch(`/api/orders/${orderId}/payment-intent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ savedPaymentMethodId })
+  });
+
+  const json: ApiResponse<CreatePaymentIntentResponse> = await response.json();
+
+  if (!response.ok || !json.success) {
+    const error = Object.assign(new Error(json.message || 'Failed to retrieve payment intent'), {
+      status: response.status,
+      data: json.data,
+      errors: json.errors
+    });
+    throw error;
+  }
+
+  return json.data;
+}
+
 export async function getSavedPaymentMethods(): Promise<SavedPaymentMethod[]> {
   const response = await fetch('/api/payment-methods', {
     method: 'GET',

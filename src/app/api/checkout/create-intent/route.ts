@@ -19,7 +19,8 @@ export async function POST(request: Request) {
       itemIds: body.itemIds,
       expectedTotal: body.expectedTotal,
       savedPaymentMethodId: body.savedPaymentMethodId,
-      saveCardForFuture: Boolean(body.saveCardForFuture)
+      saveCardForFuture: Boolean(body.saveCardForFuture),
+      idempotencyKey: body.idempotencyKey
     });
 
     if (!result.success) {

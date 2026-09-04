@@ -21,12 +21,42 @@ export interface CreateCheckoutPaymentIntentParams {
   expectedTotal?: number;
   savedPaymentMethodId?: string;
   saveCardForFuture?: boolean;
+  idempotencyKey?: string;
 }
 
 export async function createCheckoutPaymentIntentServer(
   params: CreateCheckoutPaymentIntentParams
 ) {
-  const { userId, itemIds, expectedTotal, savedPaymentMethodId, saveCardForFuture } = params;
+  const { userId, itemIds, expectedTotal, savedPaymentMethodId, saveCardForFuture, idempotencyKey } = params;
+
+  // 0. Check Checkout Idempotency
+  if (idempotencyKey) {
+    const existingPayment = await prisma.payment.findUnique({
+      where: { idempotencyKey },
+      include: { order: true }
+    });
+
+    if (existingPayment) {
+      if (existingPayment.stripePaymentIntentId) {
+        try {
+          const intent = await stripe.paymentIntents.retrieve(existingPayment.stripePaymentIntentId);
+          return {
+            success: true as const,
+            status: 200,
+            clientSecret: intent.client_secret,
+            orderId: existingPayment.order.id,
+            orderNumber: existingPayment.order.orderNumber,
+            amount: Number(existingPayment.amount)
+          };
+        } catch (err) {
+          logStripeError('createCheckoutPaymentIntentServer:retrieveExisting', err, {
+            idempotencyKey,
+            paymentIntentId: existingPayment.stripePaymentIntentId
+          });
+        }
+      }
+    }
+  }
 
   const validation = validateCreateOrderInput(itemIds, expectedTotal);
   if (!validation.success) {
@@ -145,39 +175,13 @@ export async function createCheckoutPaymentIntentServer(
 
   const orderNumber = generateOrderNumber();
 
+  let createdOrder: { id: string; orderNumber: string };
+  let createdPayment: { id: string; attemptCount: number };
+
+  // 1. PURE DB TRANSACTION (Create Order, OrderItems, reserve stock, Payment PENDING)
   try {
-    // 1. Create Stripe PaymentIntent
-    const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
-      amount: Math.round(totalAmount * 100), // Amount in cents
-      currency: 'usd',
-      customer: stripeCustomerId || undefined,
-      automatic_payment_methods: {
-        enabled: true
-      },
-      metadata: {
-        orderNumber,
-        userId: user.id,
-        saveCardForFuture: saveCardForFuture ? 'true' : 'false'
-      }
-    };
-
-    if (selectedStripePaymentMethodId) {
-      paymentIntentParams.payment_method = selectedStripePaymentMethodId;
-    }
-
-    if (!selectedStripePaymentMethodId) {
-      paymentIntentParams.setup_future_usage = 'off_session';
-    }
-
-    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
-
-    if (!paymentIntent.client_secret) {
-      throw new Error('Failed to obtain client secret from Stripe');
-    }
-
-    // 2. Create Order & Payment in DB transaction
-    const createdOrder = await prisma.$transaction(async (tx) => {
-      // Validate inventory
+    const dbResult = await prisma.$transaction(async (tx) => {
+      // Validate inventory and active status
       for (const line of cartLines) {
         const prod = await tx.product.findUnique({
           where: { id: line.productId },
@@ -206,22 +210,6 @@ export async function createCheckoutPaymentIntentServer(
           totalAmount
         }
       });
-
-      // Update metadata on PaymentIntent with the generated order ID
-      try {
-        await stripe.paymentIntents.update(paymentIntent.id, {
-          metadata: {
-            orderId: newOrder.id,
-            orderNumber: newOrder.orderNumber,
-            userId
-          }
-        });
-      } catch (metaErr) {
-        logStripeError('createCheckoutPaymentIntentServer:updateMetadata', metaErr, {
-          paymentIntentId: paymentIntent.id,
-          orderId: newOrder.id
-        });
-      }
 
       // Atomically reserve stock and create order items
       for (const line of cartLines) {
@@ -276,30 +264,26 @@ export async function createCheckoutPaymentIntentServer(
         });
       }
 
-      // Create Payment record with status PENDING
-      await tx.payment.create({
+      // Create Payment record with status PENDING, stripePaymentIntentId: null
+      const newPayment = await tx.payment.create({
         data: {
           orderId: newOrder.id,
           status: 'PENDING',
-          stripePaymentIntentId: paymentIntent.id,
+          stripePaymentIntentId: null,
           stripePaymentMethodId: selectedStripePaymentMethodId,
           stripeCustomerId,
+          idempotencyKey: idempotencyKey || null,
+          attemptCount: 1,
           amount: totalAmount,
           currency: 'usd'
         }
       });
 
-      return newOrder;
+      return { newOrder, newPayment };
     });
 
-    return {
-      success: true as const,
-      status: 201,
-      clientSecret: paymentIntent.client_secret,
-      orderId: createdOrder.id,
-      orderNumber: createdOrder.orderNumber,
-      amount: totalAmount
-    };
+    createdOrder = dbResult.newOrder;
+    createdPayment = dbResult.newPayment;
   } catch (error) {
     const errorMsg = (error as Error).message || '';
     if (errorMsg.startsWith('INACTIVE_PRODUCT')) {
@@ -346,12 +330,390 @@ export async function createCheckoutPaymentIntentServer(
       };
     }
 
-    logStripeError('createCheckoutPaymentIntentServer', error, { userId });
+    // Check for unique constraint violation on idempotencyKey
+    if ((error as { code?: string }).code === 'P2002' && idempotencyKey) {
+      const existingPayment = await prisma.payment.findUnique({
+        where: { idempotencyKey },
+        include: { order: true }
+      });
+      if (existingPayment && existingPayment.stripePaymentIntentId) {
+        try {
+          const intent = await stripe.paymentIntents.retrieve(existingPayment.stripePaymentIntentId);
+          return {
+            success: true as const,
+            status: 200,
+            clientSecret: intent.client_secret,
+            orderId: existingPayment.order.id,
+            orderNumber: existingPayment.order.orderNumber,
+            amount: Number(existingPayment.amount)
+          };
+        } catch {
+          // Fall through to error
+        }
+      }
+    }
+
+    logStripeError('createCheckoutPaymentIntentServer:dbTransaction', error, { userId });
     return {
       success: false as const,
       status: 500,
       errors: [errorMsg],
-      message: 'Failed to initialize payment for checkout. Please try again.'
+      message: 'Failed to place order in database. Please try again.'
+    };
+  }
+
+  // 2. CREATE STRIPE PAYMENTINTENT OUTSIDE TRANSACTION
+  try {
+    const stripeIdempotencyKey = `pi_attempt_${createdPayment.id}_${createdPayment.attemptCount}`;
+    const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
+      amount: Math.round(totalAmount * 100),
+      currency: 'usd',
+      customer: stripeCustomerId || undefined,
+      automatic_payment_methods: {
+        enabled: true
+      },
+      metadata: {
+        paymentId: createdPayment.id,
+        orderId: createdOrder.id,
+        orderNumber: createdOrder.orderNumber,
+        userId: user.id,
+        saveCardForFuture: saveCardForFuture ? 'true' : 'false'
+      }
+    };
+
+    if (selectedStripePaymentMethodId) {
+      paymentIntentParams.payment_method = selectedStripePaymentMethodId;
+    }
+
+    if (!selectedStripePaymentMethodId) {
+      paymentIntentParams.setup_future_usage = 'off_session';
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams, {
+      idempotencyKey: stripeIdempotencyKey
+    });
+
+    if (!paymentIntent.client_secret) {
+      throw new Error('Failed to obtain client secret from Stripe');
+    }
+
+    // Save Stripe PaymentIntent ID to Payment
+    await prisma.payment.update({
+      where: { id: createdPayment.id },
+      data: { stripePaymentIntentId: paymentIntent.id }
+    });
+
+    return {
+      success: true as const,
+      status: 201,
+      clientSecret: paymentIntent.client_secret,
+      orderId: createdOrder.id,
+      orderNumber: createdOrder.orderNumber,
+      amount: totalAmount
+    };
+  } catch (stripeError) {
+    logStripeError('createCheckoutPaymentIntentServer:stripeIntentCreate', stripeError, {
+      orderId: createdOrder.id,
+      paymentId: createdPayment.id,
+      userId
+    });
+
+    // The order and payment record exist in DB with status PENDING and can be paid again
+    return {
+      success: false as const,
+      status: 500,
+      errors: [(stripeError as Error).message],
+      message: 'Failed to initialize payment with Stripe. Your order was created and can be paid again from your orders page.',
+      data: {
+        orderId: createdOrder.id,
+        orderNumber: createdOrder.orderNumber
+      }
+    };
+  }
+}
+
+export interface GetOrRefreshOrderPaymentIntentParams {
+  orderId: string;
+  userId: string;
+  savedPaymentMethodId?: string;
+}
+
+export async function getOrRefreshOrderPaymentIntentServer(
+  params: GetOrRefreshOrderPaymentIntentParams
+) {
+  const { orderId, userId, savedPaymentMethodId } = params;
+
+  // 1. Fetch Order and Payment
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      items: {
+        include: {
+          product: { select: { id: true, name: true, price: true, isActive: true } },
+          variant: { select: { id: true, stock: true } }
+        }
+      },
+      payment: true,
+      user: { select: { id: true, email: true, name: true, phone: true, stripeCustomerId: true } }
+    }
+  });
+
+  if (!order || order.userId !== userId) {
+    return {
+      success: false as const,
+      status: 404,
+      errors: ['ORDER_NOT_FOUND'],
+      message: 'Order not found or you do not have permission to access it.'
+    };
+  }
+
+  if (order.status === 'DELIVERED' || order.status === 'REJECTED') {
+    return {
+      success: false as const,
+      status: 400,
+      errors: ['ORDER_NOT_PAYABLE'],
+      message: `Order cannot be paid because it is ${order.status.toLowerCase()}.`
+    };
+  }
+
+  if (order.payment?.status === 'SUCCEEDED') {
+    return {
+      success: true as const,
+      status: 200,
+      isPaid: true,
+      message: 'Order is already paid.'
+    };
+  }
+
+  let payment = order.payment;
+  if (!payment) {
+    payment = await prisma.payment.create({
+      data: {
+        orderId: order.id,
+        status: 'PENDING',
+        amount: order.totalAmount,
+        currency: 'usd',
+        stripeCustomerId: order.user.stripeCustomerId,
+        attemptCount: 1
+      }
+    });
+  }
+
+  // Validate saved card ownership if passed
+  let selectedStripePaymentMethodId: string | null = null;
+  if (savedPaymentMethodId) {
+    const savedCard = await prisma.paymentMethod.findFirst({
+      where: { id: savedPaymentMethodId, userId }
+    });
+    if (savedCard) {
+      selectedStripePaymentMethodId = savedCard.stripePaymentMethodId;
+    }
+  }
+
+  let stripeCustomerId = order.user.stripeCustomerId;
+  if (!stripeCustomerId) {
+    stripeCustomerId = await createOrGetStripeCustomer({
+      userId: order.user.id,
+      email: order.user.email,
+      name: order.user.name,
+      phone: order.user.phone
+    });
+  }
+
+  // 2. STRIPE CHECK FIRST (Before any stock changes)
+  let existingIntent: Stripe.PaymentIntent | null = null;
+  if (payment.stripePaymentIntentId) {
+    try {
+      existingIntent = await stripe.paymentIntents.retrieve(payment.stripePaymentIntentId);
+    } catch (retrieveErr) {
+      logStripeError('getOrRefreshOrderPaymentIntentServer:retrieve', retrieveErr, {
+        paymentIntentId: payment.stripePaymentIntentId
+      });
+    }
+  }
+
+  if (existingIntent) {
+    if (existingIntent.status === 'succeeded') {
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: 'SUCCEEDED', paidAt: new Date(), stripePaymentIntentId: existingIntent.id }
+      });
+      return {
+        success: true as const,
+        status: 200,
+        isPaid: true,
+        message: 'Order is already paid.'
+      };
+    }
+
+    if (existingIntent.status === 'processing') {
+      return {
+        success: false as const,
+        status: 409,
+        errors: ['PAYMENT_PROCESSING'],
+        message: 'Payment is currently processing. Please wait for confirmation.'
+      };
+    }
+  }
+
+  // 3. PRICE & STOCK VALIDATION + ATOMIC RE-RESERVATION (Short DB Transaction)
+  try {
+    await prisma.$transaction(async (tx) => {
+      // Validate product prices & active status
+      for (const item of order.items) {
+        if (!item.product || !item.product.isActive) {
+          throw new Error(`INACTIVE_PRODUCT:${item.title}`);
+        }
+
+        const currentPrice = Number(item.product.price);
+        const orderPrice = Number(item.price);
+        if (Math.abs(currentPrice - orderPrice) > 0.01) {
+          throw new Error(`PRICE_CHANGED:${item.productId}:${orderPrice}:${currentPrice}`);
+        }
+
+        // If payment was FAILED, stock was restored on failure, so re-reserve stock
+        if (payment.status === 'FAILED' && item.variantId) {
+          const variant = await tx.productVariant.findUnique({
+            where: { id: item.variantId },
+            select: { stock: true }
+          });
+          const available = variant ? variant.stock : 0;
+          const updated = await tx.productVariant.updateMany({
+            where: { id: item.variantId, stock: { gte: item.quantity } },
+            data: { stock: { decrement: item.quantity } }
+          });
+          if (updated.count === 0) {
+            throw new Error(`OUT_OF_STOCK:${item.title}:${available}:${item.quantity}`);
+          }
+        }
+      }
+
+      // Update payment status to PENDING
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: { status: 'PENDING' }
+      });
+    });
+  } catch (err) {
+    const errorMsg = (err as Error).message || '';
+    if (errorMsg.startsWith('PRICE_CHANGED')) {
+      const [, productId, oldPrice, currentPrice] = errorMsg.split(':');
+      return {
+        success: false as const,
+        status: 409,
+        errors: ['PRICE_CHANGED'],
+        message: 'Product prices have changed since this order was placed. Please review your cart.',
+        data: { productId, oldPrice: Number(oldPrice), currentPrice: Number(currentPrice) }
+      };
+    }
+    if (errorMsg.startsWith('OUT_OF_STOCK')) {
+      const [, itemName, availableStock, requestedQty] = errorMsg.split(':');
+      return {
+        success: false as const,
+        status: 400,
+        errors: ['OUT_OF_STOCK'],
+        message: `Item '${itemName}' is out of stock or does not have enough quantity remaining.`,
+        data: { outOfStockItem: itemName, availableStock: Number(availableStock), requestedQty: Number(requestedQty) }
+      };
+    }
+    if (errorMsg.startsWith('INACTIVE_PRODUCT')) {
+      const [, prodName] = errorMsg.split(':');
+      return {
+        success: false as const,
+        status: 400,
+        errors: ['INACTIVE_PRODUCT'],
+        message: `Product '${prodName}' is no longer available.`
+      };
+    }
+    throw err;
+  }
+
+  // 4. STRIPE INTENT REUSE OR ATOMIC CREATION
+  if (existingIntent && (existingIntent.status === 'requires_payment_method' || existingIntent.status === 'requires_action')) {
+    // REUSE existing intent
+    return {
+      success: true as const,
+      status: 200,
+      clientSecret: existingIntent.client_secret,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      amount: Number(order.totalAmount)
+    };
+  }
+
+  // If intent was canceled or null, create a new intent safely using atomic claim
+  let targetAttemptCount = payment.attemptCount;
+  if (existingIntent && existingIntent.status === 'canceled') {
+    const claim = await prisma.payment.updateMany({
+      where: {
+        id: payment.id,
+        attemptCount: payment.attemptCount,
+        status: { notIn: ['PROCESSING', 'SUCCEEDED'] }
+      },
+      data: {
+        attemptCount: { increment: 1 }
+      }
+    });
+
+    if (claim.count === 1) {
+      targetAttemptCount = payment.attemptCount + 1;
+    } else {
+      const refreshedPayment = await prisma.payment.findUnique({ where: { id: payment.id } });
+      if (refreshedPayment) {
+        targetAttemptCount = refreshedPayment.attemptCount;
+      }
+    }
+  }
+
+  const stripeIdempotencyKey = `pi_attempt_${payment.id}_${targetAttemptCount}`;
+  const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
+    amount: Math.round(Number(order.totalAmount) * 100),
+    currency: 'usd',
+    customer: stripeCustomerId || undefined,
+    automatic_payment_methods: { enabled: true },
+    metadata: {
+      paymentId: payment.id,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      userId
+    }
+  };
+
+  if (selectedStripePaymentMethodId) {
+    paymentIntentParams.payment_method = selectedStripePaymentMethodId;
+  }
+
+  try {
+    const newPaymentIntent = await stripe.paymentIntents.create(paymentIntentParams, {
+      idempotencyKey: stripeIdempotencyKey
+    });
+
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: {
+        stripePaymentIntentId: newPaymentIntent.id,
+        status: 'PENDING'
+      }
+    });
+
+    return {
+      success: true as const,
+      status: 200,
+      clientSecret: newPaymentIntent.client_secret,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      amount: Number(order.totalAmount)
+    };
+  } catch (stripeErr) {
+    logStripeError('getOrRefreshOrderPaymentIntentServer:stripeCreate', stripeErr, {
+      orderId: order.id,
+      paymentId: payment.id
+    });
+    return {
+      success: false as const,
+      status: 500,
+      errors: [(stripeErr as Error).message],
+      message: 'Failed to initialize payment with Stripe. Please try again.'
     };
   }
 }

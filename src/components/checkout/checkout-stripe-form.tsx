@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 
 import {
   PaymentElement,
@@ -51,6 +51,12 @@ export function CheckoutStripeForm({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const idempotencyKeyRef = useRef<string>(
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `chk_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -85,12 +91,13 @@ export function CheckoutStripeForm({
         }
       }
 
-      // 1. Create PaymentIntent on the backend (atomically reserves stock in DB)
+      // 1. Create PaymentIntent on the backend (atomically creates Order and reserves stock in DB first)
       const intentResponse = await createCheckoutIntent({
         itemIds: selectedItemIds,
         expectedTotal: totalAmount,
         savedPaymentMethodId: selectedCardId !== 'new' ? selectedCardId : undefined,
-        saveCardForFuture: selectedCardId === 'new' ? saveCardForFuture : false
+        saveCardForFuture: selectedCardId === 'new' ? saveCardForFuture : false,
+        idempotencyKey: idempotencyKeyRef.current
       });
 
       const { clientSecret, orderId } = intentResponse;
@@ -127,10 +134,27 @@ export function CheckoutStripeForm({
         onPriceChanged?.(errorObj.data.newTotal);
         return;
       }
-      if (errorObj?.errors?.includes?.('OUT_OF_STOCK') || errorObj?.message?.toLowerCase()?.includes('out of stock')) {
-        onOutOfStock?.(errorObj.message || 'An item in your cart is currently out of stock. Please update your cart quantity.');
+      if (
+        errorObj?.errors?.includes?.('OUT_OF_STOCK') ||
+        errorObj?.errors?.includes?.('VARIANT_DELETED') ||
+        errorObj?.errors?.includes?.('INACTIVE_PRODUCT') ||
+        errorObj?.message?.toLowerCase()?.includes('out of stock') ||
+        errorObj?.message?.toLowerCase()?.includes('does not exist') ||
+        errorObj?.message?.toLowerCase()?.includes('inactive')
+      ) {
+        onOutOfStock?.(errorObj.message || 'An item in your cart is no longer available. Please update your cart.');
         return;
       }
+
+      // If it's a backend API error with a descriptive message, show the backend message
+      if (
+        errorObj?.message &&
+        !((err as any)?.type === 'card_error' || (err as any)?.decline_code)
+      ) {
+        setErrorMessage(errorObj.message);
+        return;
+      }
+
       const { friendlyMessage } = getFriendlyPaymentErrorMessage(err);
       setErrorMessage(friendlyMessage);
     } finally {

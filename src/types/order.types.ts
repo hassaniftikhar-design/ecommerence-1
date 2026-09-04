@@ -15,6 +15,7 @@ export interface OrderListItem {
 export interface OrderProductLine {
   id: string;
   productId?: string;
+  variantId?: string | null;
   title: string;
   imageUrl: string;
   price: number;

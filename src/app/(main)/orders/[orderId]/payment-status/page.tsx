@@ -18,12 +18,13 @@ import type { PaymentIntent } from '@stripe/stripe-js';
 
 import { getStripe } from '@/lib/stripe/stripe-client';
 import { getFriendlyPaymentErrorMessage } from '@/lib/stripe/errors';
-import { getOrderById } from '@/services/order.service';
+import { getOrderById, retryOrderPayment } from '@/services/order.service';
 import { clearCart } from '@/services/cart.service';
 import { ROUTES } from '@/constants/routes';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { OrderDetail } from '@/types/order.types';
+import { cn } from '@/lib/utils';
 
 export default function PaymentStatusPage({
   params
@@ -35,6 +36,7 @@ export default function PaymentStatusPage({
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
+  const [retrying, setRetrying] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<
     'succeeded' | 'processing' | 'failed' | 'requires_payment_method' | 'unknown'
   >('unknown');
@@ -266,16 +268,38 @@ export default function PaymentStatusPage({
 
         <div className="flex flex-col sm:flex-row gap-3 pt-4 justify-center">
           <Button
-            onClick={() => router.push(ROUTES.checkout)}
-            className="bg-[#007BFF] hover:bg-blue-600 text-white font-semibold h-11 px-6 rounded-xl shadow-sm flex items-center justify-center gap-2"
+            onClick={async () => {
+              try {
+                setRetrying(true);
+                if (order) {
+                  await retryOrderPayment(order);
+                }
+                router.push(ROUTES.checkout);
+              } catch {
+                router.push(ROUTES.checkout);
+              } finally {
+                setRetrying(false);
+              }
+            }}
+            disabled={retrying}
+            className="bg-[#007BFF] hover:bg-blue-600 text-white font-semibold h-11 px-6 rounded-xl shadow-sm flex items-center justify-center gap-2 cursor-pointer"
           >
-            <RotateCcw className="h-4 w-4" /> Try Payment Again
+            <RotateCcw className={cn('h-4 w-4', retrying && 'animate-spin')} />
+            {retrying ? 'Loading Checkout...' : 'Try Payment Again'}
           </Button>
 
           <Button
             variant="outline"
+            onClick={() => router.push(ROUTES.orderDetail(orderId))}
+            className="border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold h-11 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <Package className="h-4 w-4" /> View Order Details
+          </Button>
+
+          <Button
+            variant="ghost"
             onClick={() => router.push(ROUTES.cart)}
-            className="border-slate-200 text-slate-700 hover:bg-slate-50 font-semibold h-11 px-6 rounded-xl flex items-center justify-center gap-2"
+            className="text-slate-600 hover:bg-slate-50 font-semibold h-11 px-6 rounded-xl flex items-center justify-center gap-2 cursor-pointer"
           >
             Back to Cart <ArrowRight className="h-4 w-4" />
           </Button>

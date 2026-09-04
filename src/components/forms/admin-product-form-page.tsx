@@ -1,12 +1,8 @@
 'use client';
-
 import React, { useEffect, useState } from 'react';
-
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-
 import { AlertCircle, ArrowLeft } from 'lucide-react';
-
 import { BackHeading } from '@/components/common/back-heading';
 import { ProductForm } from '@/components/forms/product-form';
 import { Skeleton } from '@/components/ui/skeleton';
