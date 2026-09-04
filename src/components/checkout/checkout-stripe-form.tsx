@@ -134,10 +134,27 @@ export function CheckoutStripeForm({
         onPriceChanged?.(errorObj.data.newTotal);
         return;
       }
-      if (errorObj?.errors?.includes?.('OUT_OF_STOCK') || errorObj?.message?.toLowerCase()?.includes('out of stock')) {
-        onOutOfStock?.(errorObj.message || 'An item in your cart is currently out of stock. Please update your cart quantity.');
+      if (
+        errorObj?.errors?.includes?.('OUT_OF_STOCK') ||
+        errorObj?.errors?.includes?.('VARIANT_DELETED') ||
+        errorObj?.errors?.includes?.('INACTIVE_PRODUCT') ||
+        errorObj?.message?.toLowerCase()?.includes('out of stock') ||
+        errorObj?.message?.toLowerCase()?.includes('does not exist') ||
+        errorObj?.message?.toLowerCase()?.includes('inactive')
+      ) {
+        onOutOfStock?.(errorObj.message || 'An item in your cart is no longer available. Please update your cart.');
         return;
       }
+
+      // If it's a backend API error with a descriptive message, show the backend message
+      if (
+        errorObj?.message &&
+        !((err as any)?.type === 'card_error' || (err as any)?.decline_code)
+      ) {
+        setErrorMessage(errorObj.message);
+        return;
+      }
+
       const { friendlyMessage } = getFriendlyPaymentErrorMessage(err);
       setErrorMessage(friendlyMessage);
     } finally {
