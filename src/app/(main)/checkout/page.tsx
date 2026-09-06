@@ -16,6 +16,7 @@ import {
   MapPin,
   Building,
   Hash,
+  Globe,
   CreditCard,
   Banknote,
   Check,
@@ -189,10 +190,6 @@ export default function CheckoutPage() {
       setFormError('Full Name is required');
       return;
     }
-    if (!formData.email.trim()) {
-      setFormError('Email Address is required');
-      return;
-    }
     if (!formData.phone.trim()) {
       setFormError('Phone Number is required');
       return;
@@ -209,16 +206,21 @@ export default function CheckoutPage() {
       setFormError('Postal Code is required');
       return;
     }
+    if (!formData.country.trim()) {
+      setFormError('Country is required');
+      return;
+    }
 
     try {
       setSavingAddress(true);
       setFormError(null);
 
       const updated = await updateUserAddress({
+        name: formData.fullName.trim(),
         addressLine: formData.addressLine.trim(),
         city: formData.city.trim(),
         postalCode: formData.postalCode.trim(),
-        country: formData.country.trim() || 'United States',
+        country: formData.country.trim(),
         phone: formData.phone.trim()
       });
 
@@ -418,7 +420,7 @@ export default function CheckoutPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-700">
-                        Email Address <span className="text-red-500">*</span>
+                        Email Address <span className="text-[11px] font-normal text-slate-400">(Read-only)</span>
                       </label>
                       <div className="relative">
                         <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -426,8 +428,9 @@ export default function CheckoutPage() {
                           type="email"
                           placeholder="you@example.com"
                           value={formData.email}
-                          onChange={(e) => handleInputChange('email', e.target.value)}
-                          className="pl-10 h-11 text-xs sm:text-sm rounded-xl border-slate-200 focus:border-[#007BFF]"
+                          disabled
+                          readOnly
+                          className="pl-10 h-11 text-xs sm:text-sm rounded-xl border-slate-200 bg-slate-100/90 text-slate-500 cursor-not-allowed select-none"
                         />
                       </div>
                     </div>
@@ -507,6 +510,23 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Country */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700">
+                      Country <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        type="text"
+                        placeholder="United States"
+                        value={formData.country}
+                        onChange={(e) => handleInputChange('country', e.target.value)}
+                        className="pl-10 h-11 text-xs sm:text-sm rounded-xl border-slate-200 focus:border-[#007BFF]"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Continue to Payment Button */}
@@ -573,7 +593,7 @@ export default function CheckoutPage() {
                       {formData.phone || address?.phone || 'No phone provided'}
                     </p>
                     <p className="text-slate-600 text-xs truncate mt-0.5">
-                      {formData.addressLine}, {formData.city} — {formData.postalCode}
+                      {formData.addressLine}, {formData.city} — {formData.postalCode}{formData.country ? `, ${formData.country}` : ''}
                     </p>
                   </div>
                 </div>

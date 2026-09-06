@@ -14,4 +14,6 @@ export interface UpdateAddressPayload {
   postalCode: string;
   country: string;
   phone?: string;
+  name?: string;
 }
+
