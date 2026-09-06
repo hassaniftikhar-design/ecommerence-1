@@ -2,13 +2,10 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 
-import { useRouter } from 'next/navigation';
-
 import { useSession } from 'next-auth/react';
 import { AlertCircle } from 'lucide-react';
 
 import { BackHeading } from '@/components/common/back-heading';
-import { RequireLoginModal } from '@/components/auth/require-login-modal';
 import { ShippingAddressCard } from '@/components/checkout/shipping-address-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/toast';
@@ -18,7 +15,6 @@ import type { UserAddress } from '@/types/user.types';
 
 export default function AddressesPage() {
   const { status } = useSession();
-  const router = useRouter();
   const { showSuccess } = useToast();
 
   const [address, setAddress] = useState<UserAddress | null>(null);
@@ -80,13 +76,6 @@ export default function AddressesPage() {
           />
         </div>
       )}
-
-      <RequireLoginModal
-        isOpen={status === 'unauthenticated'}
-        onClose={() => router.push(ROUTES.home)}
-        title="Login Required"
-        description="Please log in to manage your delivery address."
-      />
     </div>
   );
 }

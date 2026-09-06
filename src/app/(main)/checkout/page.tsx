@@ -47,11 +47,6 @@ const PriceChangedModal = dynamic(
   { ssr: false }
 );
 
-const RequireLoginModal = dynamic(
-  () => import('@/components/auth/require-login-modal').then((mod) => mod.RequireLoginModal),
-  { ssr: false }
-);
-
 function computeTotals(items: CartItem[]): CartTotals {
   const subTotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const tax = subTotal * TAX_RATE;
@@ -68,7 +63,6 @@ export default function CheckoutPage() {
   const router = useRouter();
 
   const isAuthenticated = status === 'authenticated';
-  const isUnauthenticated = status === 'unauthenticated';
 
   // Step state: "info" (Step 1) -> "payment" (Step 2)
   const [step, setStep] = useState<'info' | 'payment'>('info');
@@ -857,14 +851,6 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
-
-      {/* Login Modal for unauthenticated users */}
-      <RequireLoginModal
-        isOpen={isUnauthenticated}
-        onClose={() => router.push(ROUTES.cart)}
-        title="Sign In to Checkout"
-        description="Please sign in or create an account to proceed with your order."
-      />
 
       {/* Price Changed Conflict Modal */}
       <PriceChangedModal
