@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 
 import { useSession } from 'next-auth/react';
@@ -15,6 +16,7 @@ import {
   MapPin,
   Building,
   Hash,
+  Globe,
   CreditCard,
   Banknote,
   Check,
@@ -31,8 +33,6 @@ import { getSavedPaymentMethods } from '@/services/payment.service';
 import { getUserAddress, updateUserAddress } from '@/services/user.service';
 import { ROUTES } from '@/constants/routes';
 import { TAX_RATE } from '@/constants/generalconstants';
-import { RequireLoginModal } from '@/components/auth/require-login-modal';
-import { PriceChangedModal } from '@/components/checkout/price-changed-modal';
 import { OutOfStockModal } from '@/components/cart/out-of-stock-modal';
 import { CheckoutStripeForm } from '@/components/checkout/checkout-stripe-form';
 import { Button } from '@/components/ui/button';
@@ -42,6 +42,11 @@ import type { CartItem, CartTotals } from '@/types/cart.types';
 import type { SavedPaymentMethod } from '@/types/payment.types';
 import type { UserAddress } from '@/types/user.types';
 import { cn } from '@/lib/utils';
+
+const PriceChangedModal = dynamic(
+  () => import('@/components/checkout/price-changed-modal').then((mod) => mod.PriceChangedModal),
+  { ssr: false }
+);
 
 function computeTotals(items: CartItem[]): CartTotals {
   const subTotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -59,7 +64,6 @@ export default function CheckoutPage() {
   const router = useRouter();
 
   const isAuthenticated = status === 'authenticated';
-  const isUnauthenticated = status === 'unauthenticated';
 
   // Step state: "info" (Step 1) -> "payment" (Step 2)
   const [step, setStep] = useState<'info' | 'payment'>('info');
@@ -186,10 +190,6 @@ export default function CheckoutPage() {
       setFormError('Full Name is required');
       return;
     }
-    if (!formData.email.trim()) {
-      setFormError('Email Address is required');
-      return;
-    }
     if (!formData.phone.trim()) {
       setFormError('Phone Number is required');
       return;
@@ -206,16 +206,21 @@ export default function CheckoutPage() {
       setFormError('Postal Code is required');
       return;
     }
+    if (!formData.country.trim()) {
+      setFormError('Country is required');
+      return;
+    }
 
     try {
       setSavingAddress(true);
       setFormError(null);
 
       const updated = await updateUserAddress({
+        name: formData.fullName.trim(),
         addressLine: formData.addressLine.trim(),
         city: formData.city.trim(),
         postalCode: formData.postalCode.trim(),
-        country: formData.country.trim() || 'United States',
+        country: formData.country.trim(),
         phone: formData.phone.trim()
       });
 
@@ -415,7 +420,7 @@ export default function CheckoutPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-slate-700">
-                        Email Address <span className="text-red-500">*</span>
+                        Email Address <span className="text-[11px] font-normal text-slate-400">(Read-only)</span>
                       </label>
                       <div className="relative">
                         <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -423,8 +428,9 @@ export default function CheckoutPage() {
                           type="email"
                           placeholder="you@example.com"
                           value={formData.email}
-                          onChange={(e) => handleInputChange('email', e.target.value)}
-                          className="pl-10 h-11 text-xs sm:text-sm rounded-xl border-slate-200 focus:border-[#007BFF]"
+                          disabled
+                          readOnly
+                          className="pl-10 h-11 text-xs sm:text-sm rounded-xl border-slate-200 bg-slate-100/90 text-slate-500 cursor-not-allowed select-none"
                         />
                       </div>
                     </div>
@@ -504,6 +510,23 @@ export default function CheckoutPage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Country */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-700">
+                      Country <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        type="text"
+                        placeholder="United States"
+                        value={formData.country}
+                        onChange={(e) => handleInputChange('country', e.target.value)}
+                        className="pl-10 h-11 text-xs sm:text-sm rounded-xl border-slate-200 focus:border-[#007BFF]"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Continue to Payment Button */}
@@ -570,7 +593,7 @@ export default function CheckoutPage() {
                       {formData.phone || address?.phone || 'No phone provided'}
                     </p>
                     <p className="text-slate-600 text-xs truncate mt-0.5">
-                      {formData.addressLine}, {formData.city} — {formData.postalCode}
+                      {formData.addressLine}, {formData.city} — {formData.postalCode}{formData.country ? `, ${formData.country}` : ''}
                     </p>
                   </div>
                 </div>
@@ -789,7 +812,7 @@ export default function CheckoutPage() {
                           fill
                           className="object-cover"
                           sizes="56px"
-                          unoptimized
+
                         />
                         <span className="absolute top-1 left-1 flex h-4 w-4 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white shadow-xs z-10">
                           {item.quantity}
@@ -848,14 +871,6 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
-
-      {/* Login Modal for unauthenticated users */}
-      <RequireLoginModal
-        isOpen={isUnauthenticated}
-        onClose={() => router.push(ROUTES.cart)}
-        title="Sign In to Checkout"
-        description="Please sign in or create an account to proceed with your order."
-      />
 
       {/* Price Changed Conflict Modal */}
       <PriceChangedModal

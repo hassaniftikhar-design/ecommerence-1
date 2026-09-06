@@ -10,6 +10,8 @@ export interface OrderListItem {
   productsCount: number;
   amount: number;
   status: OrderStatusType;
+  paymentStatus?: PaymentStatus | null;
+  paymentMethod?: string;
 }
 
 export interface OrderProductLine {

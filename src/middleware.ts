@@ -22,7 +22,8 @@ export async function middleware(request: NextRequest) {
   const isProtectedRoute =
     pathname.startsWith('/admin') ||
     pathname.startsWith('/orders') ||
-    //pathname.startsWith("/profile") ||
+    pathname.startsWith('/account') ||
+    pathname.startsWith('/checkout') ||
     pathname.startsWith('/cart');
 
   if (!token) {
@@ -94,10 +95,10 @@ export const config = {
     '/',
     '/admin/:path*',
     '/orders/:path*',
-    // "/profile/:path*",
+    '/account/:path*',
+    '/checkout/:path*',
     '/cart/:path*',
     '/login',
     '/signup'
   ]
-
 };

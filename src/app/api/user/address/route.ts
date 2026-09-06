@@ -59,8 +59,11 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json();
-    const { addressLine, city, postalCode, country, phone } = body;
+    const { addressLine, city, postalCode, country, phone, name } = body;
 
+    if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
+      return apiError('Full name cannot be empty', ['name cannot be empty'], 400);
+    }
     if (!addressLine || typeof addressLine !== 'string' || !addressLine.trim()) {
       return apiError('Address line is required', ['addressLine is required'], 400);
     }
@@ -77,6 +80,7 @@ export async function PUT(request: Request) {
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
+        ...(name !== undefined && typeof name === 'string' && name.trim() ? { name: name.trim() } : {}),
         addressLine: addressLine.trim(),
         city: city.trim(),
         postalCode: postalCode.trim(),
@@ -100,6 +104,7 @@ export async function PUT(request: Request) {
     if (updatedUser.stripeCustomerId) {
       try {
         await stripe.customers.update(updatedUser.stripeCustomerId, {
+          name: updatedUser.name || undefined,
           address: {
             line1: updatedUser.addressLine || undefined,
             city: updatedUser.city || undefined,
@@ -107,7 +112,7 @@ export async function PUT(request: Request) {
             country: updatedUser.country || undefined
           },
           shipping: {
-            name: updatedUser.name,
+            name: updatedUser.name || 'Recipient',
             phone: updatedUser.phone || undefined,
             address: {
               line1: updatedUser.addressLine || undefined,

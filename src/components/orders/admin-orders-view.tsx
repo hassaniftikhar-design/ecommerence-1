@@ -19,7 +19,7 @@ import {
   TableRow
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { renderStatusBadge } from '@/components/orders/orders-table';
+import { renderStatusBadge, renderPaymentStatusBadge } from '@/components/orders/orders-table';
 import { getOrders } from '@/services/order.service';
 import type { OrderListItem } from '@/types/order.types';
 import { useDebounce } from '@/hooks/use-debounce';
@@ -159,6 +159,7 @@ export function AdminOrdersView() {
               <TableHead className="font-semibold text-slate-600">Items</TableHead>
               <TableHead className="font-semibold text-slate-600">Total Price</TableHead>
               <TableHead className="font-semibold text-slate-600">Status</TableHead>
+              <TableHead className="font-semibold text-slate-600">Payment</TableHead>
               <TableHead className="text-right font-semibold text-slate-600">Details</TableHead>
             </TableRow>
           </TableHeader>
@@ -171,13 +172,14 @@ export function AdminOrdersView() {
                   <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-12" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-20 rounded-md" /></TableCell>
+                  <TableCell><Skeleton className="h-6 w-16 rounded-md" /></TableCell>
                   <TableCell className="text-right"><Skeleton className="h-6 w-6 ml-auto" /></TableCell>
                 </TableRow>
               ))
             ) : orders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-32 text-center text-slate-400">
+                <TableCell colSpan={8} className="h-32 text-center text-slate-400">
                   No orders found.
                 </TableCell>
               </TableRow>
@@ -196,6 +198,7 @@ export function AdminOrdersView() {
                     ${order.amount.toFixed(2)}
                   </TableCell>
                   <TableCell>{renderStatusBadge(order.status)}</TableCell>
+                  <TableCell>{renderPaymentStatusBadge(order.paymentStatus, order.paymentMethod)}</TableCell>
                   <TableCell className="text-right">
                     <Link
                       href={ROUTES.adminOrderDetail(order.id)}

@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 
 import Image from 'next/image';
 
+import { useSession } from 'next-auth/react';
 import { ChevronDown, ChevronUp, PackageCheck } from 'lucide-react';
 
 import {
@@ -28,10 +29,14 @@ interface GroupedProductOrder {
 }
 
 export function OrderProductsTable({
-  products
+  products,
+  role
 }: {
   products: OrderProductLine[];
+  role?: string;
 }) {
+  const { data: session } = useSession();
+  const isAdmin = (role || session?.user?.role) === 'ADMIN';
   const [expandedGroupKey, setExpandedGroupKey] = useState<string | null>(null);
 
   const toggleRowExpand = (groupKey: string) => {
@@ -74,7 +79,7 @@ export function OrderProductsTable({
             <TableHead className="font-semibold text-slate-600 text-xs py-3.5 w-[40%]">Title</TableHead>
             <TableHead className="font-semibold text-slate-600 text-xs py-3.5">Price</TableHead>
             <TableHead className="font-semibold text-slate-600 text-xs py-3.5">Quantity</TableHead>
-            <TableHead className="font-semibold text-slate-600 text-xs py-3.5 text-right">Stock</TableHead>
+            <TableHead className="font-semibold text-slate-600 text-xs py-3.5 text-right pr-6">Variants</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -89,7 +94,6 @@ export function OrderProductsTable({
               const isExpanded = expandedGroupKey === group.key;
               const variantCount = group.items.length;
               const unitPrice = group.items[0]?.price ?? (group.totalAmount / (group.totalQuantity || 1));
-              const totalStock = group.items.reduce((acc, it) => acc + (it.stock || 0), 0);
 
               return (
                 <React.Fragment key={group.key}>
@@ -126,14 +130,16 @@ export function OrderProductsTable({
                       {String(group.totalQuantity).padStart(2, '0')}
                     </TableCell>
 
-                    <TableCell className="text-xs text-slate-700 font-medium py-3 text-right pr-6">
-                      <div className="inline-flex items-center gap-2">
-                        <span>{totalStock}</span>
+                    <TableCell className="text-xs font-medium py-3 text-right pr-6">
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-[#007BFF] font-semibold text-xs border border-blue-100 shadow-2xs hover:bg-blue-100/80 transition-all">
+                        <span>
+                          {variantCount} {variantCount === 1 ? 'variant' : 'variants'}
+                        </span>
                         {variantCount > 0 && (
                           isExpanded ? (
-                            <ChevronUp className="h-3.5 w-3.5 text-[#007BFF]" />
+                            <ChevronUp className="h-3.5 w-3.5 text-[#007BFF] stroke-[2.5]" />
                           ) : (
-                            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                            <ChevronDown className="h-3.5 w-3.5 text-[#007BFF] stroke-[2.5]" />
                           )
                         )}
                       </div>
@@ -167,15 +173,17 @@ export function OrderProductsTable({
                                         {item.color || 'Standard'} {item.size || ''}
                                       </span>
                                     </div>
-                                    <span
-                                      className={
-                                        item.stock > 0
-                                          ? 'text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200'
-                                          : 'text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200'
-                                      }
-                                    >
-                                      Stock: {item.stock}
-                                    </span>
+                                    {isAdmin && (
+                                      <span
+                                        className={
+                                          item.stock > 0
+                                            ? 'text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200'
+                                            : 'text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200'
+                                        }
+                                      >
+                                        Stock: {item.stock}
+                                      </span>
+                                    )}
                                   </div>
 
                                   <div className="flex items-center justify-between text-slate-600 pt-1 border-t border-slate-200/60 text-[11px]">
@@ -200,3 +208,4 @@ export function OrderProductsTable({
     </div>
   );
 }
+

@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/table';
 import { ROUTES } from '@/constants/routes';
 import type { OrderListItem, OrderStatusType } from '@/types/order.types';
+import type { PaymentStatus } from '@/types/payment.types';
 import { cn } from '@/lib/utils';
 
 interface OrdersTableProps {
@@ -52,6 +53,65 @@ export function renderStatusBadge(status: OrderStatusType) {
     <span
       className={cn(
         'inline-flex items-center justify-center px-3 py-1 rounded-md text-xs font-semibold min-w-[90px] text-center shadow-xs',
+        badgeStyle
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+export function renderPaymentStatusBadge(
+  status?: PaymentStatus | string | null,
+  paymentMethod?: string
+) {
+  let label = 'Pending';
+  let badgeStyle = 'bg-amber-50 text-amber-700 border-amber-200';
+
+  if (!status) {
+    if (paymentMethod === 'Cash on Delivery' || paymentMethod === 'COD') {
+      label = 'Pending (COD)';
+      badgeStyle = 'bg-amber-50 text-amber-700 border-amber-200';
+    } else {
+      label = 'Pending';
+      badgeStyle = 'bg-amber-50 text-amber-700 border-amber-200';
+    }
+  } else {
+    switch (status) {
+      case 'SUCCEEDED':
+        label = 'Paid';
+        badgeStyle = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        break;
+      case 'PENDING':
+        label = paymentMethod === 'Cash on Delivery' ? 'Pending (COD)' : 'Pending';
+        badgeStyle = 'bg-amber-50 text-amber-700 border-amber-200';
+        break;
+      case 'PROCESSING':
+        label = 'Processing';
+        badgeStyle = 'bg-blue-50 text-blue-700 border-blue-200';
+        break;
+      case 'FAILED':
+        label = 'Failed';
+        badgeStyle = 'bg-red-50 text-red-700 border-red-200';
+        break;
+      case 'REFUNDED':
+        label = 'Refunded';
+        badgeStyle = 'bg-purple-50 text-purple-700 border-purple-200';
+        break;
+      case 'PARTIALLY_REFUNDED':
+        label = 'Partial Refund';
+        badgeStyle = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+        break;
+      default:
+        label = String(status);
+        badgeStyle = 'bg-slate-50 text-slate-700 border-slate-200';
+    }
+  }
+
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center justify-center px-2.5 py-1 rounded-md text-xs font-semibold border min-w-[75px] text-center shadow-2xs',
         badgeStyle
       )}
     >

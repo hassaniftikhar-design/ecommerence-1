@@ -150,6 +150,33 @@ describe('Next.js Edge Auth Middleware (middleware.ts)', () => {
       expect(location).toContain('/login');
       expect(location).toContain('callbackUrl=%2Fcart');
     });
+
+    it('should redirect protected route /checkout to /login with callbackUrl', async () => {
+      const req = createMockNextRequest('/checkout');
+      const res = await middleware(req);
+
+      const location = res.headers.get('location');
+      expect(location).toContain('/login');
+      expect(location).toContain('callbackUrl=%2Fcheckout');
+    });
+
+    it('should redirect protected route /account/addresses to /login with callbackUrl', async () => {
+      const req = createMockNextRequest('/account/addresses');
+      const res = await middleware(req);
+
+      const location = res.headers.get('location');
+      expect(location).toContain('/login');
+      expect(location).toContain('callbackUrl=%2Faccount%2Faddresses');
+    });
+
+    it('should redirect protected route /account/payment-methods to /login with callbackUrl', async () => {
+      const req = createMockNextRequest('/account/payment-methods');
+      const res = await middleware(req);
+
+      const location = res.headers.get('location');
+      expect(location).toContain('/login');
+      expect(location).toContain('callbackUrl=%2Faccount%2Fpayment-methods');
+    });
   });
 
   /* -------------------------------------------------------------------------- */
@@ -245,7 +272,7 @@ describe('Next.js Edge Auth Middleware (middleware.ts)', () => {
       expect(res.headers.get('location')).toBe('http://localhost:3000/');
     });
 
-    it('should allow regular user accessing /, /orders, /cart', async () => {
+    it('should allow regular user accessing /, /orders, /cart, /checkout, /account/addresses, /account/payment-methods', async () => {
       const reqHome = createMockNextRequest('/');
       const resHome = await middleware(reqHome);
       expect(resHome.headers.get('location')).toBeNull();
@@ -257,6 +284,18 @@ describe('Next.js Edge Auth Middleware (middleware.ts)', () => {
       const reqCart = createMockNextRequest('/cart');
       const resCart = await middleware(reqCart);
       expect(resCart.headers.get('location')).toBeNull();
+
+      const reqCheckout = createMockNextRequest('/checkout');
+      const resCheckout = await middleware(reqCheckout);
+      expect(resCheckout.headers.get('location')).toBeNull();
+
+      const reqAddr = createMockNextRequest('/account/addresses');
+      const resAddr = await middleware(reqAddr);
+      expect(resAddr.headers.get('location')).toBeNull();
+
+      const reqPay = createMockNextRequest('/account/payment-methods');
+      const resPay = await middleware(reqPay);
+      expect(resPay.headers.get('location')).toBeNull();
     });
   });
 });

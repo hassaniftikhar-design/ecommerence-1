@@ -274,7 +274,7 @@ export default function AdminOrderDetailPage({
           {/* Product Information Section */}
           <div className="space-y-4 pt-2">
             <h2 className="text-base sm:text-lg font-bold text-[#0B192C]">Product Information</h2>
-            <OrderProductsTable products={order.products} />
+            <OrderProductsTable products={order.products} role="ADMIN" />
           </div>
         </div>
       ) : null}

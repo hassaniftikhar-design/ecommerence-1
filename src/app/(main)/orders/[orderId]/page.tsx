@@ -323,7 +323,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
           {/* Lower Product Information Table */}
           <div className="space-y-4">
             <h2 className="text-lg font-bold text-[#0B192C]">Product Information</h2>
-            <OrderProductsTable products={order.products} />
+            <OrderProductsTable products={order.products} role="USER" />
           </div>
         </div>
       ) : null}

@@ -2,8 +2,6 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 
-import { useRouter } from 'next/navigation';
-
 import { useSession } from 'next-auth/react';
 import {
   CreditCard,
@@ -15,7 +13,6 @@ import {
 } from 'lucide-react';
 
 import { BackHeading } from '@/components/common/back-heading';
-import { RequireLoginModal } from '@/components/auth/require-login-modal';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -49,7 +46,6 @@ function formatBrandName(brand: string): string {
 
 export default function PaymentMethodsPage() {
   const { status } = useSession();
-  const router = useRouter();
   const { showSuccess, showError } = useToast();
 
   const [cards, setCards] = useState<SavedPaymentMethod[]>([]);
@@ -265,13 +261,6 @@ export default function PaymentMethodsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <RequireLoginModal
-        isOpen={status === 'unauthenticated'}
-        onClose={() => router.push(ROUTES.home)}
-        title="Login Required"
-        description="Please log in to manage your saved payment methods."
-      />
     </div>
   );
 }

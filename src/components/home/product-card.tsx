@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 
 import { Check } from 'lucide-react';
 import { useSession } from 'next-auth/react';
@@ -14,10 +15,14 @@ import { ProductColorSelector } from '@/components/home/product-color-selector';
 import { ProductSizeSelector } from '@/components/home/product-size-selector';
 import { useToast } from '@/components/ui/toast';
 import { addToCart } from '@/services/cart.service';
-import { RequireLoginModal } from '@/components/auth/require-login-modal';
 import { useCart } from '@/providers/cart-provider';
 import { cn } from '@/lib/utils';
 import type { Product } from '@/types/product.types';
+
+const RequireLoginModal = dynamic(
+  () => import('@/components/auth/require-login-modal').then((mod) => mod.RequireLoginModal),
+  { ssr: false }
+);
 
 export function ProductCard({ product }: { product: Product }) {
   const { status } = useSession();
@@ -267,12 +272,12 @@ export function ProductCard({ product }: { product: Product }) {
             className={cn(
               'object-cover',
               animationKey > 0 &&
-                (slideDirection === 'right'
-                  ? 'animate-slide-in-from-right'
-                  : 'animate-slide-in-from-left')
+              (slideDirection === 'right'
+                ? 'animate-slide-in-from-right'
+                : 'animate-slide-in-from-left')
             )}
             sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            unoptimized
+
           />
         </div>
 
