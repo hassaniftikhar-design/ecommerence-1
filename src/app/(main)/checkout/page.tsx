@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 
 import { useSession } from 'next-auth/react';
@@ -31,8 +32,6 @@ import { getSavedPaymentMethods } from '@/services/payment.service';
 import { getUserAddress, updateUserAddress } from '@/services/user.service';
 import { ROUTES } from '@/constants/routes';
 import { TAX_RATE } from '@/constants/generalconstants';
-import { RequireLoginModal } from '@/components/auth/require-login-modal';
-import { PriceChangedModal } from '@/components/checkout/price-changed-modal';
 import { OutOfStockModal } from '@/components/cart/out-of-stock-modal';
 import { CheckoutStripeForm } from '@/components/checkout/checkout-stripe-form';
 import { Button } from '@/components/ui/button';
@@ -42,6 +41,16 @@ import type { CartItem, CartTotals } from '@/types/cart.types';
 import type { SavedPaymentMethod } from '@/types/payment.types';
 import type { UserAddress } from '@/types/user.types';
 import { cn } from '@/lib/utils';
+
+const PriceChangedModal = dynamic(
+  () => import('@/components/checkout/price-changed-modal').then((mod) => mod.PriceChangedModal),
+  { ssr: false }
+);
+
+const RequireLoginModal = dynamic(
+  () => import('@/components/auth/require-login-modal').then((mod) => mod.RequireLoginModal),
+  { ssr: false }
+);
 
 function computeTotals(items: CartItem[]): CartTotals {
   const subTotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -789,7 +798,7 @@ export default function CheckoutPage() {
                           fill
                           className="object-cover"
                           sizes="56px"
-                          unoptimized
+
                         />
                         <span className="absolute top-1 left-1 flex h-4 w-4 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white shadow-xs z-10">
                           {item.quantity}
