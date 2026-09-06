@@ -240,7 +240,7 @@ export function OrdersModal({ isOpen, onClose, initialOrderId }: OrdersModalProp
                     <h2 className="mb-4 text-lg font-bold text-[#0B192C]">
                       Product Information
                     </h2>
-                    <OrderProductsTable products={orderDetail.products} />
+                    <OrderProductsTable products={orderDetail.products} role="USER" />
                   </div>
                 </>
               )}

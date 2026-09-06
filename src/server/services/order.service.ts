@@ -64,6 +64,7 @@ export async function listOrdersServer(params: ListOrdersServerParams) {
       where: whereClause,
       include: {
         user: { select: { name: true, email: true } },
+        payment: { select: { id: true, status: true } },
         items: {
           include: {
             product: {
@@ -101,7 +102,9 @@ export async function listOrdersServer(params: ListOrdersServerParams) {
       user: order.user.name || 'Customer',
       productsCount: uniqueProductCount || order.items.length,
       amount: Number(order.totalAmount),
-      status: order.status
+      status: order.status,
+      paymentStatus: order.payment?.status || null,
+      paymentMethod: order.payment ? 'Card' : 'Cash on Delivery'
     };
   });
 
