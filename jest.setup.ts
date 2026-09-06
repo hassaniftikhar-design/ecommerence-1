@@ -193,7 +193,7 @@ jest.mock('next/server', () => {
 
   return {
     NextResponse: MockNextResponse,
-    NextRequest: class MockNextRequest {}
+    NextRequest: class MockNextRequest { }
   };
 });
 

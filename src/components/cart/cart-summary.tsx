@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
@@ -23,10 +24,18 @@ export function CartSummary({
   loading = false
 }: CartSummaryProps) {
   const router = useRouter();
+  const [clicked, setClicked] = useState(false);
   const hasSelectedItems = selectedItemIds.length > 0;
 
+  useEffect(() => {
+    if (!loading) {
+      setClicked(false);
+    }
+  }, [loading]);
+
   const handleProceed = () => {
-    if (isEmpty || !hasSelectedItems || loading) return;
+    if (isEmpty || !hasSelectedItems || loading || clicked) return;
+    setClicked(true);
     if (onProceedToCheckout) {
       onProceedToCheckout();
     } else {
@@ -34,7 +43,7 @@ export function CartSummary({
     }
   };
 
-  const isButtonDisabled = isEmpty || !hasSelectedItems || loading;
+  const isButtonDisabled = isEmpty || !hasSelectedItems || loading || clicked;
 
   return (
     <div className="mt-8 flex flex-col items-center sm:items-end gap-3 w-full">
@@ -59,7 +68,7 @@ export function CartSummary({
         disabled={isButtonDisabled}
         className="mt-2 w-full max-w-xs bg-[#007BFF] hover:bg-blue-600 text-white font-semibold h-11 text-base rounded-xl shadow-sm disabled:cursor-not-allowed disabled:bg-slate-300 transition-all flex items-center justify-center gap-2"
       >
-        {loading ? (
+        {loading || clicked ? (
           <span className="flex items-center gap-2">
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
             Checking Stock...
@@ -71,3 +80,4 @@ export function CartSummary({
     </div>
   );
 }
+

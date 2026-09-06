@@ -77,7 +77,7 @@ export default function CartPage() {
   }, [isAuthenticated]);
 
   const handleProceedToCheckout = async () => {
-    if (selectedItemIds.length === 0) return;
+    if (selectedItemIds.length === 0 || checkingStock) return;
     try {
       setCheckingStock(true);
       setError(null);
@@ -100,14 +100,14 @@ export default function CartPage() {
           msg = `Order can't be placed because only ${available} unit(s) of '${outOfStockItem.name}' remain in stock (you requested ${outOfStockItem.quantity}). Please update your cart quantity.`;
         }
         setOutOfStockMessage(msg);
+        setCheckingStock(false);
         return;
       }
 
-      // Live stock verified, proceed to checkout
+      // Live stock verified, proceed to checkout (keep disabled until page navigates)
       router.push(ROUTES.checkout);
     } catch (err: unknown) {
       setError((err as Error).message || 'Failed to verify product stock. Please try again.');
-    } finally {
       setCheckingStock(false);
     }
   };
