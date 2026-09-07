@@ -9,3 +9,4 @@ export * from './payment.middleware';
 export * from './user.middleware';
 export * from './upload.middleware';
 export * from './webhook.middleware';
+export * from './facebook-auth.middleware';

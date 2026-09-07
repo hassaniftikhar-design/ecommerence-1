@@ -11,6 +11,7 @@ import { AuthFooterLink } from '@/components/auth/auth-footer-link';
 import { FormField } from '@/components/forms/form-field';
 import { RememberMe } from '@/components/auth/remember-me';
 import { GoogleAuthButton } from '@/components/auth/google-auth-button';
+import { FacebookAuthButton } from '@/components/auth/facebook-auth-button';
 import { ROUTES } from '@/constants/routes';
 import { isValidEmail } from '@/utils/validation';
 import type { LoginPayload } from '@/types/auth.types';
@@ -157,8 +158,9 @@ export function LoginForm() {
         </div>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6 space-y-3">
         <GoogleAuthButton label="Sign in with Google" />
+        <FacebookAuthButton label="Sign in with Facebook" />
       </div>
 
       <div className="space-y-2">
