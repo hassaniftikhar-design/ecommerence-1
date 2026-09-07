@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
   });
 
   const isAuthPage =
-    pathname === '/login' || pathname === '/signup';
+    pathname === '/login' || pathname === '/signup' || pathname === '/facebook-email';
 
   const isProtectedRoute =
     pathname.startsWith('/admin') ||
@@ -99,6 +99,7 @@ export const config = {
     '/checkout/:path*',
     '/cart/:path*',
     '/login',
-    '/signup'
+    '/signup',
+    '/facebook-email'
   ]
 };

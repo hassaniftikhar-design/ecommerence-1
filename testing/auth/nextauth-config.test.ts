@@ -18,6 +18,18 @@ jest.mock('next-auth/providers/google', () => {
   };
 });
 
+jest.mock('next-auth/providers/facebook', () => {
+  return {
+    __esModule: true,
+    default: jest.fn((options) => ({
+      id: 'facebook',
+      name: 'Facebook',
+      type: 'oauth',
+      options
+    }))
+  };
+});
+
 jest.mock('next-auth/next', () => ({
   getServerSession: jest.fn()
 }));
@@ -406,6 +418,151 @@ describe('NextAuth Configuration & Callbacks (lib/auth.ts)', () => {
         })
       ).rejects.toThrow('OAuth linking failure');
     });
+
+    /* -------------------------------------------------------------------------- */
+    /*                         FACEBOOK OAUTH SIGNIN                              */
+    /* -------------------------------------------------------------------------- */
+    it('should create new user and link Facebook account when Facebook provides email', async () => {
+      if (!signInCallback) throw new Error('signIn callback is undefined');
+
+      mockPrisma.account.findUnique.mockResolvedValueOnce(null); // Account not found
+      mockPrisma.user.findUnique.mockResolvedValueOnce(null); // User not found
+      mockPrisma.user.create.mockResolvedValueOnce({
+        id: 'new-fb-user-id',
+        email: 'fbuser@example.com',
+        name: 'FB User',
+        role: 'USER',
+        isActive: true
+      });
+      mockPrisma.account.upsert.mockResolvedValueOnce({});
+
+      const result = await signInCallback({
+        user: {
+          id: 'temp-id',
+          name: 'FB User',
+          email: 'fbuser@example.com'
+        } as any,
+        account: {
+          provider: 'facebook',
+          type: 'oauth',
+          providerAccountId: 'fb-provider-acc-123',
+          access_token: 'mock-fb-token'
+        } as any
+      });
+
+      expect(result).toBe(true);
+      expect(mockPrisma.user.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          email: 'fbuser@example.com',
+          name: 'FB User',
+          role: 'USER',
+          isActive: true
+        })
+      });
+      expect(mockPrisma.account.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            userId: 'new-fb-user-id',
+            provider: 'facebook',
+            providerAccountId: 'fb-provider-acc-123'
+          })
+        })
+      );
+    });
+
+    it('should link Facebook account to existing user (e.g. Google/Credentials) when email matches', async () => {
+      if (!signInCallback) throw new Error('signIn callback is undefined');
+
+      mockPrisma.account.findUnique.mockResolvedValueOnce(null); // Account not found
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockRegularUser); // Existing user
+      mockPrisma.account.upsert.mockResolvedValueOnce({});
+
+      const result = await signInCallback({
+        user: {
+          id: 'temp-id',
+          name: 'FB User',
+          email: mockRegularUser.email
+        } as any,
+        account: {
+          provider: 'facebook',
+          type: 'oauth',
+          providerAccountId: 'fb-provider-acc-456',
+          access_token: 'mock-fb-token'
+        } as any
+      });
+
+      expect(result).toBe(true);
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+      expect(mockPrisma.account.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            userId: mockRegularUser.id,
+            provider: 'facebook',
+            providerAccountId: 'fb-provider-acc-456'
+          })
+        })
+      );
+    });
+
+    it('should allow subsequent Facebook login when email is missing and account already exists', async () => {
+      if (!signInCallback) throw new Error('signIn callback is undefined');
+
+      // Account already linked
+      mockPrisma.account.findUnique.mockResolvedValueOnce({
+        id: 'acc-linked-1',
+        userId: mockRegularUser.id,
+        provider: 'facebook',
+        providerAccountId: 'fb-existing-acc-id'
+      });
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockRegularUser);
+      mockPrisma.account.update.mockResolvedValueOnce({});
+
+      const result = await signInCallback({
+        user: {
+          id: 'temp-fb-id',
+          name: 'FB No Email User'
+          // no email
+        } as any,
+        account: {
+          provider: 'facebook',
+          type: 'oauth',
+          providerAccountId: 'fb-existing-acc-id'
+        } as any
+      });
+
+      expect(result).toBe(true);
+      expect(mockPrisma.user.create).not.toHaveBeenCalled();
+      expect(mockPrisma.account.update).toHaveBeenCalled();
+    });
+
+    it('should create pending token and return redirect URL when email is missing on first-time Facebook login', async () => {
+      if (!signInCallback) throw new Error('signIn callback is undefined');
+
+      // Account does not exist
+      mockPrisma.account.findUnique.mockResolvedValueOnce(null);
+      mockPrisma.verificationToken.deleteMany.mockResolvedValueOnce({ count: 0 });
+      mockPrisma.verificationToken.create.mockResolvedValueOnce({
+        id: 'vt-1',
+        identifier: 'fb_pending:fb-new-acc-id:FB%20User',
+        token: 'pending-token-123'
+      });
+
+      const result = await signInCallback({
+        user: {
+          id: 'temp-fb-id',
+          name: 'FB User'
+          // no email
+        } as any,
+        account: {
+          provider: 'facebook',
+          type: 'oauth',
+          providerAccountId: 'fb-new-acc-id'
+        } as any
+      });
+
+      expect(typeof result).toBe('string');
+      expect(result).toContain('/facebook-email?pendingToken=');
+    });
   });
 
   /* -------------------------------------------------------------------------- */
@@ -493,6 +650,67 @@ describe('NextAuth Configuration & Callbacks (lib/auth.ts)', () => {
       expect(result.role).toBe(mockGoogleUser.role);
       expect(result.email).toBe(mockGoogleUser.email);
       expect(result.rememberMe).toBe(false);
+    });
+
+    it('should query DB and set token properties for Facebook login with email', async () => {
+      if (!jwtCallback) throw new Error('jwt callback is undefined');
+
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockRegularUser);
+
+      const initialToken = {};
+      const user = {
+        id: 'fb-temp-id',
+        name: 'FB User',
+        email: 'john@example.com'
+      };
+
+      const result = await jwtCallback({
+        token: initialToken,
+        user: user as any,
+        account: { provider: 'facebook', type: 'oauth', providerAccountId: 'fb-123' } as any
+      });
+
+      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+        where: { email: 'john@example.com' }
+      });
+      expect(result.id).toBe(mockRegularUser.id);
+      expect(result.role).toBe(mockRegularUser.role);
+      expect(result.email).toBe(mockRegularUser.email);
+    });
+
+    it('should query DB by providerAccountId and set token properties for Facebook login without email', async () => {
+      if (!jwtCallback) throw new Error('jwt callback is undefined');
+
+      mockPrisma.account.findUnique.mockResolvedValueOnce({
+        id: 'acc-1',
+        userId: mockRegularUser.id,
+        user: mockRegularUser
+      });
+
+      const initialToken = {};
+      const user = {
+        id: 'fb-temp-id',
+        name: 'FB No Email User'
+      };
+
+      const result = await jwtCallback({
+        token: initialToken,
+        user: user as any,
+        account: { provider: 'facebook', type: 'oauth', providerAccountId: 'fb-no-email-123' } as any
+      });
+
+      expect(mockPrisma.account.findUnique).toHaveBeenCalledWith({
+        where: {
+          provider_providerAccountId: {
+            provider: 'facebook',
+            providerAccountId: 'fb-no-email-123'
+          }
+        },
+        include: { user: true }
+      });
+      expect(result.id).toBe(mockRegularUser.id);
+      expect(result.role).toBe(mockRegularUser.role);
+      expect(result.email).toBe(mockRegularUser.email);
     });
 
     it('should preserve existing token on subsequent calls when user is undefined (stateless JWT)', async () => {

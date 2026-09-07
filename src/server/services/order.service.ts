@@ -308,7 +308,10 @@ export async function createOrderServer(
       success: true as const,
       status: 201,
       orderId: createdOrder.id,
-      orderNumber: createdOrder.orderNumber
+      orderNumber: createdOrder.orderNumber,
+      message: undefined as string | undefined,
+      errors: undefined as string[] | undefined,
+      data: undefined as unknown
     };
   } catch (error) {
     const errorMsg = (error as Error).message || '';
@@ -461,7 +464,14 @@ export async function getOrderByIdServer(id: string, userId?: string, userRole?:
     })
   };
 
-  return { success: true as const, status: 200, order: formattedDetail };
+  return {
+    success: true as const,
+    status: 200,
+    order: formattedDetail,
+    message: undefined as string | undefined,
+    errors: undefined as string[] | undefined,
+    data: undefined as unknown
+  };
 }
 
 const ALLOWED_ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
@@ -535,7 +545,10 @@ export async function updateOrderStatusServer(id: string, status: unknown) {
       order: {
         id: existingOrder.id,
         status: existingOrder.status
-      }
+      },
+      message: undefined as string | undefined,
+      errors: undefined as string[] | undefined,
+      data: undefined as unknown
     };
   }
 
@@ -645,6 +658,9 @@ export async function updateOrderStatusServer(id: string, status: unknown) {
     order: {
       id: updatedOrder.id,
       status: updatedOrder.status
-    }
+    },
+    message: undefined as string | undefined,
+    errors: undefined as string[] | undefined,
+    data: undefined as unknown
   };
 }

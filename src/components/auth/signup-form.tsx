@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { AuthFooterLink } from '@/components/auth/auth-footer-link';
 import { FormField } from '@/components/forms/form-field';
 import { GoogleAuthButton } from '@/components/auth/google-auth-button';
+import { FacebookAuthButton } from '@/components/auth/facebook-auth-button';
 import { ROUTES } from '@/constants/routes';
 import { isValidEmail, isStrongPassword } from '@/utils/validation';
 import type { SignupPayload } from '@/types/auth.types';
@@ -213,8 +214,9 @@ export function SignupForm() {
         </div>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6 space-y-3">
         <GoogleAuthButton label="Sign up with Google" />
+        <FacebookAuthButton label="Sign up with Facebook" />
       </div>
 
       <AuthFooterLink

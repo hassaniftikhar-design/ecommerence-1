@@ -46,7 +46,10 @@ export async function createCheckoutPaymentIntentServer(
             clientSecret: intent.client_secret,
             orderId: existingPayment.order.id,
             orderNumber: existingPayment.order.orderNumber,
-            amount: Number(existingPayment.amount)
+            amount: Number(existingPayment.amount),
+            message: undefined as string | undefined,
+            errors: undefined as string[] | undefined,
+            data: undefined as unknown
           };
         } catch (err) {
           logStripeError('createCheckoutPaymentIntentServer:retrieveExisting', err, {
@@ -409,7 +412,10 @@ export async function createCheckoutPaymentIntentServer(
       clientSecret: paymentIntent.client_secret,
       orderId: createdOrder.id,
       orderNumber: createdOrder.orderNumber,
-      amount: totalAmount
+      amount: totalAmount,
+      message: undefined as string | undefined,
+      errors: undefined as string[] | undefined,
+      data: undefined as unknown
     };
   } catch (stripeError) {
     logStripeError('createCheckoutPaymentIntentServer:stripeIntentCreate', stripeError, {

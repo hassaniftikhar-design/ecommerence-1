@@ -3,13 +3,17 @@ import { z } from 'zod';
 export interface ValidationSuccess<T> {
   success: true;
   data: T;
+  status?: number;
+  message?: string;
+  errors?: never;
 }
 
 export interface ValidationError {
   success: false;
-  status: 400;
+  status: number;
   errors: string[];
   message: string;
+  data?: unknown;
 }
 
 export type ValidationResult<T> = ValidationSuccess<T> | ValidationError;
