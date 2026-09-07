@@ -86,3 +86,4 @@ export function getColorHex(colorName: string): string {
   const normalized = colorName.trim().toLowerCase();
   return COLOR_MAP[normalized] || colorName;
 }
+

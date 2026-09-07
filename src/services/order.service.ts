@@ -1,6 +1,5 @@
 import type { OrderDetail, OrderListItem } from '@/types/order.types';
 import type { ApiResponse } from '@/lib/api-response';
-import { getCart, addToCart } from '@/services/cart.service';
 
 async function parseApiResponse<T>(response: Response): Promise<T> {
   let json: ApiResponse<T> | null = null;
@@ -86,24 +85,7 @@ export async function updateOrderStatus(
 }
 
 export async function retryOrderPayment(order: OrderDetail): Promise<void> {
-  try {
-    const cartData = await getCart().catch(() => ({ items: [] }));
-    const currentItems = cartData?.items || [];
-
-    for (const item of order.products) {
-      if (item.productId) {
-        const alreadyInCart = currentItems.some(
-          (c) =>
-            c.productId === item.productId &&
-            (!item.variantId || c.variantId === item.variantId)
-        );
-        if (!alreadyInCart) {
-          await addToCart(item.productId, item.variantId || null, item.quantity);
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('Could not synchronize cart for order retry:', err);
-  }
+  // Order items are loaded directly via /checkout?orderId=[id] without polluting the cart
+  void order;
 }
 

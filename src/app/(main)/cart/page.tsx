@@ -105,7 +105,8 @@ export default function CartPage() {
       }
 
       // Live stock verified, proceed to checkout (keep disabled until page navigates)
-      router.push(ROUTES.checkout);
+      const itemsQuery = selectedItemIds.length > 0 ? `?items=${encodeURIComponent(selectedItemIds.join(','))}` : '';
+      router.push(`${ROUTES.checkout}${itemsQuery}`);
     } catch (err: unknown) {
       setError((err as Error).message || 'Failed to verify product stock. Please try again.');
       setCheckingStock(false);
@@ -220,14 +221,6 @@ export default function CartPage() {
           />
         )}
       </div>
-
-      {/* Expiration/Reservation Note */}
-      {items.length > 0 && (
-        <p className="text-xs text-slate-500 -mt-2">
-          Items in your cart are reserved. The earliest item will expire in{' '}
-          <span className="font-semibold text-slate-700">0h 59m 36s</span>
-        </p>
-      )}
 
       {error && (
         <div className="rounded-xl bg-red-50 p-4 text-xs font-semibold text-red-700 border border-red-200 flex items-start gap-2.5 shadow-2xs">

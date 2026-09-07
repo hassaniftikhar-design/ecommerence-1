@@ -19,7 +19,6 @@ import type { PaymentIntent } from '@stripe/stripe-js';
 import { getStripe } from '@/lib/stripe/stripe-client';
 import { getFriendlyPaymentErrorMessage } from '@/lib/stripe/errors';
 import { getOrderById, retryOrderPayment } from '@/services/order.service';
-import { clearCart } from '@/services/cart.service';
 import { ROUTES } from '@/constants/routes';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -125,7 +124,6 @@ export default function PaymentStatusPage({
 
   useEffect(() => {
     if (paymentStatus === 'succeeded') {
-      clearCart().catch(() => { });
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('cart-updated'));
 
@@ -274,9 +272,9 @@ export default function PaymentStatusPage({
                 if (order) {
                   await retryOrderPayment(order);
                 }
-                router.push(ROUTES.checkout);
+                router.push(`${ROUTES.checkout}?orderId=${orderId}`);
               } catch {
-                router.push(ROUTES.checkout);
+                router.push(`${ROUTES.checkout}?orderId=${orderId}`);
               } finally {
                 setRetrying(false);
               }

@@ -161,15 +161,32 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     }
   }
 
-  // Clear user's cart on payment success
+  // Remove only matching ordered items from user's cart if any remain
   try {
     const userCart = await prisma.cart.findUnique({
-      where: { userId: payment.order.userId }
+      where: { userId: payment.order.userId },
+      include: { items: true }
     });
-    if (userCart) {
-      await prisma.cartItem.deleteMany({
-        where: { cartId: userCart.id }
-      });
+    if (userCart && userCart.items && userCart.items.length > 0 && payment.order.items) {
+      const orderItems = payment.order.items;
+      const matchingCartItemIds = userCart.items
+        .filter((cItem) =>
+          orderItems.some(
+            (oItem) =>
+              oItem.productId === cItem.productId &&
+              (oItem.variantId || null) === (cItem.variantId || null)
+          )
+        )
+        .map((ci) => ci.id);
+
+      if (matchingCartItemIds.length > 0) {
+        await prisma.cartItem.deleteMany({
+          where: {
+            cartId: userCart.id,
+            id: { in: matchingCartItemIds }
+          }
+        });
+      }
     }
   } catch (cartErr) {
     logStripeError('handlePaymentIntentSucceeded:clearCart', cartErr, {
@@ -191,7 +208,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 
 /**
  * Handles payment_intent.payment_failed event:
- * Sets Payment.status = FAILED, releases reserved stock, keeps Order IN_PROGRESS for Pay Again.
+ * Sets Payment.status = FAILED, keeps reserved stock held for user order (to be cleared by expiration cron), keeps Order IN_PROGRESS for Pay Again.
  */
 async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   const paymentIntentId = paymentIntent.id;
@@ -224,34 +241,9 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
     });
   }
 
-  // 2. Release reserved stock back to product variants so inventory isn't locked
-  // Order remains IN_PROGRESS so the user can Pay Again
-  if (payment.order && payment.status !== 'FAILED') {
-    await prisma.$transaction(async (tx) => {
-      for (const item of payment.order.items) {
-        let targetVariantId = item.variantId;
-        if (!targetVariantId) {
-          const firstVariant = await tx.productVariant.findFirst({
-            where: { productId: item.productId }
-          });
-          if (firstVariant) {
-            targetVariantId = firstVariant.id;
-          }
-        }
+  // Stock remains reserved for the user's order (will be handled by future expiration cron job)
 
-        if (targetVariantId) {
-          await tx.productVariant.update({
-            where: { id: targetVariantId },
-            data: {
-              stock: { increment: item.quantity }
-            }
-          });
-        }
-      }
-    });
-  }
-
-  // 3. Create notification for customer
+  // 2. Create notification for customer
   await prisma.notification.create({
     data: {
       userId: payment.order.userId,

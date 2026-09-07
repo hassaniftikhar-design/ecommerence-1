@@ -282,6 +282,16 @@ export async function createCheckoutPaymentIntentServer(
         }
       });
 
+      // Clear ordered items from cart immediately upon placing order
+      if (cart) {
+        await tx.cartItem.deleteMany({
+          where: {
+            cartId: cart.id,
+            id: { in: targetItems.map((ti) => ti.id) }
+          }
+        });
+      }
+
       return { newOrder, newPayment };
     });
 
@@ -562,7 +572,7 @@ export async function getOrRefreshOrderPaymentIntentServer(
     }
   }
 
-  // 3. PRICE & STOCK VALIDATION + ATOMIC RE-RESERVATION (Short DB Transaction)
+  // 3. PRICE & ACTIVE VALIDATION (Short DB Transaction)
   try {
     await prisma.$transaction(async (tx) => {
       // Validate product prices & active status
@@ -576,29 +586,15 @@ export async function getOrRefreshOrderPaymentIntentServer(
         if (Math.abs(currentPrice - orderPrice) > 0.01) {
           throw new Error(`PRICE_CHANGED:${item.productId}:${orderPrice}:${currentPrice}`);
         }
-
-        // If payment was FAILED, stock was restored on failure, so re-reserve stock
-        if (payment.status === 'FAILED' && item.variantId) {
-          const variant = await tx.productVariant.findUnique({
-            where: { id: item.variantId },
-            select: { stock: true }
-          });
-          const available = variant ? variant.stock : 0;
-          const updated = await tx.productVariant.updateMany({
-            where: { id: item.variantId, stock: { gte: item.quantity } },
-            data: { stock: { decrement: item.quantity } }
-          });
-          if (updated.count === 0) {
-            throw new Error(`OUT_OF_STOCK:${item.title}:${available}:${item.quantity}`);
-          }
-        }
       }
 
-      // Update payment status to PENDING
-      await tx.payment.update({
-        where: { id: payment.id },
-        data: { status: 'PENDING' }
-      });
+      // Update payment method on payment record if provided
+      if (selectedStripePaymentMethodId && selectedStripePaymentMethodId !== payment.stripePaymentMethodId) {
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: { stripePaymentMethodId: selectedStripePaymentMethodId }
+        });
+      }
     });
   } catch (err) {
     const errorMsg = (err as Error).message || '';
@@ -636,7 +632,19 @@ export async function getOrRefreshOrderPaymentIntentServer(
 
   // 4. STRIPE INTENT REUSE OR ATOMIC CREATION
   if (existingIntent && (existingIntent.status === 'requires_payment_method' || existingIntent.status === 'requires_action')) {
-    // REUSE existing intent
+    if (selectedStripePaymentMethodId) {
+      try {
+        await stripe.paymentIntents.update(existingIntent.id, {
+          payment_method: selectedStripePaymentMethodId
+        });
+      } catch (updateErr) {
+        logStripeError('getOrRefreshOrderPaymentIntentServer:updatePaymentMethod', updateErr, {
+          paymentIntentId: existingIntent.id,
+          selectedStripePaymentMethodId
+        });
+      }
+    }
+
     return {
       success: true as const,
       status: 200,

@@ -40,7 +40,8 @@ export function CartSummary({
     if (onProceedToCheckout) {
       onProceedToCheckout();
     } else {
-      router.push(ROUTES.checkout);
+      const itemsQuery = selectedItemIds.length > 0 ? `?items=${encodeURIComponent(selectedItemIds.join(','))}` : '';
+      router.push(`${ROUTES.checkout}${itemsQuery}`);
     }
   };
 

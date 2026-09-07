@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { AlertCircle, ArrowLeft, ChevronDown, Loader2 } from 'lucide-react';
 
 import { OrderProductsTable } from '@/components/orders/order-products-table';
+import { renderPaymentStatusBadge } from '@/components/orders/orders-table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { getOrderById, updateOrderStatus } from '@/services/order.service';
@@ -216,18 +217,9 @@ export default function AdminOrderDetailPage({
             <div className="space-y-1">
               <p className="text-[11px] font-medium text-slate-400">Payment Status</p>
               <div>
-                {order.payment?.status === 'FAILED' ? (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold uppercase tracking-wider bg-rose-50 text-rose-600 border border-rose-200">
-                    FAILED
-                  </span>
-                ) : order.payment?.status === 'SUCCEEDED' ? (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    SUCCEEDED
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
-                    {order.payment?.status || 'PENDING'}
-                  </span>
+                {renderPaymentStatusBadge(
+                  order.payment?.status,
+                  order.payment ? 'Card' : order.paymentMethod
                 )}
               </div>
             </div>

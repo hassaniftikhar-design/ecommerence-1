@@ -8,7 +8,8 @@ import { createCheckoutPaymentIntentServer } from '@/server/services/payment.ser
 import {
   mockTestCart,
   mockTestMultiItemCart,
-  mockTestEmptyCart
+  mockTestEmptyCart,
+  mockTestCartItem1
 } from '../fixtures/cart.fixtures';
 import {
   mockTestPaymentMethod1,
@@ -242,6 +243,49 @@ describe('Checkout & Initial Order Placement Suite', () => {
         }),
         expect.anything()
       );
+    });
+
+    it('deletes only selected items from cart during partial checkout, leaving unselected items in cart', async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce(mockTestUser);
+      // Cart contains mockTestCartItem1 and mockTestCartItem2
+      mockPrisma.cart.findUnique.mockResolvedValueOnce(mockTestMultiItemCart);
+
+      mockPrisma.product.findUnique.mockResolvedValueOnce(mockTestProduct1);
+
+      // Only item 1 is ordered: 2 * $100 = $200, Tax = $20, Total = $220
+      mockPrisma.order.create.mockResolvedValueOnce({
+        id: 'order_partial_1',
+        orderNumber: 'ORD-PARTIAL-001',
+        userId: TEST_USER_ID,
+        status: 'IN_PROGRESS',
+        subTotal: 200.0,
+        tax: 20.0,
+        totalAmount: 220.0
+      });
+      mockPrisma.productVariant.findUnique.mockResolvedValueOnce({ stock: 10 });
+      mockPrisma.productVariant.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockPrisma.orderItem.create.mockResolvedValueOnce({ id: 'item_1' });
+      mockPrisma.payment.create.mockResolvedValueOnce({
+        id: 'payment_partial_1',
+        attemptCount: 1,
+        amount: 220.0
+      });
+      mockPrisma.cartItem.deleteMany.mockResolvedValueOnce({ count: 1 });
+      mockPrisma.payment.update.mockResolvedValueOnce({ id: 'payment_partial_1' });
+
+      const result = await createCheckoutPaymentIntentServer({
+        userId: TEST_USER_ID,
+        itemIds: [mockTestCartItem1.id],
+        expectedTotal: 220.0
+      });
+
+      expect(result.success).toBe(true);
+      expect(mockPrisma.cartItem.deleteMany).toHaveBeenCalledWith({
+        where: {
+          cartId: 'cart_test_1',
+          id: { in: [mockTestCartItem1.id] }
+        }
+      });
     });
   });
 

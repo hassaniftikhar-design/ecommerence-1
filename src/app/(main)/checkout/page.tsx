@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useSession } from 'next-auth/react';
 import { Elements } from '@stripe/react-stripe-js';
@@ -30,11 +30,13 @@ import {
 import { getStripe } from '@/lib/stripe/stripe-client';
 import { getCart, placeOrder, PriceChangedError } from '@/services/cart.service';
 import { getSavedPaymentMethods } from '@/services/payment.service';
+import { getOrderById } from '@/services/order.service';
 import { getUserAddress, updateUserAddress } from '@/services/user.service';
 import { ROUTES } from '@/constants/routes';
 import { TAX_RATE } from '@/constants/generalconstants';
 import { OutOfStockModal } from '@/components/cart/out-of-stock-modal';
 import { CheckoutStripeForm } from '@/components/checkout/checkout-stripe-form';
+import { PaymentFailedModal } from '@/components/checkout/payment-failed-modal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -62,6 +64,9 @@ function computeTotals(items: CartItem[]): CartTotals {
 export default function CheckoutPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const retryOrderId = searchParams.get('orderId') || undefined;
+  const itemsParam = searchParams.get('items') || undefined;
 
   const isAuthenticated = status === 'authenticated';
 
@@ -101,6 +106,20 @@ export default function CheckoutPage() {
     isOpen: boolean;
     newTotal: number;
   }>({ isOpen: false, newTotal: 0 });
+  const [paymentFailedAlert, setPaymentFailedAlert] = useState<{
+    isOpen: boolean;
+    orderId: string;
+    orderNumber?: string;
+    errorMessage?: string;
+  }>({ isOpen: false, orderId: '' });
+
+  const formErrorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (formError && formErrorRef.current) {
+      formErrorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [formError]);
 
   const stripePromise = getStripe();
 
@@ -109,6 +128,53 @@ export default function CheckoutPage() {
     try {
       setLoading(true);
       setError(null);
+
+      if (retryOrderId) {
+        // Load existing order details for repayment (no duplicate orders)
+        const [orderData, cardsData, addressData] = await Promise.all([
+          getOrderById(retryOrderId),
+          getSavedPaymentMethods().catch(() => []),
+          getUserAddress().catch(() => null)
+        ]);
+
+        const orderItems: CartItem[] = orderData.products.map((p) => ({
+          id: p.id,
+          productId: p.productId || p.id,
+          variantId: p.variantId || undefined,
+          name: p.title,
+          price: p.price,
+          quantity: p.quantity,
+          stock: p.stock,
+          size: p.size,
+          imageUrl: p.imageUrl,
+          color: p.color,
+          totalPrice: p.price * p.quantity
+        }));
+
+        setItems(orderItems);
+        setSavedCards(cardsData);
+        setAddress(addressData);
+        setTotals({
+          subTotal: orderData.subTotal,
+          tax: orderData.tax,
+          total: orderData.amount
+        });
+
+        setFormData({
+          fullName: session?.user?.name || addressData?.name || '',
+          email: session?.user?.email || addressData?.email || '',
+          phone: addressData?.phone || '',
+          addressLine: addressData?.addressLine || '',
+          city: addressData?.city || '',
+          postalCode: addressData?.postalCode || '',
+          country: addressData?.country || 'United States'
+        });
+
+        setStep('payment');
+        setPaymentType('card');
+        return;
+      }
+
       const [cartData, cardsData, addressData] = await Promise.all([
         getCart(),
         getSavedPaymentMethods().catch(() => []),
@@ -120,8 +186,18 @@ export default function CheckoutPage() {
         return;
       }
 
-      // Check for out-of-stock items before allowing checkout
-      const outOfStockItem = cartData.items.find((item) => {
+      // Filter to selected items if specified in URL query
+      let checkoutItems = cartData.items;
+      if (itemsParam) {
+        const allowedIds = itemsParam.split(',').filter(Boolean);
+        const filtered = cartData.items.filter((item) => allowedIds.includes(item.id));
+        if (filtered.length > 0) {
+          checkoutItems = filtered;
+        }
+      }
+
+      // Check for out-of-stock items among selected checkout items
+      const outOfStockItem = checkoutItems.find((item) => {
         const available = item.stock ?? 0;
         return available === 0 || item.quantity > available;
       });
@@ -136,10 +212,10 @@ export default function CheckoutPage() {
         return;
       }
 
-      setItems(cartData.items);
+      setItems(checkoutItems);
       setSavedCards(cardsData);
       setAddress(addressData);
-      setTotals(computeTotals(cartData.items));
+      setTotals(computeTotals(checkoutItems));
 
       // Populate address form data
       setFormData({
@@ -156,7 +232,7 @@ export default function CheckoutPage() {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, router, session]);
+  }, [isAuthenticated, retryOrderId, itemsParam, router, session]);
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -186,28 +262,50 @@ export default function CheckoutPage() {
   const handleContinueToPayment = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.fullName.trim()) {
+    const trimmedName = formData.fullName.trim();
+    const trimmedPhone = formData.phone.trim();
+    const trimmedAddress = formData.addressLine.trim();
+    const trimmedCity = formData.city.trim();
+    const trimmedPostal = formData.postalCode.trim();
+    const trimmedCountry = formData.country.trim();
+
+    if (!trimmedName) {
       setFormError('Full Name is required');
       return;
     }
-    if (!formData.phone.trim()) {
+    if (!trimmedPhone) {
       setFormError('Phone Number is required');
       return;
     }
-    if (!formData.addressLine.trim()) {
+    if (!trimmedAddress) {
       setFormError('Street Address is required');
       return;
     }
-    if (!formData.city.trim()) {
+    if (!trimmedCity) {
       setFormError('City is required');
       return;
     }
-    if (!formData.postalCode.trim()) {
+    if (!trimmedPostal) {
       setFormError('Postal Code is required');
       return;
     }
-    if (!formData.country.trim()) {
+    if (!trimmedCountry) {
       setFormError('Country is required');
+      return;
+    }
+
+    const isAddressUnchanged =
+      address !== null &&
+      (address.name || session?.user?.name || '').trim() === trimmedName &&
+      (address.phone || '').trim() === trimmedPhone &&
+      (address.addressLine || '').trim() === trimmedAddress &&
+      (address.city || '').trim() === trimmedCity &&
+      (address.postalCode || '').trim() === trimmedPostal &&
+      (address.country || 'United States').trim() === trimmedCountry;
+
+    if (isAddressUnchanged) {
+      setStep('payment');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -216,12 +314,12 @@ export default function CheckoutPage() {
       setFormError(null);
 
       const updated = await updateUserAddress({
-        name: formData.fullName.trim(),
-        addressLine: formData.addressLine.trim(),
-        city: formData.city.trim(),
-        postalCode: formData.postalCode.trim(),
-        country: formData.country.trim(),
-        phone: formData.phone.trim()
+        name: trimmedName,
+        addressLine: trimmedAddress,
+        city: trimmedCity,
+        postalCode: trimmedPostal,
+        country: trimmedCountry,
+        phone: trimmedPhone
       });
 
       setAddress(updated);
@@ -386,7 +484,7 @@ export default function CheckoutPage() {
               </div>
 
               {formError && (
-                <div className="rounded-xl bg-red-50 p-3.5 text-xs font-semibold text-red-700 border border-red-200 flex items-start gap-2">
+                <div ref={formErrorRef} className="rounded-xl bg-red-50 p-3.5 text-xs font-semibold text-red-700 border border-red-200 flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
                   <span className="flex-1">{formError}</span>
                 </div>
@@ -759,9 +857,18 @@ export default function CheckoutPage() {
                       selectedItemIds={selectedItemIds}
                       totalAmount={totals.total}
                       savedCards={savedCards}
+                      existingOrderId={retryOrderId || paymentFailedAlert.orderId || undefined}
                       hasValidAddress={Boolean(formData.addressLine && formData.city)}
                       onBackToInfo={() => setStep('info')}
                       onAddressMissing={() => setStep('info')}
+                      onPaymentFailed={(failedOrderId, msg, orderNum) => {
+                        setPaymentFailedAlert({
+                          isOpen: true,
+                          orderId: failedOrderId,
+                          orderNumber: orderNum,
+                          errorMessage: msg
+                        });
+                      }}
                       onPriceChanged={(newTotal) => {
                         setPriceChangedAlert({ isOpen: true, newTotal });
                       }}
@@ -871,6 +978,32 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {/* Payment Failed Conflict / Retry Modal */}
+      <PaymentFailedModal
+        isOpen={paymentFailedAlert.isOpen}
+        orderId={paymentFailedAlert.orderId}
+        orderNumber={paymentFailedAlert.orderNumber}
+        errorMessage={paymentFailedAlert.errorMessage}
+        onRetryNow={() => {
+          const failedId = paymentFailedAlert.orderId;
+          setPaymentFailedAlert({ isOpen: false, orderId: '' });
+          if (!retryOrderId && failedId) {
+            router.replace(`${ROUTES.checkout}?orderId=${failedId}`);
+          }
+          setStep('payment');
+          setPaymentType('card');
+        }}
+        onPayLater={() => {
+          const targetOrderId = paymentFailedAlert.orderId || retryOrderId;
+          setPaymentFailedAlert({ isOpen: false, orderId: '' });
+          if (targetOrderId) {
+            router.push(ROUTES.orderDetail(targetOrderId));
+          } else {
+            router.push(ROUTES.orders);
+          }
+        }}
+      />
 
       {/* Price Changed Conflict Modal */}
       <PriceChangedModal
