@@ -84,9 +84,7 @@ describe('Pay Again & Payment Retry Suite', () => {
         mockStripePaymentIntentRequiresPaymentMethod
       );
 
-      // Re-reserve stock inside DB transaction because previous payment was FAILED
-      mockPrisma.productVariant.findUnique.mockResolvedValueOnce({ stock: 10 });
-      mockPrisma.productVariant.updateMany.mockResolvedValueOnce({ count: 1 });
+      // Status update to PENDING
       mockPrisma.payment.update.mockResolvedValueOnce({ id: TEST_PAYMENT_ID, status: 'PENDING' });
 
       const result = await getOrRefreshOrderPaymentIntentServer({
@@ -131,9 +129,7 @@ describe('Pay Again & Payment Retry Suite', () => {
         mockStripePaymentIntentCanceled
       );
 
-      // Stock re-reservation
-      mockPrisma.productVariant.findUnique.mockResolvedValueOnce({ stock: 10 });
-      mockPrisma.productVariant.updateMany.mockResolvedValueOnce({ count: 1 });
+      // Status update to PENDING
       mockPrisma.payment.update.mockResolvedValueOnce({ id: TEST_PAYMENT_ID, status: 'PENDING' });
 
       // Atomic attempt claim succeeds: increments attemptCount to 2
@@ -341,10 +337,11 @@ describe('Pay Again & Payment Retry Suite', () => {
   });
 
   /* -------------------------------------------------------------------------- */
-  /* STEP 18: PAY AGAIN OUT OF STOCK                                            */
   /* -------------------------------------------------------------------------- */
-  describe('Step 18: Pay Again Out of Stock Validation', () => {
-    it('rejects Pay Again with 400 OUT_OF_STOCK when remaining stock is less than order quantity', async () => {
+  /* STEP 18: PAY AGAIN INACTIVE PRODUCT VALIDATION                             */
+  /* -------------------------------------------------------------------------- */
+  describe('Step 18: Pay Again Inactive Product Validation', () => {
+    it('rejects Pay Again with 400 INACTIVE_PRODUCT when product is inactive', async () => {
       mockPrisma.order.findUnique.mockResolvedValueOnce({
         ...mockTestOrder,
         items: [
@@ -352,8 +349,8 @@ describe('Pay Again & Payment Retry Suite', () => {
             ...mockTestOrderItem1,
             quantity: 2,
             price: new Decimal(100.00),
-            product: { id: mockTestProduct1.id, name: mockTestProduct1.name, price: new Decimal(100.00), isActive: true },
-            variant: { id: mockTestVariant1.id, stock: 1 } // Only 1 in stock, requested 2
+            product: { id: mockTestProduct1.id, name: mockTestProduct1.name, price: new Decimal(100.00), isActive: false },
+            variant: { id: mockTestVariant1.id, stock: 10 }
           }
         ],
         payment: {
@@ -364,9 +361,6 @@ describe('Pay Again & Payment Retry Suite', () => {
         user: mockTestUser
       });
 
-      mockPrisma.productVariant.findUnique.mockResolvedValueOnce({ stock: 1 });
-      mockPrisma.productVariant.updateMany.mockResolvedValueOnce({ count: 0 }); // Conditional reservation fails
-
       const result = await getOrRefreshOrderPaymentIntentServer({
         orderId: TEST_ORDER_ID,
         userId: TEST_USER_ID
@@ -374,23 +368,16 @@ describe('Pay Again & Payment Retry Suite', () => {
 
       expect(result.success).toBe(false);
       expect(result.status).toBe(400);
-      expect(result.errors).toContain('OUT_OF_STOCK');
-      expect(result.data).toEqual(
-        expect.objectContaining({
-          outOfStockItem: mockTestOrderItem1.title,
-          availableStock: 1,
-          requestedQty: 2
-        })
-      );
+      expect(result.errors).toContain('INACTIVE_PRODUCT');
       expect(stripe.paymentIntents.create).not.toHaveBeenCalled();
     });
   });
 
   /* -------------------------------------------------------------------------- */
-  /* STEP 19 & 20: STOCK RE-RESERVATION & CONCURRENT RETRY CLAIM                */
+  /* STEP 19 & 20: STOCK PRESERVATION & CONCURRENT RETRY CLAIM                  */
   /* -------------------------------------------------------------------------- */
-  describe('Step 19 & 20: Stock Re-Reservation & Atomic Concurrent Retry Claim', () => {
-    it('re-reserves stock atomically inside DB transaction when payment was previously FAILED', async () => {
+  describe('Step 19 & 20: Stock Preservation & Atomic Concurrent Retry Claim', () => {
+    it('keeps stock held and resets payment status to PENDING when payment was previously FAILED', async () => {
       mockPrisma.order.findUnique.mockResolvedValueOnce({
         ...mockTestOrder,
         items: [
@@ -411,8 +398,6 @@ describe('Pay Again & Payment Retry Suite', () => {
         user: mockTestUser
       });
 
-      mockPrisma.productVariant.findUnique.mockResolvedValueOnce({ stock: 10 });
-      mockPrisma.productVariant.updateMany.mockResolvedValueOnce({ count: 1 });
       mockPrisma.payment.update.mockResolvedValueOnce({ id: TEST_PAYMENT_ID, status: 'PENDING' });
 
       (stripe.paymentIntents.create as jest.Mock).mockResolvedValueOnce({
@@ -431,17 +416,7 @@ describe('Pay Again & Payment Retry Suite', () => {
       });
 
       expect(result.success).toBe(true);
-
-      // Verify stock was decremented during re-reservation
-      expect(mockPrisma.productVariant.updateMany).toHaveBeenCalledWith({
-        where: {
-          id: mockTestVariant1.id,
-          stock: { gte: 2 }
-        },
-        data: {
-          stock: { decrement: 2 }
-        }
-      });
+      expect(mockPrisma.productVariant.updateMany).not.toHaveBeenCalled();
     });
 
     it('safely handles concurrent retry attempts using atomic claim count', async () => {
@@ -466,8 +441,6 @@ describe('Pay Again & Payment Retry Suite', () => {
         mockStripePaymentIntentCanceled
       );
 
-      mockPrisma.productVariant.findUnique.mockResolvedValueOnce({ stock: 10 });
-      mockPrisma.productVariant.updateMany.mockResolvedValueOnce({ count: 1 });
       mockPrisma.payment.update.mockResolvedValueOnce({ id: TEST_PAYMENT_ID, status: 'PENDING' });
 
       // Request B loses race: updateMany count is 0 because Request A already incremented attemptCount
@@ -541,8 +514,6 @@ describe('Pay Again & Payment Retry Suite', () => {
         mockStripePaymentIntentRequiresPaymentMethod
       );
 
-      mockPrisma.productVariant.findUnique.mockResolvedValueOnce({ stock: 10 });
-      mockPrisma.productVariant.updateMany.mockResolvedValueOnce({ count: 1 });
       mockPrisma.payment.update.mockResolvedValueOnce({ id: TEST_PAYMENT_ID, status: 'PENDING' });
 
       const request = createTestRequest(`http://localhost:3000/api/orders/${TEST_ORDER_ID}/payment-intent`, {

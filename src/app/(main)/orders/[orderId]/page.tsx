@@ -9,6 +9,7 @@ import { AlertCircle, ArrowLeft, RotateCcw, XCircle } from 'lucide-react';
 
 import { BackHeading } from '@/components/common/back-heading';
 import { OrderProductsTable } from '@/components/orders/order-products-table';
+import { renderStatusBadge, renderPaymentStatusBadge } from '@/components/orders/orders-table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { getOrderById, retryOrderPayment } from '@/services/order.service';
@@ -67,7 +68,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
       }
 
       await retryOrderPayment(order);
-      router.push(ROUTES.checkout);
+      router.push(`${ROUTES.checkout}?orderId=${order.id}`);
     } catch (err: unknown) {
       const errorObj = err as { errors?: string[]; data?: { newTotal?: number; currentPrice?: number }; message?: string };
 
@@ -93,13 +94,15 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
       }
 
       console.error('Failed to prepare retry payment:', err);
-      router.push(ROUTES.checkout);
+      router.push(`${ROUTES.checkout}?orderId=${order.id}`);
     } finally {
       setRetrying(false);
     }
   };
 
-  const isPaymentFailed = order?.payment?.status === 'FAILED';
+  const isPaymentFailed =
+    order?.payment?.status === 'FAILED' ||
+    (order?.payment?.status === 'PENDING' && order?.status === 'IN_PROGRESS');
 
   return (
     <div className="space-y-6 mx-auto px-2 sm:px-4 md:px-[56px] lg:px-[60px] pb-12">
@@ -217,23 +220,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
               <div className="px-2 sm:px-4 space-y-1 pt-3 sm:pt-0">
                 <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">STATUS</p>
                 <div className="pt-0.5">
-                  {order.status === 'IN_PROGRESS' ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-[#007BFF] border border-blue-200">
-                      IN PROGRESS
-                    </span>
-                  ) : order.status === 'DISPATCHED' ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-50 text-purple-600 border border-purple-200">
-                      DISPATCHED
-                    </span>
-                  ) : order.status === 'DELIVERED' ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      DELIVERED
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200">
-                      REJECTED
-                    </span>
-                  )}
+                  {renderStatusBadge(order.status)}
                 </div>
               </div>
 
@@ -291,30 +278,12 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                   <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                     PAYMENT STATUS:
                   </span>
-                  {order.payment?.status === 'FAILED' ? (
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-600 border border-rose-200">
-                        FAILED
-                      </span>
-                      {/* <Button
-                        onClick={handleRetryPayment}
-                        disabled={retrying}
-                        size="sm"
-                        className="bg-[#007BFF] hover:bg-blue-600 text-white font-semibold text-[11px] h-6 px-2.5 rounded-md flex items-center gap-1 cursor-pointer"
-                      >
-                        <RotateCcw className={cn('h-3 w-3', retrying && 'animate-spin')} />
-                        Retry
-                      </Button> */}
-                    </div>
-                  ) : order.payment?.status === 'SUCCEEDED' ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      PAID
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
-                      {order.payment?.status || 'PENDING'}
-                    </span>
-                  )}
+                  <div>
+                    {renderPaymentStatusBadge(
+                      order.payment?.status,
+                      order.payment ? 'Card' : order.paymentMethod
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

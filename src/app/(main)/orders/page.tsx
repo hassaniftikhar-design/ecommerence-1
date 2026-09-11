@@ -71,6 +71,7 @@ export default function OrdersPage() {
               <Skeleton className="h-4 w-12" />
               <Skeleton className="h-4 w-16" />
               <Skeleton className="h-6 w-20 rounded-md" />
+              <Skeleton className="h-6 w-16 rounded-md" />
               <Skeleton className="h-6 w-6 rounded-full" />
             </div>
           ))}

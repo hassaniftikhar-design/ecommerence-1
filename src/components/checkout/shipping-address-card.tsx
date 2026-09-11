@@ -83,6 +83,19 @@ export function ShippingAddressCard({
       return;
     }
 
+    const isAddressUnchanged =
+      Boolean(address) &&
+      (address?.addressLine || '').trim() === formData.addressLine.trim() &&
+      (address?.city || '').trim() === formData.city.trim() &&
+      (address?.postalCode || '').trim() === formData.postalCode.trim() &&
+      (address?.country || '').trim() === formData.country.trim() &&
+      (address?.phone || '').trim() === formData.phone.trim();
+
+    if (isAddressUnchanged) {
+      setIsEditing(false);
+      return;
+    }
+
     try {
       setSaving(true);
       setFormError(null);

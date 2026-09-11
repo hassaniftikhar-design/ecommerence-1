@@ -14,6 +14,10 @@ import {
   TableRow
 } from '@/components/ui/table';
 import { ROUTES } from '@/constants/routes';
+import {
+  getOrderStatusDetails,
+  getPaymentStatusDetails
+} from '@/constants/payment-status';
 import type { OrderListItem, OrderStatusType } from '@/types/order.types';
 import type { PaymentStatus } from '@/types/payment.types';
 import { cn } from '@/lib/utils';
@@ -23,32 +27,8 @@ interface OrdersTableProps {
   onSelectOrder?: (orderId: string) => void;
 }
 
-export function renderStatusBadge(status: OrderStatusType) {
-  let label = 'In Progress';
-  let badgeStyle = 'bg-[#F59E0B] text-white';
-
-  switch (status) {
-    case 'DELIVERED':
-      label = 'Delivered';
-      badgeStyle = 'bg-[#22C55E] text-white';
-      break;
-    case 'IN_PROGRESS':
-      label = 'In Progress';
-      badgeStyle = 'bg-[#F59E0B] text-white';
-      break;
-    case 'DISPATCHED':
-      label = 'Dispatched';
-      badgeStyle = 'bg-[#007BFF] text-white';
-      break;
-    case 'REJECTED':
-      label = 'Rejected';
-      badgeStyle = 'bg-[#EF4444] text-white';
-      break;
-    default:
-      label = 'In Progress';
-      badgeStyle = 'bg-[#F59E0B] text-white';
-  }
-
+export function renderStatusBadge(status: OrderStatusType | string) {
+  const { label, badgeStyle } = getOrderStatusDetails(status);
   return (
     <span
       className={cn(
@@ -63,51 +43,9 @@ export function renderStatusBadge(status: OrderStatusType) {
 
 export function renderPaymentStatusBadge(
   status?: PaymentStatus | string | null,
-  paymentMethod?: string
+  paymentMethod?: string | null
 ) {
-  let label = 'Pending';
-  let badgeStyle = 'bg-amber-50 text-amber-700 border-amber-200';
-
-  if (!status) {
-    if (paymentMethod === 'Cash on Delivery' || paymentMethod === 'COD') {
-      label = 'Pending (COD)';
-      badgeStyle = 'bg-amber-50 text-amber-700 border-amber-200';
-    } else {
-      label = 'Pending';
-      badgeStyle = 'bg-amber-50 text-amber-700 border-amber-200';
-    }
-  } else {
-    switch (status) {
-      case 'SUCCEEDED':
-        label = 'Paid';
-        badgeStyle = 'bg-emerald-50 text-emerald-700 border-emerald-200';
-        break;
-      case 'PENDING':
-        label = paymentMethod === 'Cash on Delivery' ? 'Pending (COD)' : 'Pending';
-        badgeStyle = 'bg-amber-50 text-amber-700 border-amber-200';
-        break;
-      case 'PROCESSING':
-        label = 'Processing';
-        badgeStyle = 'bg-blue-50 text-blue-700 border-blue-200';
-        break;
-      case 'FAILED':
-        label = 'Failed';
-        badgeStyle = 'bg-red-50 text-red-700 border-red-200';
-        break;
-      case 'REFUNDED':
-        label = 'Refunded';
-        badgeStyle = 'bg-purple-50 text-purple-700 border-purple-200';
-        break;
-      case 'PARTIALLY_REFUNDED':
-        label = 'Partial Refund';
-        badgeStyle = 'bg-indigo-50 text-indigo-700 border-indigo-200';
-        break;
-      default:
-        label = String(status);
-        badgeStyle = 'bg-slate-50 text-slate-700 border-slate-200';
-    }
-  }
-
+  const { label, badgeStyle } = getPaymentStatusDetails(status, paymentMethod);
   return (
     <span
       className={cn(
@@ -141,13 +79,14 @@ export function OrdersTable({ orders, onSelectOrder }: OrdersTableProps) {
             <TableHead className="font-semibold text-slate-600 text-xs py-3.5">Number of Product(s)</TableHead>
             <TableHead className="font-semibold text-slate-600 text-xs py-3.5">Amount</TableHead>
             <TableHead className="font-semibold text-slate-600 text-xs py-3.5">Order Status</TableHead>
+            <TableHead className="font-semibold text-slate-600 text-xs py-3.5">Payment Status</TableHead>
             <TableHead className="font-semibold text-slate-600 text-xs py-3.5 text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {orders.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="h-32 text-center text-slate-400 text-xs">
+              <TableCell colSpan={7} className="h-32 text-center text-slate-400 text-xs">
                 No orders found.
               </TableCell>
             </TableRow>
@@ -163,6 +102,7 @@ export function OrdersTable({ orders, onSelectOrder }: OrdersTableProps) {
                 <TableCell className="text-slate-700 text-xs font-medium py-3.5">{order.productsCount}</TableCell>
                 <TableCell className="text-slate-700 text-xs font-medium py-3.5">${order.amount.toFixed(2)}</TableCell>
                 <TableCell className="py-3.5">{renderStatusBadge(order.status)}</TableCell>
+                <TableCell className="py-3.5">{renderPaymentStatusBadge(order.paymentStatus, order.paymentMethod)}</TableCell>
                 <TableCell className="py-3.5 text-right">
                   {onSelectOrder ? (
                     <button

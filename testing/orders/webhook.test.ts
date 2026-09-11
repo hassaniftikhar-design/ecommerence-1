@@ -27,6 +27,10 @@ import {
 import {
   TEST_USER_ID
 } from '../fixtures/user.fixtures';
+import {
+  mockTestCartItem1,
+  mockTestCartItem2
+} from '../fixtures/cart.fixtures';
 import { createTestRequest } from '../helpers/request.helper';
 
 // Mock next/headers
@@ -87,10 +91,11 @@ describe('Stripe Webhook Suite', () => {
         ...mockTestPaymentSucceeded
       });
 
-      // 4. Cart lookup and deletion
+      // 4. Cart lookup and deletion (only ordered items matching the order)
       mockPrisma.cart.findUnique.mockResolvedValueOnce({
         id: 'cart_test_1',
-        userId: TEST_USER_ID
+        userId: TEST_USER_ID,
+        items: [mockTestCartItem1]
       });
       mockPrisma.cartItem.deleteMany.mockResolvedValueOnce({ count: 1 });
 
@@ -124,9 +129,12 @@ describe('Stripe Webhook Suite', () => {
         })
       });
 
-      // Verify cart was cleared
+      // Verify only matching ordered cart items were removed
       expect(mockPrisma.cartItem.deleteMany).toHaveBeenCalledWith({
-        where: { cartId: 'cart_test_1' }
+        where: {
+          cartId: 'cart_test_1',
+          id: { in: ['cart_item_test_1'] }
+        }
       });
 
       // Verify notification was generated
@@ -141,6 +149,61 @@ describe('Stripe Webhook Suite', () => {
       // CRITICAL: Verify stock was NOT deducted again (stock was already deducted upon checkout)
       expect(mockPrisma.productVariant.updateMany).not.toHaveBeenCalled();
       expect(mockPrisma.order.create).not.toHaveBeenCalled();
+    });
+
+    it('only clears items in cart that match the order items, preserving non-ordered or newly added cart items', async () => {
+      const mockEvent = createMockStripeWebhookEvent(
+        'payment_intent.succeeded',
+        mockStripePaymentIntentSucceeded
+      );
+
+      (stripe.webhooks.constructEvent as jest.Mock).mockReturnValueOnce(mockEvent);
+
+      mockPrisma.stripeWebhookEvent.create.mockResolvedValueOnce({
+        id: mockEvent.id,
+        type: mockEvent.type,
+        processedAt: new Date()
+      });
+
+      // Order contains only mockTestOrderItem1 (product 1, variant 1)
+      mockPrisma.payment.findUnique.mockResolvedValueOnce({
+        ...mockTestPaymentPending,
+        order: mockTestOrder
+      });
+
+      mockPrisma.payment.update.mockResolvedValueOnce({
+        ...mockTestPaymentSucceeded
+      });
+
+      // Cart contains mockTestCartItem1 (ordered) AND mockTestCartItem2 (not ordered / newly added)
+      mockPrisma.cart.findUnique.mockResolvedValueOnce({
+        id: 'cart_test_1',
+        userId: TEST_USER_ID,
+        items: [mockTestCartItem1, mockTestCartItem2]
+      });
+      mockPrisma.cartItem.deleteMany.mockResolvedValueOnce({ count: 1 });
+
+      mockPrisma.notification.create.mockResolvedValueOnce({
+        id: 'notif_1',
+        userId: TEST_USER_ID
+      });
+
+      const request = createTestRequest('http://localhost:3000/api/webhooks/stripe', {
+        method: 'POST',
+        body: JSON.stringify(mockEvent),
+        headers: { 'stripe-signature': 'test_stripe_sig_header_valid' }
+      });
+
+      const response = await stripeWebhookHandler(request);
+      expect(response.status).toBe(200);
+
+      // Verify ONLY mockTestCartItem1 is deleted, mockTestCartItem2 is preserved
+      expect(mockPrisma.cartItem.deleteMany).toHaveBeenCalledWith({
+        where: {
+          cartId: 'cart_test_1',
+          id: { in: ['cart_item_test_1'] }
+        }
+      });
     });
 
     it('saves card for future use when metadata contains saveCardForFuture: "true"', async () => {
@@ -197,8 +260,8 @@ describe('Stripe Webhook Suite', () => {
   /* -------------------------------------------------------------------------- */
   /* STEP 11 & 12: PAYMENT FAILED & STOCK RESTORATION                          */
   /* -------------------------------------------------------------------------- */
-  describe('Step 11 & 12: Webhook payment_intent.payment_failed & Stock Restoration', () => {
-    it('sets Payment to FAILED, keeps Order IN_PROGRESS for Pay Again, restores reserved stock once, and stores friendly decline message', async () => {
+  describe('Step 11 & 12: Webhook payment_intent.payment_failed & Stock Reservation Preservation', () => {
+    it('sets Payment to FAILED, keeps Order IN_PROGRESS for Pay Again, preserves reserved stock for user order, and stores friendly decline message', async () => {
       const mockEvent = createMockStripeWebhookEvent(
         'payment_intent.payment_failed',
         mockStripePaymentIntentFailed
@@ -223,8 +286,6 @@ describe('Stripe Webhook Suite', () => {
         ...mockTestPaymentFailed
       });
 
-      mockPrisma.productVariant.findFirst.mockResolvedValue(null);
-      mockPrisma.productVariant.update.mockResolvedValueOnce({ id: mockTestOrderItem1.variantId });
       mockPrisma.notification.create.mockResolvedValueOnce({ id: 'notif_failed' });
 
       const request = createTestRequest('http://localhost:3000/api/webhooks/stripe', {
@@ -253,14 +314,8 @@ describe('Stripe Webhook Suite', () => {
         })
       );
 
-      // Verify reserved stock was restored back to productVariant
-      expect(mockPrisma.$transaction).toHaveBeenCalled();
-      expect(mockPrisma.productVariant.update).toHaveBeenCalledWith({
-        where: { id: mockTestOrderItem1.variantId },
-        data: {
-          stock: { increment: mockTestOrderItem1.quantity }
-        }
-      });
+      // Stock remains reserved for user order (not released immediately)
+      expect(mockPrisma.productVariant.update).not.toHaveBeenCalled();
 
       // Verify failure notification was created
       expect(mockPrisma.notification.create).toHaveBeenCalledWith({
@@ -272,7 +327,7 @@ describe('Stripe Webhook Suite', () => {
       });
     });
 
-    it('does NOT restore stock a second time if Payment is already marked FAILED', async () => {
+    it('does NOT update payment a second time if Payment is already marked FAILED', async () => {
       const mockEvent = createMockStripeWebhookEvent(
         'payment_intent.payment_failed',
         mockStripePaymentIntentFailed,
@@ -300,8 +355,6 @@ describe('Stripe Webhook Suite', () => {
 
       const response = await stripeWebhookHandler(request);
       expect(response.status).toBe(200);
-
-      // Stock restoration should NOT execute when payment is already FAILED
       expect(mockPrisma.productVariant.update).not.toHaveBeenCalled();
     });
   });

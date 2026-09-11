@@ -1,12 +1,8 @@
 import type { OrderDetail } from '@/types/order.types';
-
-interface Field {
-  label: string;
-  value: string;
-}
+import { renderPaymentStatusBadge, renderStatusBadge } from '@/components/orders/orders-table';
 
 export function OrderSummaryFields({ order }: { order: OrderDetail }) {
-  const fields: Field[] = [
+  const fields = [
     { label: 'Date', value: order.date },
     { label: 'Order #', value: order.orderNumber },
     { label: 'User', value: order.user },
@@ -26,6 +22,20 @@ export function OrderSummaryFields({ order }: { order: OrderDetail }) {
           </dd>
         </div>
       ))}
+      <div className="min-w-[90px]">
+        <dt className="mb-1 text-xs text-slate-400 font-normal">Order Status</dt>
+        <dd className="pt-0.5">{renderStatusBadge(order.status)}</dd>
+      </div>
+      <div className="min-w-[90px]">
+        <dt className="mb-1 text-xs text-slate-400 font-normal">Payment Status</dt>
+        <dd className="pt-0.5">
+          {renderPaymentStatusBadge(
+            order.payment?.status,
+            order.payment ? 'Card' : order.paymentMethod
+          )}
+        </dd>
+      </div>
     </dl>
   );
 }
+

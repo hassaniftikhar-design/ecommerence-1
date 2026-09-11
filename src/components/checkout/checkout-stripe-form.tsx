@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 import {
   PaymentElement,
@@ -11,7 +11,7 @@ import { AlertCircle, Lock, ShieldCheck } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { createCheckoutIntent } from '@/services/payment.service';
+import { createCheckoutIntent, getOrderPaymentIntent } from '@/services/payment.service';
 import { getFriendlyPaymentErrorMessage } from '@/lib/stripe/errors';
 
 import type { SavedPaymentMethod } from '@/types/payment.types';
@@ -22,11 +22,13 @@ interface CheckoutStripeFormProps {
   selectedItemIds: string[];
   totalAmount: number;
   savedCards: SavedPaymentMethod[];
+  existingOrderId?: string;
   hasValidAddress?: boolean;
   onAddressMissing?: () => void;
   onOrderPlaced?: (orderId: string) => void;
   onPriceChanged?: (newTotal: number) => void;
   onOutOfStock?: (message: string) => void;
+  onPaymentFailed?: (orderId: string, errorMessage: string, orderNumber?: string) => void;
   onBackToInfo?: () => void;
 }
 
@@ -34,10 +36,12 @@ export function CheckoutStripeForm({
   selectedItemIds,
   totalAmount,
   savedCards,
+  existingOrderId,
   hasValidAddress = true,
   onAddressMissing,
   onPriceChanged,
   onOutOfStock,
+  onPaymentFailed,
   onBackToInfo
 }: CheckoutStripeFormProps) {
   const stripe = useStripe();
@@ -50,6 +54,14 @@ export function CheckoutStripeForm({
   const [saveCardForFuture, setSaveCardForFuture] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const errorBannerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (errorMessage && errorBannerRef.current) {
+      errorBannerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [errorMessage]);
 
   const idempotencyKeyRef = useRef<string>(
     typeof crypto !== 'undefined' && crypto.randomUUID
@@ -76,6 +88,9 @@ export function CheckoutStripeForm({
       return;
     }
 
+    let activeOrderId: string | undefined = existingOrderId;
+    let activeOrderNumber: string | undefined;
+
     try {
       setLoading(true);
       setErrorMessage(null);
@@ -91,16 +106,38 @@ export function CheckoutStripeForm({
         }
       }
 
-      // 1. Create PaymentIntent on the backend (atomically creates Order and reserves stock in DB first)
-      const intentResponse = await createCheckoutIntent({
-        itemIds: selectedItemIds,
-        expectedTotal: totalAmount,
-        savedPaymentMethodId: selectedCardId !== 'new' ? selectedCardId : undefined,
-        saveCardForFuture: selectedCardId === 'new' ? saveCardForFuture : false,
-        idempotencyKey: idempotencyKeyRef.current
-      });
+      let clientSecret: string;
+      let orderId: string;
+      let orderNumber: string | undefined;
 
-      const { clientSecret, orderId } = intentResponse;
+      if (existingOrderId) {
+        // Re-use existing order to avoid creating duplicate orders in database
+        const orderIntent = await getOrderPaymentIntent(
+          existingOrderId,
+          selectedCardId !== 'new' ? selectedCardId : undefined
+        );
+        clientSecret = orderIntent.clientSecret;
+        orderId = orderIntent.orderId;
+        orderNumber = orderIntent.orderNumber;
+      } else {
+        // 1. Create PaymentIntent on backend (atomically creates Order and reserves stock in DB)
+        const intentResponse = await createCheckoutIntent({
+          itemIds: selectedItemIds,
+          expectedTotal: totalAmount,
+          savedPaymentMethodId: selectedCardId !== 'new' ? selectedCardId : undefined,
+          saveCardForFuture: selectedCardId === 'new' ? saveCardForFuture : false,
+          idempotencyKey: idempotencyKeyRef.current
+        });
+        clientSecret = intentResponse.clientSecret;
+        orderId = intentResponse.orderId;
+        orderNumber = intentResponse.orderNumber;
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('cart-updated'));
+        }
+      }
+
+      activeOrderId = orderId;
+      activeOrderNumber = orderNumber;
 
       // 2. Confirm Payment with Stripe
       const returnUrl = `${window.location.origin}/orders/${orderId}/payment-status`;
@@ -116,17 +153,34 @@ export function CheckoutStripeForm({
         });
       } else {
         // Confirming with existing saved card
-        confirmResult = await stripe.confirmPayment({
-          clientSecret,
-          confirmParams: {
-            return_url: returnUrl
-          }
-        });
+        const selectedCard = savedCards.find((c) => c.id === selectedCardId);
+        const stripePmId = selectedCard?.stripePaymentMethodId || (selectedCardId !== 'new' ? selectedCardId : undefined);
+
+        if (!stripePmId && elements) {
+          confirmResult = await stripe.confirmPayment({
+            elements,
+            clientSecret,
+            confirmParams: {
+              return_url: returnUrl
+            }
+          });
+        } else {
+          confirmResult = await stripe.confirmPayment({
+            clientSecret,
+            confirmParams: {
+              return_url: returnUrl,
+              ...(stripePmId ? { payment_method: stripePmId } : {})
+            }
+          });
+        }
       }
 
       if (confirmResult.error) {
         const { friendlyMessage } = getFriendlyPaymentErrorMessage(confirmResult.error);
         setErrorMessage(friendlyMessage);
+        if (activeOrderId) {
+          onPaymentFailed?.(activeOrderId, friendlyMessage, activeOrderNumber);
+        }
       }
     } catch (err: unknown) {
       const errorObj = err as { errors?: string[]; data?: { newTotal?: number }; message?: string };
@@ -148,16 +202,21 @@ export function CheckoutStripeForm({
 
       // If it's a backend API error with a descriptive message, show the backend message
       const stripeErr = typeof err === 'object' && err !== null ? (err as { type?: string; decline_code?: string }) : null;
+      let displayMessage = '';
       if (
         errorObj?.message &&
         !(stripeErr?.type === 'card_error' || stripeErr?.decline_code)
       ) {
-        setErrorMessage(errorObj.message);
-        return;
+        displayMessage = errorObj.message;
+      } else {
+        const { friendlyMessage } = getFriendlyPaymentErrorMessage(err);
+        displayMessage = friendlyMessage;
       }
 
-      const { friendlyMessage } = getFriendlyPaymentErrorMessage(err);
-      setErrorMessage(friendlyMessage);
+      setErrorMessage(displayMessage);
+      if (activeOrderId) {
+        onPaymentFailed?.(activeOrderId, displayMessage, activeOrderNumber);
+      }
     } finally {
       setLoading(false);
     }
@@ -166,7 +225,7 @@ export function CheckoutStripeForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {errorMessage && (
-        <div className="rounded-xl bg-red-50 p-3.5 text-xs font-semibold text-red-700 border border-red-200 flex items-start gap-2.5 shadow-2xs">
+        <div ref={errorBannerRef} className="rounded-xl bg-red-50 p-3.5 text-xs font-semibold text-red-700 border border-red-200 flex items-start gap-2.5 shadow-2xs">
           <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
           <span className="flex-1 leading-snug">{errorMessage}</span>
         </div>
