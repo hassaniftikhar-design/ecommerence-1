@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { QuantitySelector } from '@/components/home/quantity-selector';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
+import { getValidImageUrl } from '@/lib/image-util';
 import type { CartItem } from '@/types/cart.types';
 
 interface CartItemRowProps {
@@ -40,7 +41,7 @@ export function CartItemRow({
           />
           <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-50">
             <Image
-              src={item.imageUrl}
+              src={getValidImageUrl(item.imageUrl)}
               alt={item.name}
               fill
               className="object-cover"
