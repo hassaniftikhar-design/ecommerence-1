@@ -318,3 +318,64 @@ model StripeWebhookEvent {
   processedAt DateTime @default(now())
 }
 
+model EmailEvent {
+  id           String    @id @default(cuid())
+  order_id     String?
+  event_type   String
+  recipient    String
+  status       String    @default("PENDING")
+  attempts     Int       @default(1)
+  sent_at      DateTime?
+  error_message String?  @db.Text
+
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  @@unique([order_id, event_type], name: "uq_email_events_order_event")
+  @@index([order_id, event_type])
+  @@map("email_events")
+}
+
+model ImportJob {
+  id               String       @id @default(cuid())
+  filename         String?
+  csv_reference    String?
+  images_reference String?
+  total_items      Int          @default(0)
+  processed_items  Int          @default(0)
+  successful_items Int          @default(0)
+  failed_items     Int          @default(0)
+  status           String       @default("QUEUED")
+  created_by_id    String
+
+  created_at       DateTime     @default(now())
+  updated_at       DateTime     @updatedAt
+  started_at       DateTime?
+  completed_at     DateTime?
+
+  items            ImportItem[]
+
+  @@map("import_jobs")
+}
+
+model ImportItem {
+  id                String    @id @default(cuid())
+  job_id            String
+  job               ImportJob @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  row_index         Int
+  raw_data          Json
+  status            String    @default("PENDING")
+  error_type        String?
+  error_message     String?   @db.Text
+  product_id        String?
+  resolution_status String    @default("PENDING")
+  resolved_at       DateTime?
+
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  @@index([job_id, status])
+  @@index([job_id, resolution_status])
+  @@map("import_items")
+}
+
