@@ -11,7 +11,6 @@ export const PRODUCT_FETCH_BATCH_SIZE = 10;
 export const PRODUCT_RENDER_WINDOW_SIZE = 12;
 export const PRODUCT_CACHE_SIZE = 100;
 export const PRODUCT_CACHE_MAX_PAGES = Math.floor(PRODUCT_CACHE_SIZE / PRODUCT_FETCH_BATCH_SIZE); // 10 pages
-export const BULK_IMPORT_BATCH_SIZE = 50; // Staged review & import batch size
 
 // Responsive Grid Virtualization Geometry Constants
 export const PRODUCT_ESTIMATED_ROW_HEIGHT_PX = 420;
