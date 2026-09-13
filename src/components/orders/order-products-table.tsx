@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/table';
 import type { OrderProductLine } from '@/types/order.types';
 import { VariantBadge } from '@/components/common/variant-badge';
+import { getValidImageUrl } from '@/lib/image-util';
 
 interface GroupedProductOrder {
   key: string;
@@ -105,10 +106,7 @@ export function OrderProductsTable({
                       <div className="flex items-center gap-3">
                         <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded border border-slate-200 bg-slate-50">
                           <Image
-                            src={
-                              group.imageUrl ||
-                              '/placeholder-product.png'
-                            }
+                            src={getValidImageUrl(group.imageUrl)}
                             alt={group.title}
                             fill
                             className="object-cover"
