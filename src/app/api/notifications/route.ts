@@ -19,8 +19,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1', 10);
     const limit = parseInt(searchParams.get('limit') || '10', 10);
+    const type = searchParams.get('type') || undefined;
 
-    const data = await getNotificationsServer(userId, page, limit);
+    const data = await getNotificationsServer(userId, page, limit, type);
     return apiSuccess('Notifications retrieved successfully', data);
   } catch (error) {
     return apiError('Failed to fetch notifications', [(error as Error).message], 500);
