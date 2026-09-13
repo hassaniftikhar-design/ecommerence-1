@@ -33,6 +33,7 @@ import { getSavedPaymentMethods } from '@/services/payment.service';
 import { getOrderById } from '@/services/order.service';
 import { getUserAddress, updateUserAddress } from '@/services/user.service';
 import { ROUTES } from '@/constants/routes';
+import { getValidImageUrl } from '@/lib/image-util';
 import { TAX_RATE } from '@/constants/generalconstants';
 import { OutOfStockModal } from '@/components/cart/out-of-stock-modal';
 import { CheckoutStripeForm } from '@/components/checkout/checkout-stripe-form';
@@ -843,6 +844,7 @@ export default function CheckoutPage() {
                       mode: 'payment',
                       amount: amountInCents,
                       currency: 'usd',
+                      payment_method_types: ['card'],
                       setup_future_usage: 'off_session',
                       appearance: {
                         theme: 'stripe',
@@ -914,12 +916,11 @@ export default function CheckoutPage() {
                       {/* Product Thumbnail with badge */}
                       <div className="relative h-14 w-14 shrink-0 rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
                         <Image
-                          src={item.imageUrl}
+                          src={getValidImageUrl(item.imageUrl)}
                           alt={item.name}
                           fill
                           className="object-cover"
                           sizes="56px"
-
                         />
                         <span className="absolute top-1 left-1 flex h-4 w-4 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white shadow-xs z-10">
                           {item.quantity}

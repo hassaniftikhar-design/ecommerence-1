@@ -16,11 +16,17 @@ export const metadata: Metadata = {
   },
   description:
     'ShopFastStore - A modern e-commerce storefront ',
+  icons: {
+    icon: '/FastShopStore.png',
+    shortcut: '/FastShopStore.png',
+    apple: '/FastShopStore.png'
+  },
   openGraph: {
     title: 'ShopFastStore',
     description:
       'ShopFastStore - A modern e-commerce storefront ',
-    type: 'website'
+    type: 'website',
+    images: [{ url: '/FastShopStore.png' }]
   }
 };
 

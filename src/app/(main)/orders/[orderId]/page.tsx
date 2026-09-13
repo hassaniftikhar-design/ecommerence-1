@@ -5,7 +5,7 @@ import { use, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-import { AlertCircle, ArrowLeft, RotateCcw, XCircle } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Clock, RotateCcw, XCircle } from 'lucide-react';
 
 import { BackHeading } from '@/components/common/back-heading';
 import { OrderProductsTable } from '@/components/orders/order-products-table';
@@ -40,7 +40,20 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
       try {
         setLoading(true);
         setError(null);
-        const data = await getOrderById(orderId);
+        let data = await getOrderById(orderId);
+
+        // If payment is PENDING on card order, check Stripe status once to reconcile any webhook lag
+        if (data?.payment?.status === 'PENDING') {
+          try {
+            const intentRes = await getOrderPaymentIntent(orderId);
+            if (intentRes.isPaid) {
+              data = await getOrderById(orderId);
+            }
+          } catch {
+            // Ignore background sync errors
+          }
+        }
+
         setOrder(data);
       } catch (err) {
         setError((err as Error).message);
@@ -100,31 +113,74 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
     }
   };
 
-  const isPaymentFailed =
-    order?.payment?.status === 'FAILED' ||
-    (order?.payment?.status === 'PENDING' && order?.status === 'IN_PROGRESS');
+  const isCodOrder =
+    order?.paymentMethod === 'Cash on Delivery' ||
+    order?.paymentMethod === 'COD' ||
+    !order?.payment;
+  const isCardOrder = !isCodOrder && Boolean(order?.payment);
+  const isPaymentFailed = Boolean(isCardOrder && order?.payment?.status === 'FAILED');
+  const isPaymentPendingCard = Boolean(
+    isCardOrder &&
+    order?.payment?.status === 'PENDING' &&
+    order?.status === 'IN_PROGRESS'
+  );
 
   return (
     <div className="space-y-6 mx-auto px-2 sm:px-4 md:px-[56px] lg:px-[60px] pb-12">
       <BackHeading title="Order Detail" href={ROUTES.orders} />
 
-      {/* Payment Failure Alert Banner */}
-      {order && isPaymentFailed && (
-        <div className="rounded-2xl border border-red-200 bg-red-50/80 p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Payment Action Banner (Failed Payment or Unpaid Pending Card Order) */}
+      {order && (isPaymentFailed || isPaymentPendingCard) && (
+        <div
+          className={cn(
+            'rounded-2xl border p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4',
+            isPaymentFailed
+              ? 'border-red-200 bg-red-50/80'
+              : 'border-amber-200 bg-amber-50/80'
+          )}
+        >
           <div className="flex items-start sm:items-center gap-3.5">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-red-600 ring-4 ring-red-50">
-              <XCircle className="h-6 w-6" />
+            <div
+              className={cn(
+                'flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-4',
+                isPaymentFailed
+                  ? 'bg-red-100 text-red-600 ring-red-50'
+                  : 'bg-amber-100 text-amber-600 ring-amber-50'
+              )}
+            >
+              {isPaymentFailed ? <XCircle className="h-6 w-6" /> : <Clock className="h-6 w-6" />}
             </div>
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-red-900">Payment Failed</h3>
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700">
+                <h3
+                  className={cn(
+                    'text-base font-bold',
+                    isPaymentFailed ? 'text-red-900' : 'text-amber-900'
+                  )}
+                >
+                  {isPaymentFailed ? 'Payment Failed' : 'Payment Required'}
+                </h3>
+                <span
+                  className={cn(
+                    'inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider',
+                    isPaymentFailed
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-amber-100 text-amber-800'
+                  )}
+                >
                   Action Required
                 </span>
               </div>
-              <p className="text-xs sm:text-sm text-red-700/90 max-w-xl">
-                {order.payment?.errorMessage ||
-                  'We were unable to complete your payment for this order. Please retry checkout to complete your purchase.'}
+              <p
+                className={cn(
+                  'text-xs sm:text-sm max-w-xl',
+                  isPaymentFailed ? 'text-red-700/90' : 'text-amber-800/90'
+                )}
+              >
+                {isPaymentFailed
+                  ? (order.payment?.errorMessage ||
+                    'We were unable to complete your payment for this order. Please retry checkout to complete your purchase.')
+                  : 'Payment has not been completed for this card order. Please pay now to finalize your purchase.'}
               </p>
             </div>
           </div>
@@ -135,7 +191,11 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
             className="bg-[#007BFF] hover:bg-blue-600 text-white font-semibold h-11 px-6 rounded-xl shadow-sm flex items-center justify-center gap-2 shrink-0 self-start sm:self-center transition-all cursor-pointer"
           >
             <RotateCcw className={cn('h-4 w-4', retrying && 'animate-spin')} />
-            {retrying ? 'Loading Checkout...' : 'Retry Payment'}
+            {retrying
+              ? 'Loading Checkout...'
+              : isPaymentFailed
+              ? 'Retry Payment'
+              : 'Pay Now'}
           </Button>
         </div>
       )}
@@ -268,9 +328,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                     PAYMENT METHOD:
                   </span>
                   <span className="font-semibold text-slate-800">
-                    {order.payment || order.paymentMethod === 'Card'
-                      ? '💳 Card'
-                      : '💵 Cash on Delivery'}
+                    {isCardOrder ? '💳 Card' : '💵 Cash on Delivery'}
                   </span>
                 </div>
 
@@ -281,7 +339,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                   <div>
                     {renderPaymentStatusBadge(
                       order.payment?.status,
-                      order.payment ? 'Card' : order.paymentMethod
+                      isCardOrder ? 'Card' : 'Cash on Delivery'
                     )}
                   </div>
                 </div>
