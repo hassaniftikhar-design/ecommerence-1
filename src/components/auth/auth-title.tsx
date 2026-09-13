@@ -1,12 +1,28 @@
 import * as React from 'react';
 
-// Matches the sampled #007bff heading above every auth card. A single
-// component instead of raw <h1> in each page so the four screens can
-// never drift out of sync on size/weight/spacing.
+import Image from 'next/image';
+
+import Link from 'next/link';
+
+import { ROUTES } from '@/constants/routes';
+
 export function AuthTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h1 className="mb-8 text-center text-4xl font-semibold text-primary">
-      {children}
-    </h1>
+    <div className="mb-8 flex flex-col items-center justify-center gap-3">
+      <Link href={ROUTES.home} className="flex items-center gap-2 hover:opacity-90 transition">
+        <Image
+          src="/FastShopStore.png"
+          alt="ShopFastStore Logo"
+          width={48}
+          height={48}
+          className="rounded-xl object-contain shadow-xs"
+          priority
+        />
+      </Link>
+      <h1 className="text-center text-3xl sm:text-4xl font-semibold text-primary">
+        {children}
+      </h1>
+    </div>
   );
 }
+
