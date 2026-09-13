@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { Upload as UploadIcon, X, RefreshCw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { getValidImageUrl } from '@/lib/image-util';
 
 interface DefaultImageUploadProps {
   file?: File;
@@ -55,7 +56,7 @@ export function DefaultImageUpload({
           <div className="space-y-3 w-full flex flex-col items-center justify-center text-center">
             <div className="relative aspect-square w-36 sm:w-40 mx-auto rounded-xl overflow-hidden border border-slate-200 group shadow-xs">
               <Image
-                src={previewUrl}
+                src={getValidImageUrl(previewUrl)}
                 alt="Default product preview"
                 fill
                 className="object-cover transition-transform group-hover:scale-105"

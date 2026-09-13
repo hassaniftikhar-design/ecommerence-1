@@ -8,6 +8,8 @@ import { Upload, X, RefreshCw } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 
+import { getValidImageUrl } from '@/lib/image-util';
+
 interface ColorImageUploadProps {
   colorName: string;
   file?: File;
@@ -76,7 +78,7 @@ export function ColorImageUpload({
           <div className="flex items-center gap-2">
             <div className="relative h-10 w-10 overflow-hidden rounded-lg border border-blue-300 bg-white shadow-2xs">
               <Image
-                src={previewUrl}
+                src={getValidImageUrl(previewUrl)}
                 alt={`${colorName} preview`}
                 fill
                 className="object-cover"

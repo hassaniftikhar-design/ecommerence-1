@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { ImagePlus, X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { getValidImageUrl } from '@/lib/image-util';
 
 interface VariantImageUploadProps {
   file?: File;
@@ -63,7 +64,7 @@ export function VariantImageUpload({
             title="Change variant image"
           >
             <Image
-              src={previewUrl}
+              src={getValidImageUrl(previewUrl)}
               alt="Variant thumbnail"
               fill
               className="object-cover transition-transform group-hover:scale-105"

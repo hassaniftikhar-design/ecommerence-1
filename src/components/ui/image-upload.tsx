@@ -9,6 +9,7 @@ import { Upload as UploadIcon, RefreshCw, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { uploadImage } from '@/services/product.service';
 import { cn } from '@/lib/utils';
+import { getValidImageUrl } from '@/lib/image-util';
 
 export interface ImageUploadProps {
   value?: string[];
@@ -77,7 +78,7 @@ export function ImageUpload({
           <div className="space-y-3 w-full text-center">
             <div className="relative h-28 w-28 mx-auto rounded-lg overflow-hidden border border-slate-200 group">
               <Image
-                src={primaryImage}
+                src={getValidImageUrl(primaryImage)}
                 alt="Product preview"
                 fill
                 className="object-cover"

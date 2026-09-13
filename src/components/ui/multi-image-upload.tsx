@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { Upload, X, ChevronDown } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { getValidImageUrl } from '@/lib/image-util';
 
 export interface FormImageItem {
   id: string;
@@ -110,7 +111,7 @@ export function MultiImageUpload({
               {/* Image Preview Container */}
               <div className="relative aspect-4/3 w-full overflow-hidden rounded-lg bg-slate-100 mb-2">
                 <Image
-                  src={img.previewUrl}
+                  src={getValidImageUrl(img.previewUrl)}
                   alt="Uploaded product preview"
                   fill
                   className="object-cover"
