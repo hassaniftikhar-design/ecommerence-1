@@ -131,8 +131,19 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     try {
       const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
       if (pm.card) {
-        const existingCard = await prisma.paymentMethod.findUnique({
-          where: { stripePaymentMethodId: paymentMethodId }
+        const existingCard = await prisma.paymentMethod.findFirst({
+          where: {
+            userId,
+            OR: [
+              { stripePaymentMethodId: paymentMethodId },
+              {
+                brand: { equals: pm.card.brand, mode: 'insensitive' },
+                last4: pm.card.last4,
+                expMonth: pm.card.exp_month,
+                expYear: pm.card.exp_year
+              }
+            ]
+          }
         });
 
         if (!existingCard) {

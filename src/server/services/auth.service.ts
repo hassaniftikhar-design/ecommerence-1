@@ -11,7 +11,7 @@ import {
   validateResetTokenInput,
   validateVerificationTokenInput
 } from '@/server/middlewares';
-import { sendResetPasswordEmail } from '@/lib/email';
+import { schedulerClient } from '@/services/scheduler/scheduler.client';
 import { PASSWORD_RESET_EXPIRATION_MINUTES } from '@/constants';
 import { stripe } from '@/lib/stripe/stripe-server';
 import { logStripeError } from '@/lib/stripe/errors';
@@ -100,7 +100,22 @@ export async function forgotPasswordServer(body: unknown) {
   });
 
   try {
-    await sendResetPasswordEmail(user.email, token);
+    // Offload to background Celery scheduler service
+    const schedulerRes = await schedulerClient.enqueueForgotPasswordEmail({
+      userId: user.id,
+      email: user.email,
+      resetToken: token
+    });
+
+    if (!schedulerRes.success) {
+      console.error('Scheduler failed to enqueue reset email:', schedulerRes.error);
+      return {
+        success: false as const,
+        status: 500,
+        errors: [],
+        message: 'Failed to send password reset email. Please try again later.'
+      };
+    }
   } catch (emailErr) {
     console.error('Failed to send reset email:', emailErr);
     return {

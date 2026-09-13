@@ -2,6 +2,7 @@ import { OrderStatus } from '@prisma/client';
 
 import { prisma } from '@/lib/prisma';
 import { TAX_RATE, DEFAULT_PRODUCT_IMAGE } from '@/constants/generalconstants';
+import { schedulerClient } from '@/services/scheduler/scheduler.client';
 import {
   validateOrderStatusInput,
   validateOrderIdInput,
@@ -302,6 +303,11 @@ export async function createOrderServer(
         type: 'ORDER_PLACED',
         orderId: createdOrder.id
       }
+    });
+
+    // Enqueue order confirmation email in background scheduler
+    schedulerClient.enqueueOrderPlacedEmail(createdOrder.id).catch((err) => {
+      console.warn('[OrderService] Failed to enqueue order placed email:', err);
     });
 
     return {
@@ -650,6 +656,11 @@ export async function updateOrderStatusServer(id: string, status: unknown) {
       type: 'ORDER_STATUS_UPDATED',
       orderId: updatedOrder.id
     }
+  });
+
+  // Enqueue order status changed email in background scheduler
+  schedulerClient.enqueueOrderStatusEmail(validId, previousStatus, validStatus).catch((err) => {
+    console.warn('[OrderService] Failed to enqueue order status email:', err);
   });
 
   return {

@@ -222,7 +222,42 @@ export async function getProductsServer(params: GetProductsServerParams) {
       : {})
   });
 
-  const formattedProducts = products.map(formatProductResponse);
+  let formattedProducts = products.map(formatProductResponse);
+
+  if (userIsAdmin && products.length > 0) {
+    try {
+      const productIds = products.map((p) => p.id);
+      const unresolvedItems = await prisma.importItem.findMany({
+        where: {
+          product_id: { in: productIds },
+          status: 'FAILED',
+          resolution_status: { not: 'RESOLVED' }
+        }
+      });
+
+      const importItemMap = new Map<string, { itemId: string; jobId: string; errorMessage: string; errorType: string }>();
+      for (const it of unresolvedItems) {
+        if (it.product_id) {
+          importItemMap.set(it.product_id, {
+            itemId: it.id,
+            jobId: it.job_id,
+            errorMessage: it.error_message || '',
+            errorType: it.error_type || 'VALIDATION_ERROR'
+          });
+        }
+      }
+
+      formattedProducts = formattedProducts.map((fp) => {
+        const errInfo = importItemMap.get(fp.id);
+        if (errInfo) {
+          return { ...fp, importError: errInfo };
+        }
+        return fp;
+      });
+    } catch (e) {
+      console.warn('Failed to fetch unresolved import items for products:', e);
+    }
+  }
 
   const effectiveLimit = isPaginatedCall ? limitNumber : totalCount || 1;
   const totalPages = Math.max(1, Math.ceil(totalCount / effectiveLimit));
@@ -275,7 +310,35 @@ export async function getProductByIdServer(id: string, userIsAdmin: boolean) {
     return null;
   }
 
-  return formatProductResponse(product);
+  const formatted = formatProductResponse(product);
+
+  if (userIsAdmin) {
+    try {
+      const unresolvedItem = await prisma.importItem.findFirst({
+        where: {
+          product_id: id,
+          status: 'FAILED',
+          resolution_status: { not: 'RESOLVED' }
+        }
+      });
+
+      if (unresolvedItem) {
+        return {
+          ...formatted,
+          importError: {
+            itemId: unresolvedItem.id,
+            jobId: unresolvedItem.job_id,
+            errorMessage: unresolvedItem.error_message || '',
+            errorType: unresolvedItem.error_type || 'VALIDATION_ERROR'
+          }
+        };
+      }
+    } catch (e) {
+      console.warn(`Failed to fetch unresolved import item for product ${id}:`, e);
+    }
+  }
+
+  return formatted;
 }
 
 export async function createProductServer(body: unknown, adminUserId: string) {

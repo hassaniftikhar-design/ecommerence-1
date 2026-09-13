@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { stripe, createOrGetStripeCustomer } from '@/lib/stripe/stripe-server';
 import { logStripeError } from '@/lib/stripe/errors';
 import { TAX_RATE, DEFAULT_PRODUCT_IMAGE } from '@/constants/generalconstants';
+import { schedulerClient } from '@/services/scheduler/scheduler.client';
 import {
   validateCreateOrderInput,
   validateSavePaymentMethodInput,
@@ -297,6 +298,11 @@ export async function createCheckoutPaymentIntentServer(
 
     createdOrder = dbResult.newOrder;
     createdPayment = dbResult.newPayment;
+
+    // Enqueue order confirmation email in background scheduler
+    schedulerClient.enqueueOrderPlacedEmail(createdOrder.id).catch((err) => {
+      console.warn('[PaymentService] Failed to enqueue order placed email:', err);
+    });
   } catch (error) {
     const errorMsg = (error as Error).message || '';
     if (errorMsg.startsWith('INACTIVE_PRODUCT')) {
@@ -382,9 +388,7 @@ export async function createCheckoutPaymentIntentServer(
       amount: Math.round(totalAmount * 100),
       currency: 'usd',
       customer: stripeCustomerId || undefined,
-      automatic_payment_methods: {
-        enabled: true
-      },
+      payment_method_types: ['card'],
       metadata: {
         paymentId: createdPayment.id,
         orderId: createdOrder.id,
@@ -684,7 +688,7 @@ export async function getOrRefreshOrderPaymentIntentServer(
     amount: Math.round(Number(order.totalAmount) * 100),
     currency: 'usd',
     customer: stripeCustomerId || undefined,
-    automatic_payment_methods: { enabled: true },
+    payment_method_types: ['card'],
     metadata: {
       paymentId: payment.id,
       orderId: order.id,
@@ -796,6 +800,26 @@ export async function savePaymentMethodServer(
         status: 400,
         errors: ['Invalid payment method'],
         message: 'The provided payment method is not a card'
+      };
+    }
+
+    // 2. Check if a card with identical brand, last4, and expiration date is already saved for this user
+    const duplicateCard = await prisma.paymentMethod.findFirst({
+      where: {
+        userId,
+        brand: { equals: pm.card.brand, mode: 'insensitive' },
+        last4: pm.card.last4,
+        expMonth: pm.card.exp_month,
+        expYear: pm.card.exp_year
+      }
+    });
+
+    if (duplicateCard) {
+      return {
+        success: false as const,
+        status: 409,
+        errors: ['CARD_ALREADY_EXISTS'],
+        message: 'This card is already saved to your account.'
       };
     }
 
@@ -1112,9 +1136,7 @@ export async function createSetupIntentServer(userId: string) {
 
     const setupIntent = await stripe.setupIntents.create({
       customer: customerId,
-      automatic_payment_methods: {
-        enabled: true
-      },
+      payment_method_types: ['card'],
       metadata: {
         userId
       }

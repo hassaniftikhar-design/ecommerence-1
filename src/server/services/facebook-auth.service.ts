@@ -3,7 +3,7 @@ import { randomBytes } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe/stripe-server';
 import { logStripeError } from '@/lib/stripe/errors';
-import { sendFacebookVerificationOtpEmail } from '@/lib/email';
+import { schedulerClient } from '@/services/scheduler/scheduler.client';
 import {
   validateSendFacebookOtpInput,
   validateVerifyFacebookOtpInput
@@ -102,7 +102,20 @@ export async function sendFacebookEmailOtpServer(body: unknown) {
   });
 
   try {
-    await sendFacebookVerificationOtpEmail(normalizedEmail, otp);
+    const schedulerRes = await schedulerClient.enqueueFacebookOtpEmail({
+      email: normalizedEmail,
+      otp
+    });
+
+    if (!schedulerRes.success) {
+      console.error('Scheduler failed to enqueue Facebook OTP email:', schedulerRes.error);
+      return {
+        success: false as const,
+        status: 500,
+        errors: [],
+        message: 'Failed to send verification email. Please try again later.'
+      };
+    }
   } catch (emailErr) {
     console.error('Failed to send Facebook OTP email:', emailErr);
     return {
@@ -114,9 +127,7 @@ export async function sendFacebookEmailOtpServer(body: unknown) {
   }
 
   return {
-    success: true as const,
-    status: 200,
-    message: 'Verification code sent to your email.'
+    success: true as const, status: 200, message: 'Verification code sent to your email.'
   };
 }
 

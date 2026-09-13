@@ -4,22 +4,27 @@ import { validateMarkNotificationReadInput } from '@/server/middlewares';
 export async function getNotificationsServer(
   userId: string,
   page: number = 1,
-  limit: number = 10
+  limit: number = 10,
+  type?: string
 ) {
   const skip = (page - 1) * limit;
+  const whereClause = {
+    userId,
+    ...(type ? { type } : {})
+  };
 
   const [notifications, unreadCount, total] = await Promise.all([
     prisma.notification.findMany({
-      where: { userId },
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
       skip,
       take: limit
     }),
     prisma.notification.count({
-      where: { userId, isRead: false }
+      where: { ...whereClause, isRead: false }
     }),
     prisma.notification.count({
-      where: { userId }
+      where: whereClause
     })
   ]);
 
