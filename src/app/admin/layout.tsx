@@ -15,6 +15,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
+import { Logo } from '@/components/common/logo';
+import { NotificationPopover } from '@/components/notifications/notification-popover';
 import { ROUTES } from '@/constants/routes';
 import { logout } from '@/services/auth.service';
 
@@ -36,10 +38,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen flex flex-col lg:flex-row bg-white font-sans w-full">
       {/* Mobile Header Toggle */}
       <div className="flex lg:hidden items-center justify-between border-b border-slate-100 bg-white p-4 shrink-0">
-        <Link href={ROUTES.adminProducts} className="text-xl font-bold text-slate-900">
-          ShopFastStore
-        </Link>
+        <Logo href={ROUTES.adminProducts} size={28} textClassName="text-xl font-bold text-slate-900" />
         <div className="flex items-center gap-3">
+          {/* Notification Bell for Mobile */}
+          <NotificationPopover adminOnly />
+
           {/* User Icon Dropdown for Mobile */}
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-1.5 text-xs font-semibold text-[#007BFF] outline-none">
@@ -79,9 +82,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         <div>
           <div className="hidden lg:block mb-8">
-            <Link href={ROUTES.adminProducts} className="text-xl font-bold text-slate-900">
-              ShopFastStore
-            </Link>
+            <Logo href={ROUTES.adminProducts} size={32} textClassName="text-xl font-bold text-slate-900" />
           </div>
 
           <nav className="space-y-3">
@@ -114,8 +115,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Main Content Container */}
       <div className="flex-1 flex flex-col min-w-0 bg-white min-h-screen lg:min-h-0">
-        {/* Desktop Top Header Bar with User Icon Dropdown */}
-        <header className="hidden lg:flex h-16 items-center justify-end border-b border-slate-100 bg-white px-8 shrink-0">
+        {/* Desktop Top Header Bar with Notification Bell & User Icon Dropdown */}
+        <header className="hidden lg:flex h-16 items-center justify-end border-b border-slate-100 bg-white px-8 shrink-0 gap-4">
+          <NotificationPopover adminOnly />
+
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-2 text-sm font-semibold text-[#007BFF] outline-none cursor-pointer hover:opacity-90 transition">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-[#007BFF] border border-blue-100">
