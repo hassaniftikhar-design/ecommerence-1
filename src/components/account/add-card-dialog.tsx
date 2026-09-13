@@ -106,7 +106,16 @@ function AddCardForm({ onSuccess, onCancel }: AddCardFormProps) {
       )}
 
       <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
-        <PaymentElement options={{ layout: 'tabs' }} />
+        <PaymentElement
+          options={{
+            layout: 'accordion',
+            wallets: {
+              link: 'never',
+              applePay: 'never',
+              googlePay: 'never'
+            }
+          }}
+        />
       </div>
 
       <div className="flex items-center space-x-2 pt-1">
