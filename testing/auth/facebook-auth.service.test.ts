@@ -12,9 +12,10 @@ jest.mock('@/lib/stripe/stripe-server', () => ({
   }
 }));
 
-jest.mock('@/lib/email', () => ({
-  sendEmail: jest.fn().mockResolvedValue({ messageId: 'mock-msg-id' }),
-  sendFacebookVerificationOtpEmail: jest.fn().mockResolvedValue(undefined)
+jest.mock('@/services/scheduler/scheduler.client', () => ({
+  schedulerClient: {
+    enqueueFacebookOtpEmail: jest.fn().mockResolvedValue({ success: true, taskId: 'mock-task-id' })
+  }
 }));
 
 import {
@@ -22,7 +23,7 @@ import {
   sendFacebookEmailOtpServer,
   verifyFacebookEmailOtpServer
 } from '@/server/services/facebook-auth.service';
-import { sendFacebookVerificationOtpEmail } from '@/lib/email';
+import { schedulerClient } from '@/services/scheduler/scheduler.client';
 import { stripe } from '@/lib/stripe/stripe-server';
 
 import { mockPrisma, resetPrismaMock } from '../mocks/prisma.mock';
@@ -158,10 +159,10 @@ describe('Facebook Auth Service (server/services/facebook-auth.service.ts)', () 
           expiresAt: expect.any(Date)
         })
       });
-      expect(sendFacebookVerificationOtpEmail).toHaveBeenCalledWith(
-        'newuser@example.com',
-        expect.stringMatching(/^\d{6}$/)
-      );
+      expect(schedulerClient.enqueueFacebookOtpEmail).toHaveBeenCalledWith({
+        email: 'newuser@example.com',
+        otp: expect.stringMatching(/^\d{6}$/)
+      });
     });
 
     it('handles email delivery failure gracefully', async () => {
@@ -174,7 +175,10 @@ describe('Facebook Auth Service (server/services/facebook-auth.service.ts)', () 
       mockPrisma.user.findUnique.mockResolvedValueOnce(null);
       mockPrisma.verificationToken.deleteMany.mockResolvedValueOnce({ count: 0 });
       mockPrisma.verificationToken.create.mockResolvedValueOnce({ id: 'otp-record-1' });
-      (sendFacebookVerificationOtpEmail as jest.Mock).mockRejectedValueOnce(new Error('SMTP down'));
+      (schedulerClient.enqueueFacebookOtpEmail as jest.Mock).mockResolvedValueOnce({
+        success: false,
+        error: 'Job Scheduler unavailable'
+      });
 
       const result = await sendFacebookEmailOtpServer({
         pendingToken: MOCK_PENDING_TOKEN,

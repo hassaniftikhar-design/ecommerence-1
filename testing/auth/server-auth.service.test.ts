@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 import { hash, compare } from 'bcryptjs';
 
-import { sendResetPasswordEmail } from '@/lib/email';
+import { schedulerClient } from '@/services/scheduler/scheduler.client';
 import {
   signupUserServer,
   forgotPasswordServer,
@@ -37,9 +37,10 @@ jest.mock('bcryptjs', () => ({
   })
 }));
 
-jest.mock('@/lib/email', () => ({
-  sendResetPasswordEmail: jest.fn().mockResolvedValue(undefined),
-  sendEmail: jest.fn().mockResolvedValue(undefined)
+jest.mock('@/services/scheduler/scheduler.client', () => ({
+  schedulerClient: {
+    enqueueForgotPasswordEmail: jest.fn().mockResolvedValue({ success: true, taskId: 'mock-task-id' })
+  }
 }));
 
 describe('Server Auth Service (auth.service.ts)', () => {
@@ -236,7 +237,7 @@ describe('Server Auth Service (auth.service.ts)', () => {
       expect(result.status).toBe(404);
       expect(result.message).toBe('This email does not exist in our Store.');
       expect(mockPrisma.user.update).not.toHaveBeenCalled();
-      expect(sendResetPasswordEmail).not.toHaveBeenCalled();
+      expect(schedulerClient.enqueueForgotPasswordEmail).not.toHaveBeenCalled();
     });
 
     it('should generate reset token, update user, send email, and return 200', async () => {
@@ -258,10 +259,11 @@ describe('Server Auth Service (auth.service.ts)', () => {
           resetTokenExpires: expect.any(Date)
         }
       });
-      expect(sendResetPasswordEmail).toHaveBeenCalledWith(
-        mockRegularUser.email,
-        expect.any(String)
-      );
+      expect(schedulerClient.enqueueForgotPasswordEmail).toHaveBeenCalledWith({
+        userId: mockRegularUser.id,
+        email: mockRegularUser.email,
+        resetToken: expect.any(String)
+      });
     });
 
     it('should overwrite previous reset token when user requests password reset again', async () => {
@@ -286,10 +288,13 @@ describe('Server Auth Service (auth.service.ts)', () => {
       await expect(forgotPasswordServer(mockForgotPasswordPayload)).rejects.toThrow('DB Deadlock');
     });
 
-    it('should return 500 status if email sending fails', async () => {
+    it('should return 500 status if email job enqueuing fails', async () => {
       mockPrisma.user.findUnique.mockResolvedValueOnce(mockRegularUser);
       mockPrisma.user.update.mockResolvedValueOnce(mockRegularUser);
-      (sendResetPasswordEmail as jest.Mock).mockRejectedValueOnce(new Error('SMTP Connection Failed'));
+      (schedulerClient.enqueueForgotPasswordEmail as jest.Mock).mockResolvedValueOnce({
+        success: false,
+        error: 'Scheduler Service Unavailable'
+      });
 
       const result = await forgotPasswordServer(mockForgotPasswordPayload);
 

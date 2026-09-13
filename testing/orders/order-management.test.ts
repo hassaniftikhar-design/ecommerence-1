@@ -252,6 +252,7 @@ describe('Order Management, State Transitions & Payment Methods Suite', () => {
 
     it('saves card to Stripe customer and local database with upsert', async () => {
       (stripe.paymentMethods.retrieve as jest.Mock).mockResolvedValueOnce(mockStripeCardPaymentMethod);
+      mockPrisma.paymentMethod.findFirst.mockResolvedValueOnce(null); // No duplicate
       mockPrisma.user.findUnique.mockResolvedValueOnce(mockTestUser);
       mockPrisma.paymentMethod.count.mockResolvedValueOnce(0); // First card
       mockPrisma.paymentMethod.updateMany.mockResolvedValueOnce({ count: 0 });
@@ -265,6 +266,20 @@ describe('Order Management, State Transitions & Payment Methods Suite', () => {
         expect(result.data.paymentMethod.stripePaymentMethodId).toBe(TEST_STRIPE_PM_ID);
       }
       expect(mockPrisma.paymentMethod.upsert).toHaveBeenCalled();
+    });
+
+    it('rejects duplicate card if card with identical brand, last4, and expiry is already saved', async () => {
+      (stripe.paymentMethods.retrieve as jest.Mock).mockResolvedValueOnce(mockStripeCardPaymentMethod);
+      mockPrisma.paymentMethod.findFirst.mockResolvedValueOnce(mockTestPaymentMethod1); // Duplicate found
+
+      const result = await savePaymentMethodServer(TEST_USER_ID, TEST_STRIPE_PM_ID, false);
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.status).toBe(409);
+        expect(result.errors).toContain('CARD_ALREADY_EXISTS');
+        expect(result.message).toBe('This card is already saved to your account.');
+      }
     });
 
     it('detaches and deletes payment method and reassigns default to next card', async () => {
