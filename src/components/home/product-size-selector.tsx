@@ -33,8 +33,8 @@ export function ProductSizeSelector({
   const [showDropdown, setShowDropdown] = useState(false);
   const isMobile = useIsMobile();
 
-  // Requirement: If product has only one or no size, do not render size selector
-  if (!sizes || sizes.length <= 1) {
+  // If product has no sizes, do not render size selector
+  if (!sizes || sizes.length === 0) {
     return null;
   }
 

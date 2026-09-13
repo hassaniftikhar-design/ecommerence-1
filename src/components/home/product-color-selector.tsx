@@ -34,8 +34,8 @@ export function ProductColorSelector({
   const [showDropdown, setShowDropdown] = useState(false);
   const isMobile = useIsMobile();
 
-  // Requirement: If product has only one or no color, do not render color selector
-  if (!colors || colors.length <= 1) {
+  // If product has no colors, do not render color selector
+  if (!colors || colors.length === 0) {
     return null;
   }
 

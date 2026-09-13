@@ -17,6 +17,7 @@ import { useToast } from '@/components/ui/toast';
 import { addToCart } from '@/services/cart.service';
 import { useCart } from '@/providers/cart-provider';
 import { cn } from '@/lib/utils';
+import { getValidImageUrl } from '@/lib/image-util';
 import type { Product } from '@/types/product.types';
 
 const RequireLoginModal = dynamic(
@@ -220,12 +221,14 @@ export function ProductCard({ product }: { product: Product }) {
 
   const currentPrice = product.price ?? product.lowestPrice ?? 0;
 
-  const displayImage =
+  const rawDisplayImage =
     colorVariantImage ||
     matchingVariant?.images?.[0] ||
     product.imageUrl ||
     product.variants?.[0]?.images?.[0] ||
     '/placeholder-product.png';
+
+  const displayImage = getValidImageUrl(rawDisplayImage);
 
   const isOutOfStock = currentStock === 0;
 
@@ -307,25 +310,29 @@ export function ProductCard({ product }: { product: Product }) {
         </div>
 
         {/* Modular Variant Selectors (Color Swatches & Size Chips/Dropdowns in single row) */}
-        {availableColors.length > 1 || availableSizes.length > 1 ? (
+        {availableColors.length > 0 || availableSizes.length > 0 ? (
           <div
             className={cn(
               'mb-3.5 grid gap-3 items-start',
-              availableColors.length > 1 && availableSizes.length > 1
+              availableColors.length > 0 && availableSizes.length > 0
                 ? 'grid-cols-2'
                 : 'grid-cols-1'
             )}
           >
-            <ProductColorSelector
-              colors={availableColors}
-              selectedColor={selectedColor}
-              onSelectColor={handleSelectColor}
-            />
-            <ProductSizeSelector
-              sizes={availableSizes}
-              selectedSize={selectedSize}
-              onSelectSize={setSelectedSize}
-            />
+            {availableColors.length > 0 && (
+              <ProductColorSelector
+                colors={availableColors}
+                selectedColor={selectedColor}
+                onSelectColor={handleSelectColor}
+              />
+            )}
+            {availableSizes.length > 0 && (
+              <ProductSizeSelector
+                sizes={availableSizes}
+                selectedSize={selectedSize}
+                onSelectSize={setSelectedSize}
+              />
+            )}
           </div>
         ) : (
           <div className="mb-3.5 flex items-center">

@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { ShoppingBag } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
+import { Logo } from '@/components/common/logo';
 import { UserMenu } from '@/components/common/user-menu';
 import { RequireLoginModal } from '@/components/auth/require-login-modal';
 import { NotificationPopover } from '@/components/notifications/notification-popover';
@@ -32,9 +33,7 @@ export function SiteHeader() {
   return (
     <>
       <header className="sticky top-0 z-50 flex h-14 items-center justify-between border-b border-[#E2E8F0] bg-white/95 backdrop-blur-md px-4 sm:px-6 lg:px-8 shadow-xs transition-all duration-200">
-        <Link href={ROUTES.home} className="text-xl font-bold text-gray-900 hover:text-[#007BFF] transition-colors">
-          ShopFastStore
-        </Link>
+        <Logo size={32} />
         <div className="flex items-center gap-4 sm:gap-6">
           <Link href={ROUTES.cart} onClick={handleCartClick} aria-label="Shopping bag" className="relative flex items-center justify-center p-1 group">
             <ShoppingBag className="h-5 w-5 text-[#007BFF] group-hover:opacity-80 transition cursor-pointer" />
