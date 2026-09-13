@@ -60,7 +60,7 @@ export function getFriendlyPaymentErrorMessage(
 
   if (typeof errorOrCode === 'string') {
     const normalizedCode = errorOrCode.toLowerCase().trim();
-    const friendlyMessage = STRIPE_DECLINE_CODE_MAP[normalizedCode] || GENERIC_PAYMENT_ERROR_MESSAGE;
+    const friendlyMessage = STRIPE_DECLINE_CODE_MAP[normalizedCode] || errorOrCode;
     return {
       friendlyMessage,
       rawErrorCode: normalizedCode,
@@ -71,7 +71,11 @@ export function getFriendlyPaymentErrorMessage(
   const errObj = errorOrCode as { code?: string; decline_code?: string; message?: string };
   const rawErrorCode = (errObj.decline_code || errObj.code || 'unknown').toLowerCase().trim();
   const rawErrorMessage = errObj.message || rawErrorCode;
-  const friendlyMessage = STRIPE_DECLINE_CODE_MAP[rawErrorCode] || GENERIC_PAYMENT_ERROR_MESSAGE;
+  const friendlyMessage =
+    STRIPE_DECLINE_CODE_MAP[rawErrorCode] ||
+    (errObj.message && !errObj.message.toLowerCase().includes('failed to fetch')
+      ? errObj.message
+      : GENERIC_PAYMENT_ERROR_MESSAGE);
 
   return {
     friendlyMessage,
