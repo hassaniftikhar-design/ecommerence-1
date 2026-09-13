@@ -19,7 +19,7 @@ import { DefaultImageUpload } from '@/components/ui/default-image-upload';
 import { VariantImageUpload } from '@/components/ui/variant-image-upload';
 import { uploadImage, createProduct, updateProduct, getCategories, activateProduct, deactivateProduct } from '@/services/product.service';
 import { productFormSchema, type ProductFormSchemaValues } from '@/lib/validators';
-import type { ProductFormProps } from '@/types/product.types';
+import type { Product, ProductFormProps } from '@/types/product.types';
 import { cn } from '@/lib/utils';
 
 interface ColorImageItem {
@@ -108,9 +108,9 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   const [draftError, setDraftError] = useState<string | null>(null);
   const draftQtyInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Initialize color images when editing
+  // Initialize color images when initialData is provided
   useEffect(() => {
-    if (mode === 'edit' && initialData && initialData.variants) {
+    if (initialData && initialData.variants) {
       const primaryUrl = initialData.imageUrl || '';
       const extracted: Record<string, ColorImageItem> = {};
 
@@ -130,11 +130,11 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
       setColorImages(extracted);
     }
-  }, [mode, initialData]);
+  }, [initialData]);
 
-  // Compute default values from initialData if mode === "edit"
-  const getDefaultValues = (): ProductFormSchemaValues => {
-    if (mode === 'edit' && initialData) {
+  // Compute default values from initialData (both for edit mode and pre-filled create mode)
+  const getDefaultValues = React.useCallback((): ProductFormSchemaValues => {
+    if (initialData) {
       const primaryUrl = initialData.imageUrl || initialData.variants?.[0]?.images?.[0] || '';
 
       const formattedVariants =
@@ -154,16 +154,16 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               '';
             return {
               id: v.id,
-              color,
-              size,
-              quantity: v.stock
+              color: color || 'Black',
+              size: size || 'M',
+              quantity: v.stock > 0 ? v.stock : 1
             };
           })
           : [
             {
               color: 'Black',
               size: 'M',
-              quantity: initialData.stock || 5
+              quantity: (initialData.stock && initialData.stock > 0) ? initialData.stock : 5
             }
           ];
 
@@ -183,7 +183,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
       defaultImageUrl: '',
       variants: []
     };
-  };
+  }, [initialData]);
 
   const {
     register,
@@ -191,6 +191,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
     handleSubmit,
     watch,
     setValue,
+    reset,
     formState: { errors }
   } = useForm<ProductFormSchemaValues>({
     resolver: zodResolver(productFormSchema),
@@ -203,8 +204,18 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   });
 
   const [savedDropdownCategory, setSavedDropdownCategory] = useState<string>(
-    mode === 'edit' && initialData?.category?.name ? initialData.category.name : 'General'
+    initialData?.category?.name ? initialData.category.name : 'General'
   );
+
+  // Sync form when initialData loads asynchronously
+  useEffect(() => {
+    if (initialData) {
+      reset(getDefaultValues());
+      if (initialData.category?.name) {
+        setSavedDropdownCategory(initialData.category.name);
+      }
+    }
+  }, [initialData, getDefaultValues, reset]);
   const [customCategoryError, setCustomCategoryError] = useState<string | null>(null);
 
   const validateCustomCategory = (val: string): boolean => {
@@ -439,18 +450,19 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         variants: formattedVariants
       };
 
+      let savedProduct: Product | undefined;
       if (mode === 'create') {
-        await createProduct(payload);
+        savedProduct = await createProduct(payload);
         showSuccess('Product created successfully!', 'Success');
       } else {
         if (!initialData?.id) throw new Error('Missing product ID for update');
-        await updateProduct(initialData.id, payload);
+        savedProduct = await updateProduct(initialData.id, payload);
         showSuccess('Product updated successfully!', 'Success');
       }
 
       setFormErrorMessages([]);
       if (onSubmitSuccess) {
-        onSubmitSuccess();
+        onSubmitSuccess(savedProduct);
       } else {
         setTimeout(() => {
           router.push(ROUTES.adminProducts);

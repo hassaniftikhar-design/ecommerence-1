@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 
-import { Edit2, Search, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Edit2, Search, ChevronDown, ChevronUp, X, AlertTriangle } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,7 @@ import { useToast } from '@/components/ui/toast';
 import { WelcomeToast } from '@/components/common/welcome-toast';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { getValidImageUrl } from '@/lib/image-util';
 
 export function AdminProductsView() {
   const { data: session, status } = useSession();
@@ -208,33 +209,48 @@ export function AdminProductsView() {
                 const displayVariantCount = product.variantCount ?? product.variants?.length ?? 1;
                 const displayImage = product.imageUrl || product.variants?.[0]?.images?.[0];
                 const isExpanded = expandedProductId === product.id;
+                const hasImportError = Boolean(product.importError);
+                const editHref = ROUTES.adminEditProduct(product.id);
+                const fixErrorHref = product.importError?.jobId
+                  ? `/admin/products/imports/${product.importError.jobId}/review`
+                  : editHref;
 
                 return (
                   <React.Fragment key={product.id}>
                     <TableRow
                       onClick={() => toggleRowExpand(product.id)}
                       className={cn(
-                        'hover:bg-slate-50/70 border-b border-slate-100 cursor-pointer transition-colors',
-                        !product.isActive && 'bg-slate-50/40 opacity-85'
+                        'border-b transition-colors cursor-pointer',
+                        hasImportError
+                          ? 'border-l-4 border-l-red-700 bg-red-50/40 border-red-200 hover:bg-red-50/70'
+                          : !product.isActive
+                          ? 'bg-slate-50/40 opacity-85 hover:bg-slate-50/70 border-slate-100'
+                          : 'hover:bg-slate-50/70 border-slate-100'
                       )}
                     >
                       <TableCell className="py-3">
                         <div className="flex items-start gap-3">
                           <Image
-                            src={displayImage || '/placeholder-product.png'}
+                            src={getValidImageUrl(displayImage)}
                             alt={product.name}
                             title="Click to view full image"
                             width={40}
                             height={40}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setPreviewImage({ url: displayImage || '', title: product.name });
+                              setPreviewImage({ url: getValidImageUrl(displayImage), title: product.name });
                             }}
-                            className="h-10 w-10 shrink-0 rounded object-cover border border-slate-200 cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-2xs"
+                            className={cn(
+                              'h-10 w-10 shrink-0 rounded object-cover border cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-2xs',
+                              hasImportError ? 'border-red-400 ring-2 ring-red-600/70' : 'border-slate-200'
+                            )}
                           />
                           <div className="min-w-0">
                             <Tooltip content={product.name} side="top">
-                              <p className="text-xs sm:text-sm font-medium text-slate-700 line-clamp-2 cursor-pointer hover:text-[#007BFF] transition-colors">
+                              <p className={cn(
+                                'text-xs sm:text-sm font-medium line-clamp-2 cursor-pointer transition-colors',
+                                hasImportError ? 'text-red-950 font-bold hover:text-red-800' : 'text-slate-700 hover:text-[#007BFF]'
+                              )}>
                                 {product.name}
                               </p>
                             </Tooltip>
@@ -267,7 +283,15 @@ export function AdminProductsView() {
                       </TableCell>
 
                       <TableCell>
-                        {product.isActive ? (
+                        {hasImportError ? (
+                          <span
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100/90 text-red-900 border border-red-300 shadow-2xs"
+                            title={product.importError?.errorMessage || 'Quarantined due to import error'}
+                          >
+                            <AlertTriangle className="h-3.5 w-3.5 text-red-700 shrink-0" />
+                            Import Error
+                          </span>
+                        ) : product.isActive ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                             Active
@@ -284,15 +308,27 @@ export function AdminProductsView() {
                       </TableCell>
 
                       <TableCell className="text-right pr-16">
-                        <div className="flex items-center justify-end gap-3">
-                          <Link
-                            href={ROUTES.adminEditProduct(product.id)}
-                            onClick={(e) => e.stopPropagation()}
-                            className="text-blue-500 hover:text-blue-700 p-1.5 rounded-lg hover:bg-blue-50 cursor-pointer transition shrink-0"
-                            title="Edit Product"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Link>
+                        <div className="flex items-center justify-end gap-2">
+                          {hasImportError ? (
+                            <Link
+                              href={fixErrorHref}
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center gap-1.5 text-xs font-bold bg-red-700 hover:bg-red-800 text-white px-3 py-1.5 rounded-lg shadow-xs transition cursor-pointer"
+                              title="Review & Fix Import Errors"
+                            >
+                              <AlertTriangle className="h-3.5 w-3.5" />
+                              <span>Fix Error</span>
+                            </Link>
+                          ) : (
+                            <Link
+                              href={editHref}
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-blue-500 hover:text-blue-700 p-1.5 rounded-lg hover:bg-blue-50 cursor-pointer transition shrink-0"
+                              title="Edit Product"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Link>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -333,7 +369,7 @@ export function AdminProductsView() {
                                     >
                                       <div className="flex items-center gap-2.5">
                                         <Image
-                                           src={variant.images?.[0] || displayImage || '/placeholder-product.png'}
+                                           src={getValidImageUrl(variant.images?.[0] || displayImage)}
                                            alt={`${product.name} variant`}
                                            title="Click to view full image"
                                            width={36}
@@ -341,7 +377,7 @@ export function AdminProductsView() {
                                            onClick={(e) => {
                                              e.stopPropagation();
                                              setPreviewImage({
-                                               url: variant.images?.[0] || displayImage || '',
+                                               url: getValidImageUrl(variant.images?.[0] || displayImage),
                                                title: `${product.name} - ${color} ${size}`
                                              });
                                            }}
@@ -444,7 +480,7 @@ export function AdminProductsView() {
             onClick={(e) => e.stopPropagation()}
           >
             <Image
-              src={previewImage.url || '/placeholder-product.png'}
+              src={getValidImageUrl(previewImage.url)}
               alt={previewImage.title || 'Full size preview'}
               fill
               unoptimized
