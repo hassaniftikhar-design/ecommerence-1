@@ -257,7 +257,13 @@ export function CheckoutStripeForm({
           <div className="pt-1">
             <PaymentElement
               options={{
-                layout: 'tabs'
+                layout: 'tabs',
+                paymentMethodOrder: ['card'],
+                wallets: {
+                  link: 'never',
+                  applePay: 'never',
+                  googlePay: 'never'
+                }
               }}
             />
           </div>
