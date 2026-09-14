@@ -3,6 +3,8 @@ import { OrderStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { TAX_RATE, DEFAULT_PRODUCT_IMAGE } from '@/constants/generalconstants';
 import { schedulerClient } from '@/services/scheduler/scheduler.client';
+import { stripe } from '@/lib/stripe/stripe-server';
+import { logStripeError } from '@/lib/stripe/errors';
 import {
   validateOrderStatusInput,
   validateOrderIdInput,
@@ -675,3 +677,98 @@ export async function updateOrderStatusServer(id: string, status: unknown) {
     data: undefined as unknown
   };
 }
+
+export async function convertOrderToCodServer(orderId: string, userId: string) {
+  const idValidation = validateOrderIdInput(orderId);
+  if (!idValidation.success) {
+    return idValidation;
+  }
+
+  const validId = idValidation.data;
+  const order = await prisma.order.findUnique({
+    where: { id: validId },
+    include: { payment: true }
+  });
+
+  if (!order) {
+    return {
+      success: false as const,
+      status: 404,
+      errors: ['ORDER_NOT_FOUND'],
+      message: 'Order not found'
+    };
+  }
+
+  if (order.userId !== userId) {
+    return {
+      success: false as const,
+      status: 403,
+      errors: ['FORBIDDEN'],
+      message: 'Forbidden: Cannot modify this order'
+    };
+  }
+
+  if (order.status === 'DELIVERED' || order.status === 'REJECTED') {
+    return {
+      success: false as const,
+      status: 400,
+      errors: ['ORDER_NOT_PAYABLE'],
+      message: `Order cannot be converted because it is ${order.status.toLowerCase()}.`
+    };
+  }
+
+  if (order.payment?.status === 'SUCCEEDED') {
+    return {
+      success: false as const,
+      status: 400,
+      errors: ['ORDER_ALREADY_PAID'],
+      message: 'Order is already paid and cannot be converted to Cash on Delivery.'
+    };
+  }
+
+  // If there's an existing Stripe payment intent, cancel it so it won't be charged
+  if (order.payment?.stripePaymentIntentId) {
+    try {
+      const intent = await stripe.paymentIntents.retrieve(order.payment.stripePaymentIntentId);
+      if (
+        intent.status === 'requires_payment_method' ||
+        intent.status === 'requires_action' ||
+        intent.status === 'requires_confirmation' ||
+        intent.status === 'requires_capture'
+      ) {
+        await stripe.paymentIntents.cancel(order.payment.stripePaymentIntentId);
+      }
+    } catch (stripeErr) {
+      logStripeError('convertOrderToCodServer:cancelPaymentIntent', stripeErr, {
+        orderId: validId,
+        paymentIntentId: order.payment.stripePaymentIntentId
+      });
+    }
+  }
+
+  // Delete payment record in DB so order becomes a standard COD order (payment: null)
+  if (order.payment) {
+    await prisma.payment.delete({
+      where: { id: order.payment.id }
+    });
+  }
+
+  const updatedOrder = await prisma.order.update({
+    where: { id: validId },
+    data: {
+      status: 'IN_PROGRESS',
+      updatedAt: new Date()
+    }
+  });
+
+  return {
+    success: true as const,
+    status: 200,
+    orderId: updatedOrder.id,
+    orderNumber: updatedOrder.orderNumber,
+    message: undefined as string | undefined,
+    errors: undefined as string[] | undefined,
+    data: undefined as unknown
+  };
+}
+

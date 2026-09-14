@@ -89,3 +89,12 @@ export async function retryOrderPayment(order: OrderDetail): Promise<void> {
   void order;
 }
 
+export async function convertOrderToCod(orderId: string): Promise<{ orderId: string; orderNumber: string }> {
+  const response = await fetch(`/api/orders/${orderId}/cod`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  return parseApiResponse<{ orderId: string; orderNumber: string }>(response);
+}
+
+

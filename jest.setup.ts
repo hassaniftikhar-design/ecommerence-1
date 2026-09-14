@@ -207,7 +207,9 @@ jest.mock('@/lib/stripe/stripe-server', () => ({
     },
     paymentIntents: {
       create: jest.fn().mockResolvedValue({ id: 'pi_mock_123', client_secret: 'pi_mock_123_secret_xyz' }),
-      retrieve: jest.fn().mockResolvedValue({ id: 'pi_mock_123', status: 'succeeded' })
+      retrieve: jest.fn().mockResolvedValue({ id: 'pi_mock_123', status: 'succeeded' }),
+      update: jest.fn().mockResolvedValue({ id: 'pi_mock_123', status: 'requires_payment_method' }),
+      cancel: jest.fn().mockResolvedValue({ id: 'pi_mock_123', status: 'canceled' })
     },
     setupIntents: {
       create: jest.fn().mockResolvedValue({ id: 'seti_mock_123', client_secret: 'seti_mock_123_secret_xyz' })

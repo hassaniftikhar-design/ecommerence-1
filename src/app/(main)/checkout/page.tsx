@@ -30,7 +30,7 @@ import {
 import { getStripe } from '@/lib/stripe/stripe-client';
 import { getCart, placeOrder, PriceChangedError } from '@/services/cart.service';
 import { getSavedPaymentMethods } from '@/services/payment.service';
-import { getOrderById } from '@/services/order.service';
+import { getOrderById, convertOrderToCod } from '@/services/order.service';
 import { getUserAddress, updateUserAddress } from '@/services/user.service';
 import { ROUTES } from '@/constants/routes';
 import { getValidImageUrl } from '@/lib/image-util';
@@ -339,8 +339,16 @@ export default function CheckoutPage() {
       setCodSubmitting(true);
       setError(null);
 
-      const selectedItemIds = items.map((i) => i.id);
-      const res = await placeOrder(selectedItemIds, totals.total);
+      let res: { orderId: string; orderNumber: string };
+
+      const activeOrderId = retryOrderId || paymentFailedAlert.orderId;
+      if (activeOrderId) {
+        // Re-use existing unpaid order (no duplicate orders)
+        res = await convertOrderToCod(activeOrderId);
+      } else {
+        const selectedItemIds = items.map((i) => i.id);
+        res = await placeOrder(selectedItemIds, totals.total);
+      }
 
       router.push(`/orders/${res.orderId}/payment-status`);
     } catch (err: unknown) {
