@@ -1,8 +1,13 @@
 import { getCurrentUser, isAdmin } from '@/lib/server-auth';
 import { apiSuccess, apiError } from '@/lib/api-response';
-import { schedulerClient } from '@/services/scheduler/scheduler.client';
-import { saveUploadedImportFiles } from '@/lib/import-storage';
-import { randomUUID } from 'crypto';
+import {
+  validateBulkImportFileInput,
+  validateBulkImportJsonInput
+} from '@/server/middlewares';
+import {
+  enqueueBulkProductImportFileServer,
+  enqueueBulkProductImportJsonServer
+} from '@/server/services/admin-import.service';
 
 export async function POST(request: Request) {
   try {
@@ -12,20 +17,17 @@ export async function POST(request: Request) {
       return apiError('Forbidden: Only ADMIN users can import products', [], 403);
     }
 
-    const adminUserId = (user.id || (user as any).sub)!;
+    const adminUserId = (user.id || (user as { sub?: string }).sub)!;
     const contentType = request.headers.get('content-type') || '';
 
-    // 1. Handle Multipart Form Data (Single file upload from modern admin UI)
+    // 1. Handle Multipart Form Data
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
-      const csvFile = (formData.get('file') || formData.get('csvFile')) as File | null;
+      const rawFile = (formData.get('file') || formData.get('csvFile')) as File | null;
 
-      if (!csvFile || !(csvFile instanceof File)) {
-        return apiError('Please provide a valid CSV or XLSX product file', [], 400);
-      }
-
-      if (!csvFile.name.toLowerCase().endsWith('.csv') && !csvFile.name.toLowerCase().endsWith('.xlsx')) {
-        return apiError('Invalid file type. Only .csv and .xlsx files are supported.', [], 400);
+      const fileValidation = validateBulkImportFileInput(rawFile);
+      if (!fileValidation.success) {
+        return apiError(fileValidation.message, fileValidation.errors, fileValidation.status);
       }
 
       // Collect any accompanying image files
@@ -35,56 +37,37 @@ export async function POST(request: Request) {
         (f) => f instanceof File && /\.(jpe?g|png|webp|gif|svg)$/i.test(f.name)
       );
 
-      const jobId = randomUUID();
-      const saved = await saveUploadedImportFiles(jobId, csvFile, rawImageFiles);
-
-      const result = await schedulerClient.enqueueBulkProductImportFile({
-        jobId,
-        createdById: adminUserId,
-        filename: saved.filename,
-        csvPath: saved.csvPath,
-        imagesPath: saved.imagesPath
+      const result = await enqueueBulkProductImportFileServer({
+        adminUserId,
+        csvFile: fileValidation.data,
+        rawImageFiles
       });
 
       if (!result.success) {
-        return apiError(result.error || 'Failed to queue bulk import job', [], 500);
+        return apiError(result.message, result.errors, result.status);
       }
 
-      return apiSuccess(
-        'Product import has been queued for background processing',
-        {
-          jobId,
-          taskId: result.taskId,
-          filename: saved.filename,
-          status: 'QUEUED'
-        },
-        202
-      );
+      return apiSuccess(result.message, result.data, result.status);
     }
 
-    // 2. Handle JSON payload (Backward compatibility)
+    // 2. Handle JSON payload
     const body = await request.json().catch(() => ({}));
-    const products = body?.products;
+    const jsonValidation = validateBulkImportJsonInput(body?.products);
 
-    if (!Array.isArray(products) || products.length === 0) {
-      return apiError('No products provided for bulk import', [], 400);
+    if (!jsonValidation.success) {
+      return apiError(jsonValidation.message, jsonValidation.errors, jsonValidation.status);
     }
 
-    const result = await schedulerClient.enqueueBulkProductImport(products, adminUserId);
+    const result = await enqueueBulkProductImportJsonServer({
+      adminUserId,
+      products: jsonValidation.data
+    });
 
     if (!result.success) {
-      return apiError(result.error || 'Failed to enqueue bulk import job', [], 500);
+      return apiError(result.message, result.errors, result.status);
     }
 
-    return apiSuccess(
-      'Bulk product import job enqueued successfully',
-      {
-        taskId: result.taskId,
-        totalCount: products.length,
-        status: 'QUEUED'
-      },
-      202
-    );
+    return apiSuccess(result.message, result.data, result.status);
   } catch (error) {
     return apiError('Failed to process bulk import request', [(error as Error).message], 500);
   }

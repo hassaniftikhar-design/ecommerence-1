@@ -10,3 +10,4 @@ export * from './user.middleware';
 export * from './upload.middleware';
 export * from './webhook.middleware';
 export * from './facebook-auth.middleware';
+export * from './admin-import.middleware';

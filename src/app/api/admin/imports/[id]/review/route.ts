@@ -1,7 +1,7 @@
 import { getCurrentUser, isAdmin } from '@/lib/server-auth';
 import { apiSuccess, apiError } from '@/lib/api-response';
-import { schedulerClient } from '@/services/scheduler/scheduler.client';
-import { prisma } from '@/lib/prisma';
+import { validateImportJobIdInput } from '@/server/middlewares';
+import { getImportJobReviewServer } from '@/server/services/admin-import.service';
 
 export async function GET(
   request: Request,
@@ -15,40 +15,18 @@ export async function GET(
     }
 
     const { id } = await params;
-    if (!id) {
-      return apiError('Missing import job ID', [], 400);
+    const validation = validateImportJobIdInput(id);
+    if (!validation.success) {
+      return apiError(validation.message, validation.errors, validation.status);
     }
 
-    const res = await schedulerClient.getImportJobStatus(id);
+    const result = await getImportJobReviewServer(validation.data);
 
-    if (!res.success || !res.data) {
-      return apiError(res.error || `Import job '${id}' not found`, [], 404);
+    if (!result.success) {
+      return apiError(result.message, result.errors, result.status);
     }
 
-    const job = res.data;
-    const totalFailed = job.failed_items;
-    const resolvedCount = job.errors.filter((e) => e.resolution_status === 'RESOLVED').length;
-    const remainingCount = totalFailed - resolvedCount;
-
-    return apiSuccess('Import review details retrieved successfully', {
-      job: {
-        id: job.id,
-        filename: job.filename || 'products.csv',
-        status: job.status,
-        totalItems: job.total_items,
-        processedItems: job.processed_items,
-        successfulItems: job.successful_items,
-        failedItems: job.failed_items,
-        createdAt: job.created_at,
-        completedAt: job.completed_at
-      },
-      summary: {
-        totalFailed,
-        resolvedCount,
-        remainingCount
-      },
-      errors: job.errors
-    }, 200);
+    return apiSuccess(result.message, result.data, result.status);
   } catch (error) {
     return apiError('Failed to fetch import review details', [(error as Error).message], 500);
   }

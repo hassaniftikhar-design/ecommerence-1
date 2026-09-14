@@ -1,6 +1,7 @@
 import { getCurrentUser, isAdmin } from '@/lib/server-auth';
 import { apiSuccess, apiError } from '@/lib/api-response';
-import { schedulerClient } from '@/services/scheduler/scheduler.client';
+import { validateImportJobIdInput } from '@/server/middlewares';
+import { getImportJobStatusServer } from '@/server/services/admin-import.service';
 
 export async function GET(
   request: Request,
@@ -14,17 +15,18 @@ export async function GET(
     }
 
     const { id } = await params;
-    if (!id) {
-      return apiError('Missing import job ID', [], 400);
+    const validation = validateImportJobIdInput(id);
+    if (!validation.success) {
+      return apiError(validation.message, validation.errors, validation.status);
     }
 
-    const res = await schedulerClient.getImportJobStatus(id);
+    const result = await getImportJobStatusServer(validation.data);
 
-    if (!res.success || !res.data) {
-      return apiError(res.error || `Import job '${id}' not found`, [], 404);
+    if (!result.success) {
+      return apiError(result.message, result.errors, result.status);
     }
 
-    return apiSuccess('Import job status retrieved successfully', res.data, 200);
+    return apiSuccess(result.message, result.data, result.status);
   } catch (error) {
     return apiError('Failed to fetch import job status', [(error as Error).message], 500);
   }
