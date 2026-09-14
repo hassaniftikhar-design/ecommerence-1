@@ -30,6 +30,13 @@ export interface ProductVariant {
 
 export type ProductStatusFilter = 'all' | 'active' | 'inactive';
 
+export interface ProductImportErrorInfo {
+  itemId: string;
+  jobId: string;
+  errorMessage?: string;
+  errorType?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -49,10 +56,11 @@ export interface Product {
   options: ProductOption[];
   variants: ProductVariant[];
 
-  // Computed fields
+  // Computed / Metadata fields
   lowestPrice?: number;
   totalStock?: number;
   variantCount?: number;
+  importError?: ProductImportErrorInfo | null;
 
   createdAt: string;
   updatedAt: string;
@@ -76,6 +84,7 @@ export interface ProductFormValues {
 export interface ProductFormProps {
   mode: 'create' | 'edit';
   initialData?: Product;
-  onSubmitSuccess?: () => void;
+  onSubmitSuccess?: (savedProduct?: Product) => void | Promise<void>;
 }
+
 
