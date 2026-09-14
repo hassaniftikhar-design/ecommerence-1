@@ -39,6 +39,7 @@ export interface ProductImportErrorInfo {
 
 export interface Product {
   id: string;
+  productCode?: string;
   name: string;
   price: number;
   stock: number;

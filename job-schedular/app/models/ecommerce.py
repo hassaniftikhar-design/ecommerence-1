@@ -86,6 +86,7 @@ class Product(Base):
     __tablename__ = "Product"
 
     id = Column(String, primary_key=True)
+    productCode = Column(String, unique=True, nullable=True)
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
     price = Column(Numeric(10, 2), default=0.00, nullable=False)

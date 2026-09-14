@@ -14,6 +14,7 @@ describe('Bulk Import XLSX Template Generator', () => {
 
     templateSheet.columns = [
       { header: 'title', key: 'title', width: 28 },
+      { header: 'sku', key: 'sku', width: 22 },
       { header: 'price', key: 'price', width: 14 },
       { header: 'categoryName', key: 'categoryName', width: 20 },
       { header: 'colorName', key: 'colorName', width: 18 },
@@ -32,7 +33,7 @@ describe('Bulk Import XLSX Template Generator', () => {
     // Apply validation to rows 2-1000
     for (let row = 2; row <= 1000; row++) {
       // Category
-      templateSheet.getCell(`C${row}`).dataValidation = {
+      templateSheet.getCell(`D${row}`).dataValidation = {
         type: 'list',
         allowBlank: false,
         formulae: [categoryFormula],
@@ -43,7 +44,7 @@ describe('Bulk Import XLSX Template Generator', () => {
       };
 
       // Color
-      templateSheet.getCell(`D${row}`).dataValidation = {
+      templateSheet.getCell(`E${row}`).dataValidation = {
         type: 'list',
         allowBlank: false,
         formulae: [colorFormula],
@@ -54,7 +55,7 @@ describe('Bulk Import XLSX Template Generator', () => {
       };
 
       // Size
-      templateSheet.getCell(`E${row}`).dataValidation = {
+      templateSheet.getCell(`F${row}`).dataValidation = {
         type: 'list',
         allowBlank: false,
         formulae: [sizeFormula],
@@ -89,6 +90,7 @@ describe('Bulk Import XLSX Template Generator', () => {
     const headers = sheet.getRow(1).values as string[];
 
     expect(headers).toContain('title');
+    expect(headers).toContain('sku');
     expect(headers).toContain('price');
     expect(headers).toContain('categoryName');
     expect(headers).toContain('colorName');
@@ -96,20 +98,19 @@ describe('Bulk Import XLSX Template Generator', () => {
     expect(headers).toContain('stock');
     expect(headers).toContain('imagePath');
 
-    expect(headers).not.toContain('sku');
     expect(headers).not.toContain('description');
 
     // Verify validations
-    expect(sheet.getCell('C2').dataValidation).toBeDefined();
     expect(sheet.getCell('D2').dataValidation).toBeDefined();
     expect(sheet.getCell('E2').dataValidation).toBeDefined();
+    expect(sheet.getCell('F2').dataValidation).toBeDefined();
 
-    expect(sheet.getCell('C2').dataValidation?.type).toBe('list');
     expect(sheet.getCell('D2').dataValidation?.type).toBe('list');
     expect(sheet.getCell('E2').dataValidation?.type).toBe('list');
+    expect(sheet.getCell('F2').dataValidation?.type).toBe('list');
 
-    expect(sheet.getCell('C2').dataValidation?.errorStyle).toBe('stop');
     expect(sheet.getCell('D2').dataValidation?.errorStyle).toBe('stop');
     expect(sheet.getCell('E2').dataValidation?.errorStyle).toBe('stop');
+    expect(sheet.getCell('F2').dataValidation?.errorStyle).toBe('stop');
   });
 });

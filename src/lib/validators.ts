@@ -95,7 +95,7 @@ export const productOptionSchema = z.object({
 
 export const productVariantSchema = z.object({
   id: z.string().optional(),
-  sku: z.string().optional(),
+  sku: z.string().trim().min(1, 'SKU is required').optional(),
   price: z.number().optional(),
   stock: z.number().int().nonnegative('Stock must be zero or greater'),
   images: z.array(z.string()).default([]),
@@ -105,6 +105,7 @@ export const productVariantSchema = z.object({
 export const createProductSchema = z
   .object({
     name: z.string().trim().min(1, 'Product Title is required').max(500, 'Product Title cannot exceed 500 characters'),
+    productCode: z.string().trim().optional(),
     categoryId: z.string().optional(),
     categoryName: z.string().optional(),
     options: z.array(productOptionSchema).default([]),
@@ -137,6 +138,7 @@ export const createProductSchema = z
 export const updateProductSchema = z
   .object({
     name: z.string().trim().min(1).max(500).optional(),
+    productCode: z.string().trim().optional(),
     categoryId: z.string().optional(),
     categoryName: z.string().optional(),
     options: z.array(productOptionSchema).optional(),
@@ -148,6 +150,7 @@ export const updateProductSchema = z
 
 export const productVariantItemSchema = z.object({
   id: z.string().optional(),
+  sku: z.string().trim().min(1, 'SKU is required'),
   color: z.string().optional().or(z.literal('')),
   size: z.string().optional().or(z.literal('')),
   quantity: z
@@ -161,6 +164,7 @@ export const productVariantItemSchema = z.object({
 export const productFormSchema = z
   .object({
     name: z.string().trim().min(1, 'Product Title is required').max(500, 'Product Title cannot exceed 500 characters'),
+    productCode: z.string().trim().optional(),
     categoryName: z.string().trim().min(1, 'Category is required'),
     price: z
       .number({ invalid_type_error: 'Price must be a number' })
@@ -200,7 +204,26 @@ export const productFormSchema = z
     }
 
     const seenCombos = new Set<string>();
+    const seenSkus = new Set<string>();
+
     data.variants.forEach((v, index) => {
+      const skuVal = (v.sku || '').trim().toUpperCase();
+      if (!skuVal) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'SKU is required for each variant',
+          path: ['variants', index, 'sku']
+        });
+      } else if (seenSkus.has(skuVal)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Duplicate SKU '${v.sku}' found in variant list. Each variant must have a unique SKU.`,
+          path: ['variants', index, 'sku']
+        });
+      } else {
+        seenSkus.add(skuVal);
+      }
+
       const colorVal = (v.color || '').trim().toLowerCase();
       const sizeVal = (v.size || '').trim().toLowerCase();
       if (colorVal || sizeVal) {
@@ -218,4 +241,5 @@ export const productFormSchema = z
   });
 
 export type ProductFormSchemaValues = z.infer<typeof productFormSchema>;
+
 

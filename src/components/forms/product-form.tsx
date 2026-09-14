@@ -19,6 +19,7 @@ import { DefaultImageUpload } from '@/components/ui/default-image-upload';
 import { VariantImageUpload } from '@/components/ui/variant-image-upload';
 import { uploadImage, createProduct, updateProduct, getCategories, activateProduct, deactivateProduct } from '@/services/product.service';
 import { productFormSchema, type ProductFormSchemaValues } from '@/lib/validators';
+import { generateProductCode, generateDefaultSku, normalizeSku, replaceSkuProductCode } from '@/lib/sku-util';
 import type { Product, ProductFormProps } from '@/types/product.types';
 import { cn } from '@/lib/utils';
 
@@ -29,11 +30,13 @@ interface ColorImageItem {
 
 export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormProps) {
   const router = useRouter();
-  const { showSuccess, showError } = useToast();
+  const { showSuccess } = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [formErrorMessages, setFormErrorMessages] = useState<string[]>([]);
   const [dbCategories, setDbCategories] = useState<{ id: string; name: string }[]>([]);
   const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [productCodeConflictError, setProductCodeConflictError] = useState<string | null>(null);
+  const [statusChangeError, setStatusChangeError] = useState<string | null>(null);
 
   // Color-based image map: { "Red": { file, previewUrl }, "Blue": { file, previewUrl } }
   const [colorImages, setColorImages] = useState<Record<string, ColorImageItem>>({});
@@ -52,6 +55,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   }, [initialData?.isActive]);
 
   const handleStatusSelectChange = (newVal: string) => {
+    setStatusChangeError(null);
     if (mode === 'create') {
       setIsActive(newVal === 'Active');
       return;
@@ -69,6 +73,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
     try {
       setTogglingStatus(true);
+      setStatusChangeError(null);
       if (pendingStatusChange === 'deactivate') {
         await deactivateProduct(initialData.id);
         setIsActive(false);
@@ -82,7 +87,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         onSubmitSuccess();
       }
     } catch (err) {
-      showError((err as Error).message || 'Failed to update product status', 'Status Error');
+      setStatusChangeError((err as Error).message || 'Failed to update product status');
     } finally {
       setTogglingStatus(false);
       setPendingStatusChange(null);
@@ -105,6 +110,9 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   const [draftColor, setDraftColor] = useState('');
   const [draftSize, setDraftSize] = useState('');
   const [draftQty, setDraftQty] = useState('');
+  const [draftSku, setDraftSku] = useState('');
+  const [isManualSku, setIsManualSku] = useState(false);
+  const [isManualProductCode, setIsManualProductCode] = useState(mode === 'edit');
   const [draftError, setDraftError] = useState<string | null>(null);
   const draftQtyInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -136,6 +144,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   const getDefaultValues = React.useCallback((): ProductFormSchemaValues => {
     if (initialData) {
       const primaryUrl = initialData.imageUrl || initialData.variants?.[0]?.images?.[0] || '';
+      const prodCode = initialData.productCode || generateProductCode(initialData.name, initialData.category?.name || 'General');
 
       const formattedVariants =
         initialData.variants && initialData.variants.length > 0
@@ -154,6 +163,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               '';
             return {
               id: v.id,
+              sku: v.sku || generateDefaultSku(prodCode, color, size),
               color: color || 'Black',
               size: size || 'M',
               quantity: v.stock > 0 ? v.stock : 1
@@ -161,6 +171,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
           })
           : [
             {
+              sku: generateDefaultSku(prodCode, 'Black', 'M'),
               color: 'Black',
               size: 'M',
               quantity: (initialData.stock && initialData.stock > 0) ? initialData.stock : 5
@@ -169,6 +180,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
       return {
         name: initialData.name || '',
+        productCode: prodCode,
         categoryName: initialData.category?.name || 'General',
         price: initialData.lowestPrice ?? initialData.price ?? 0,
         defaultImageUrl: primaryUrl,
@@ -178,6 +190,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
     return {
       name: '',
+      productCode: '',
       categoryName: 'General',
       price: 0,
       defaultImageUrl: '',
@@ -214,8 +227,64 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
       if (initialData.category?.name) {
         setSavedDropdownCategory(initialData.category.name);
       }
+      setIsManualProductCode(true);
     }
   }, [initialData, getDefaultValues, reset]);
+
+  // Auto-generate productCode dynamically as user types title (in create mode or if not manually overridden)
+  const watchedProductCode = watch('productCode') || '';
+  const watchedName = watch('name') || '';
+  const watchedCategory = watch('categoryName') || '';
+
+  const updateAllVariantSkusWithNewProductCode = React.useCallback(
+    (newCode: string) => {
+      if (!newCode || !newCode.trim()) return;
+      const currentVariants = watch('variants') || [];
+      const updated = currentVariants.map((v) => ({
+        ...v,
+        sku: replaceSkuProductCode(v.sku, newCode)
+      }));
+      setValue('variants', updated, { shouldValidate: false });
+      const autoSku = generateDefaultSku(newCode, draftColor, draftSize);
+      setDraftSku(autoSku);
+    },
+    [watch, setValue, draftColor, draftSize]
+  );
+
+  useEffect(() => {
+    if (!isManualProductCode && mode === 'create') {
+      if (watchedName && watchedName.trim()) {
+        const timer = setTimeout(async () => {
+          try {
+            const res = await fetch(
+              `/api/products/code-check?title=${encodeURIComponent(watchedName)}&category=${encodeURIComponent(watchedCategory)}`
+            );
+            const data = await res.json();
+            if (data.success && data.data?.nextAvailableCode) {
+              const autoCode = data.data.nextAvailableCode;
+              setValue('productCode', autoCode, { shouldValidate: true });
+              updateAllVariantSkusWithNewProductCode(autoCode);
+              setProductCodeConflictError(null);
+            }
+          } catch (err) {
+            console.error('Failed to fetch next product code', err);
+          }
+        }, 300);
+
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [watchedName, watchedCategory, isManualProductCode, mode, setValue, updateAllVariantSkusWithNewProductCode]);
+
+  // Auto-generate draft SKU when draftColor, draftSize, or productCode changes
+  useEffect(() => {
+    if (!isManualSku) {
+      const currentCode = watchedProductCode || (watchedName ? generateProductCode(watchedName, watchedCategory) : 'PROD-001');
+      const autoSku = generateDefaultSku(currentCode, draftColor, draftSize);
+      setDraftSku(autoSku);
+    }
+  }, [watchedProductCode, watchedName, watchedCategory, draftColor, draftSize, isManualSku]);
+
   const [customCategoryError, setCustomCategoryError] = useState<string | null>(null);
 
   const validateCustomCategory = (val: string): boolean => {
@@ -282,8 +351,13 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
     const colorVal = (draftColor || '').trim();
     const sizeVal = (draftSize || '').trim();
+    const currentCode = watchedProductCode || generateProductCode(watchedName, watchedCategory);
+    let finalSku = (draftSku || '').trim().toUpperCase();
+    if (!finalSku) {
+      finalSku = generateDefaultSku(currentCode, colorVal, sizeVal);
+    }
 
-    // Duplicate check for variants
+    // Duplicate check for variants (color+size combination)
     const isDuplicate = watchedVariants.some(
       (v) =>
         (v.color || '').trim().toLowerCase() === colorVal.toLowerCase() &&
@@ -299,7 +373,18 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
       return;
     }
 
+    // Duplicate check for SKU within variant list
+    const isDuplicateSku = watchedVariants.some(
+      (v) => (v.sku || '').trim().toUpperCase() === finalSku
+    );
+
+    if (isDuplicateSku) {
+      setDraftError(`SKU '${finalSku}' is already assigned to another variant in this list. Please enter a unique SKU.`);
+      return;
+    }
+
     append({
+      sku: finalSku,
       color: colorVal,
       size: sizeVal,
       quantity: qtyNum
@@ -309,6 +394,8 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
     setDraftColor('');
     setDraftSize('');
     setDraftQty('');
+    setIsManualSku(false);
+    setDraftSku('');
 
     setTimeout(() => {
       draftQtyInputRef.current?.focus();
@@ -317,10 +404,9 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
   const handleRemoveVariant = (index: number) => {
     if (fields.length <= 1) {
-      showError(
-        'A product must have at least one variant. To delete or remove this product from the store, please deactivate or delete the product itself.',
-        'Cannot Remove Only Variant'
-      );
+      setFormErrorMessages([
+        'A product must have at least one variant. To delete or remove this product from the store, please deactivate or delete the product itself.'
+      ]);
       return;
     }
     remove(index);
@@ -330,6 +416,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
     const errorMessages: string[] = [];
 
     if (fieldErrors.name?.message) errorMessages.push(fieldErrors.name.message);
+    if (fieldErrors.productCode?.message) errorMessages.push(fieldErrors.productCode.message);
     if (fieldErrors.categoryName?.message) errorMessages.push(fieldErrors.categoryName.message);
     if (fieldErrors.price?.message) errorMessages.push(fieldErrors.price.message);
     if (fieldErrors.defaultImageUrl?.message) errorMessages.push(fieldErrors.defaultImageUrl.message);
@@ -338,6 +425,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
     if (Array.isArray(fieldErrors.variants)) {
       fieldErrors.variants.forEach((vErr, idx) => {
+        if (vErr?.sku?.message) errorMessages.push(`Variant ${idx + 1} SKU: ${vErr.sku.message}`);
         if (vErr?.color?.message) errorMessages.push(`Variant ${idx + 1} Color: ${vErr.color.message}`);
         if (vErr?.size?.message) errorMessages.push(`Variant ${idx + 1} Size: ${vErr.size.message}`);
         if (vErr?.quantity?.message) errorMessages.push(`Variant ${idx + 1} Quantity: ${vErr.quantity.message}`);
@@ -349,21 +437,21 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
     }
 
     setFormErrorMessages(errorMessages);
-    showError(errorMessages[0] || 'Please fix the errors in the form before saving.', 'Validation Error');
   };
 
   const onSubmit = async (data: ProductFormSchemaValues) => {
     try {
       setSubmitting(true);
+      setProductCodeConflictError(null);
+
       if (data.price < 0) {
-        showError('Price cannot be negative', 'Error');
+        setFormErrorMessages(['Price cannot be negative']);
         setSubmitting(false);
         return;
       }
 
       if (totalStock <= 0) {
         setFormErrorMessages(['Total Quantity cannot be zero']);
-        showError('Total Quantity cannot be zero', 'Error');
         setSubmitting(false);
         return;
       }
@@ -375,7 +463,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
       }
 
       if (!finalDefaultImageUrl) {
-        showError('Default Product Image is required', 'Error');
+        setFormErrorMessages(['Default Product Image is required']);
         setSubmitting(false);
         return;
       }
@@ -423,6 +511,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
           return {
             id: v.id,
+            sku: v.sku?.trim().toUpperCase(),
             price: data.price,
             stock: v.quantity,
             images: variantImages,
@@ -432,6 +521,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
       } else {
         formattedVariants = [
           {
+            sku: generateDefaultSku(data.productCode || 'PROD'),
             price: data.price,
             stock: 1,
             images: [finalDefaultImageUrl],
@@ -442,6 +532,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
       const payload = {
         name: data.name.trim(),
+        productCode: data.productCode?.trim().toUpperCase() || undefined,
         categoryName: data.categoryName.trim(),
         price: data.price,
         stock: totalStock || 10,
@@ -475,7 +566,9 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         .map((s) => s.trim())
         .filter(Boolean);
       setFormErrorMessages(parsedList.length > 0 ? parsedList : [rawMsg]);
-      showError(parsedList[0] || 'Failed to save product', 'Product Error');
+      if (rawMsg.toLowerCase().includes('product code') || rawMsg.includes('DUPLICATE_PRODUCT_CODE')) {
+        setProductCodeConflictError(rawMsg);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -530,15 +623,63 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
             )}
           </div>
 
-          {/* Right Column: Title, Price, Total Quantity, Category */}
+          {/* Right Column: Title, Product Code, Price, Total Quantity, Category */}
           <div className="flex-1 w-full space-y-4">
-            <div>
-              <FormField
-                label="Product Title"
-                placeholder="Enter product title..."
-                error={errors.name?.message}
-                {...register('name')}
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-2">
+                <FormField
+                  label="Product Title"
+                  placeholder="Enter product title..."
+                  error={errors.name?.message}
+                  {...register('name')}
+                />
+              </div>
+              <div>
+                <FormField
+                  label="Product Code"
+                  placeholder="e.g. GRIP-001"
+                  error={errors.productCode?.message || productCodeConflictError || undefined}
+                  disabled={mode === 'edit'}
+                  {...register('productCode', {
+                    onChange: (e) => {
+                      setIsManualProductCode(true);
+                      const newCode = e.target.value.toUpperCase();
+                      e.target.value = newCode;
+                      setValue('productCode', newCode, { shouldValidate: true });
+                      updateAllVariantSkusWithNewProductCode(newCode);
+
+                      if (!newCode.trim()) {
+                        setProductCodeConflictError('Product code is required');
+                        return;
+                      }
+
+                      fetch(
+                        `/api/products/code-check?code=${encodeURIComponent(newCode)}${initialData?.id ? `&excludeId=${initialData.id}` : ''}`
+                      )
+                        .then((r) => r.json())
+                        .then((data) => {
+                          if (data.success && data.data && !data.data.available) {
+                            setProductCodeConflictError(
+                              `Product code '${newCode}' is already in use by another product.`
+                            );
+                          } else {
+                            setProductCodeConflictError(null);
+                          }
+                        })
+                        .catch(() => {});
+                    }
+                  })}
+                  className={cn(
+                    'uppercase font-mono',
+                    mode === 'edit' && 'bg-slate-100/80 cursor-not-allowed text-slate-700 font-semibold'
+                  )}
+                />
+                {mode === 'edit' && (
+                  <p className="mt-1 text-xs text-slate-500 font-medium">
+                    Product code is permanently assigned to preserve barcoding and order history.
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -675,6 +816,9 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                   <option value="Active">Active</option>
                   {mode === 'edit' && <option value="Inactive">Inactive</option>}
                 </Select>
+                {statusChangeError && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">{statusChangeError}</p>
+                )}
               </div>
             </div>
           </div>
@@ -686,7 +830,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         <div className="border-b border-slate-100 pb-3">
           <h2 className="text-lg font-semibold text-slate-800">Product Variants</h2>
           <p className="text-xs text-slate-500">
-            Add variants with Color, Size, Quantity, and optional image. Uploading an image for a color syncs across all variants of that color.
+            Add variants with Color, Size, Quantity, custom SKU, and optional image. Uploading an image for a color syncs across all variants of that color.
           </p>
         </div>
 
@@ -704,7 +848,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         )}
 
         {/* Quick Add Variant Header Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_44px_44px] gap-3 items-center bg-slate-50/80 p-3.5 rounded-xl border border-slate-200">
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_1.3fr_44px_44px] gap-3 items-center bg-slate-50/80 p-3.5 rounded-xl border border-slate-200">
           <div>
             <Select
               value={draftColor}
@@ -754,6 +898,19 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
             />
           </div>
 
+          <div>
+            <Input
+              placeholder="Variant SKU"
+              value={draftSku}
+              onChange={(e) => {
+                setIsManualSku(true);
+                setDraftSku(e.target.value.toUpperCase());
+              }}
+              className="bg-white h-11 uppercase font-mono text-xs"
+              title="Auto-generated default SKU. You can override it manually."
+            />
+          </div>
+
           {/* Variant Image Upload for Draft Row (Color-Synced) */}
           <div className="flex justify-center shrink-0">
             <VariantImageUpload
@@ -763,7 +920,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                 if (draftColor) {
                   handleColorImageChange(draftColor, newFile, newPreviewUrl);
                 } else {
-                  showError('Please select a Color first to attach an image', 'Warning');
+                  setDraftError('Please select a Color first to attach an image');
                 }
               }}
               disabled={submitting || !draftColor}
@@ -785,7 +942,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         {/* Added Variants List */}
         {fields.length === 0 ? (
           <div className="p-6 text-center text-sm text-slate-400 border border-dashed border-slate-200 rounded-lg">
-            No variants added yet. Select Color, Size, Quantity, and optional image above, then click &quot;+&quot;.
+            No variants added yet. Select Color, Size, Quantity, SKU, and optional image above, then click &quot;+&quot;.
           </div>
         ) : (
           <div className="space-y-3">
@@ -793,13 +950,16 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               const colorError = errors.variants?.[index]?.color?.message;
               const sizeError = errors.variants?.[index]?.size?.message;
               const qtyError = errors.variants?.[index]?.quantity?.message;
+              const skuError = errors.variants?.[index]?.sku?.message;
 
               const vColor = (watch(`variants.${index}.color`) || '').trim();
+              const variantId = (watch(`variants.${index}`) as any)?.id;
+              const isExistingVariant = mode === 'edit' && Boolean(variantId);
 
               return (
                 <div
                   key={field.id}
-                  className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_44px_44px] gap-3 items-center p-3.5 rounded-xl bg-slate-50/50 border border-slate-200"
+                  className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_1.3fr_44px_44px] gap-3 items-center p-3.5 rounded-xl bg-slate-50/50 border border-slate-200"
                 >
                   {/* Color Select */}
                   <div>
@@ -809,8 +969,20 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                       render={({ field: selectField }) => (
                         <Select
                           {...selectField}
+                          disabled={isExistingVariant}
+                          onChange={(e) => {
+                            const newColor = e.target.value;
+                            selectField.onChange(newColor);
+                            const currentSize = watch(`variants.${index}.size`);
+                            const currentProdCode = watch('productCode') || (watch('name') ? generateProductCode(watch('name'), watch('categoryName')) : 'PROD-001');
+                            const autoSku = generateDefaultSku(currentProdCode, newColor, currentSize);
+                            setValue(`variants.${index}.sku`, autoSku, { shouldValidate: true });
+                          }}
                           error={!!colorError}
-                          className="bg-white h-11"
+                          className={cn(
+                            'bg-white h-11',
+                            isExistingVariant && 'bg-slate-100/80 cursor-not-allowed text-slate-700 font-medium'
+                          )}
                         >
                           <option value="">Select Color</option>
                           {COLOR_OPTIONS.map((c) => (
@@ -834,8 +1006,20 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                       render={({ field: selectField }) => (
                         <Select
                           {...selectField}
+                          disabled={isExistingVariant}
+                          onChange={(e) => {
+                            const newSize = e.target.value;
+                            selectField.onChange(newSize);
+                            const currentColor = watch(`variants.${index}.color`);
+                            const currentProdCode = watch('productCode') || (watch('name') ? generateProductCode(watch('name'), watch('categoryName')) : 'PROD-001');
+                            const autoSku = generateDefaultSku(currentProdCode, currentColor, newSize);
+                            setValue(`variants.${index}.sku`, autoSku, { shouldValidate: true });
+                          }}
                           error={!!sizeError}
-                          className="bg-white h-11"
+                          className={cn(
+                            'bg-white h-11',
+                            isExistingVariant && 'bg-slate-100/80 cursor-not-allowed text-slate-700 font-medium'
+                          )}
                         >
                           <option value="">Select Size</option>
                           {SIZE_OPTIONS.map((s) => (
@@ -873,6 +1057,28 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                     )}
                   </div>
 
+                  {/* SKU Input */}
+                  <div>
+                    <Input
+                      placeholder="SKU"
+                      disabled={isExistingVariant}
+                      aria-invalid={!!skuError}
+                      className={cn(
+                        'bg-white h-11 uppercase font-mono text-xs',
+                        isExistingVariant && 'bg-slate-100/80 cursor-not-allowed text-slate-700 font-semibold',
+                        skuError ? 'border-red-500 focus:border-red-500' : ''
+                      )}
+                      {...register(`variants.${index}.sku`, {
+                        onChange: (e) => {
+                          e.target.value = e.target.value.toUpperCase();
+                        }
+                      })}
+                    />
+                    {skuError && (
+                      <p className="mt-1 text-xs text-danger font-medium">{skuError}</p>
+                    )}
+                  </div>
+
                   {/* Image Upload Box directly in variant row (Color-Synced) */}
                   <div className="flex justify-center shrink-0">
                     <VariantImageUpload
@@ -882,7 +1088,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                         if (vColor) {
                           handleColorImageChange(vColor, newFile, newPreviewUrl);
                         } else {
-                          showError('Please select a Color first to attach an image', 'Warning');
+                          setDraftError('Please select a Color first to attach an image');
                         }
                       }}
                       disabled={submitting || !vColor}

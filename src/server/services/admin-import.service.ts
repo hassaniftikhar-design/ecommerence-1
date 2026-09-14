@@ -42,6 +42,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
 
   templateSheet.columns = [
     { header: 'title', key: 'title', width: 28 },
+    { header: 'sku', key: 'sku', width: 22 },
     { header: 'price', key: 'price', width: 14 },
     { header: 'categoryName', key: 'categoryName', width: 22 },
     { header: 'colorName', key: 'colorName', width: 18 },
@@ -72,6 +73,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
   const sampleRows = [
     {
       title: 'Classic Heavyweight Tee',
+      sku: 'BRAC-001-BLK-M',
       price: 34.99,
       categoryName: categoryNames[0] || 'Apparel',
       colorName: 'Black',
@@ -81,6 +83,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
     },
     {
       title: 'Classic Heavyweight Tee',
+      sku: 'BRAC-001-BLK-L',
       price: 34.99,
       categoryName: categoryNames[0] || 'Apparel',
       colorName: 'Black',
@@ -90,6 +93,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
     },
     {
       title: 'Classic Heavyweight Tee',
+      sku: 'BRAC-001-WHT-M',
       price: 34.99,
       categoryName: categoryNames[0] || 'Apparel',
       colorName: 'White',
@@ -99,6 +103,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
     },
     {
       title: 'Wireless Ergonomic Keyboard',
+      sku: 'KEYB-001-GRY-L',
       price: 129.5,
       categoryName:
         categoryNames.find((category) =>
@@ -113,6 +118,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
     },
     {
       title: 'Minimalist Ceramic Mug',
+      sku: 'MUG-001-DEF',
       price: 18.0,
       categoryName:
         categoryNames.find((category) =>
@@ -136,7 +142,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
   const sizeList = `"${SIZE_OPTIONS.join(',')}"`;
 
   for (let row = 2; row <= 1000; row++) {
-    templateSheet.getCell(`C${row}`).dataValidation = {
+    templateSheet.getCell(`D${row}`).dataValidation = {
       type: 'list',
       allowBlank: false,
       formulae: [categoryList],
@@ -146,7 +152,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
       error: 'Please select a category from the dropdown.'
     };
 
-    templateSheet.getCell(`D${row}`).dataValidation = {
+    templateSheet.getCell(`E${row}`).dataValidation = {
       type: 'list',
       allowBlank: true,
       formulae: [colorList],
@@ -156,7 +162,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
       error: 'Please select a valid color from the dropdown or leave blank for standard.'
     };
 
-    templateSheet.getCell(`E${row}`).dataValidation = {
+    templateSheet.getCell(`F${row}`).dataValidation = {
       type: 'list',
       allowBlank: true,
       formulae: [sizeList],

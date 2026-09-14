@@ -122,7 +122,7 @@ export function AdminProductsView() {
           <div className="relative w-full sm:w-64 h-9">
             <input
               type="text"
-              placeholder="Search product title or category..."
+              placeholder="Search product title, category, or SKU..."
               value={searchQuery}
               onChange={handleSearchChange}
               className="w-full h-9 rounded-lg border border-slate-200 bg-white pl-3 pr-9 text-xs sm:text-sm text-slate-700 placeholder-slate-400 outline-none focus:border-[#007BFF]"
@@ -245,7 +245,7 @@ export function AdminProductsView() {
                               hasImportError ? 'border-red-400 ring-2 ring-red-600/70' : 'border-slate-200'
                             )}
                           />
-                          <div className="min-w-0">
+                          <div className="min-w-0 space-y-0.5">
                             <Tooltip content={product.name} side="top">
                               <p className={cn(
                                 'text-xs sm:text-sm font-medium line-clamp-2 cursor-pointer transition-colors',
@@ -254,11 +254,18 @@ export function AdminProductsView() {
                                 {product.name}
                               </p>
                             </Tooltip>
-                            {product.category?.name && (
-                              <span className="text-[11px] text-slate-400 block">
-                                {product.category.name}
-                              </span>
-                            )}
+                            <div className="flex items-center gap-2">
+                              {product.productCode && (
+                                <span className="font-mono text-[10px] font-semibold bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded border border-slate-200/80 uppercase">
+                                  {product.productCode}
+                                </span>
+                              )}
+                              {product.category?.name && (
+                                <span className="text-[11px] text-slate-400 block">
+                                  {product.category.name}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </TableCell>
@@ -383,13 +390,22 @@ export function AdminProductsView() {
                                            }}
                                            className="h-9 w-9 shrink-0 rounded object-cover border border-slate-200 cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-2xs"
                                         />
-                                        <VariantBadge
-                                          color={color !== 'Standard' ? color : undefined}
-                                          size={size !== 'Standard' ? size : undefined}
-                                        />
-                                        <span className="text-xs font-semibold text-slate-800">
-                                          {color !== 'Standard' ? color : ''} {size !== 'Standard' ? size : ''}
-                                        </span>
+                                        <div className="space-y-0.5">
+                                          <div className="flex items-center gap-1.5">
+                                            <VariantBadge
+                                              color={color !== 'Standard' ? color : undefined}
+                                              size={size !== 'Standard' ? size : undefined}
+                                            />
+                                            <span className="text-xs font-semibold text-slate-800">
+                                              {color !== 'Standard' ? color : ''} {size !== 'Standard' ? size : ''}
+                                            </span>
+                                          </div>
+                                          {variant.sku && (
+                                            <span className="font-mono text-[10px] font-bold text-slate-500 block uppercase">
+                                              SKU: {variant.sku}
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
                                       <span className="text-xs font-bold text-slate-700 bg-white border border-slate-200 px-2.5 py-1 rounded-md shadow-xs">
                                         Qty: {variant.stock}

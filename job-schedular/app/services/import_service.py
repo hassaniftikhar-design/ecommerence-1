@@ -2,6 +2,7 @@
 
 import csv
 import os
+import re
 import shutil
 import secrets
 import time
@@ -220,6 +221,18 @@ def parse_csv_into_grouped_products(csv_path: str) -> List[Dict[str, Any]]:
                 prod_entry["options"]["Size"] = set()
             prod_entry["options"]["Size"].add(size)
 
+        # Deduplicate identical SKUs within the same product group in CSV
+        if sku:
+            existing_var = next(
+                (v for v in prod_entry["variants"] if v.get("sku") and v["sku"].upper() == sku.upper()),
+                None
+            )
+            if existing_var:
+                existing_var["stock"] += stock
+                if img_path and img_path not in existing_var["images"]:
+                    existing_var["images"].append(img_path)
+                continue
+
         variant_entry = {
             "sku": sku or None,
             "stock": stock,
@@ -328,6 +341,35 @@ def resolve_and_upload_image(
     return None
 
 
+def get_next_available_product_code(db: Session, name: str, category_name: Optional[str] = None) -> str:
+    clean = "".join([c for c in name if c.isalnum()]).upper()
+    prefix = clean[:4] if len(clean) >= 4 else (clean or "PROD")
+    if len(prefix) < 2:
+        prefix = "PROD"
+
+    existing = db.query(Product.productCode).filter(
+        Product.productCode.ilike(f"{prefix}-%")
+    ).all()
+
+    used_seqs = set()
+    for (p_code,) in existing:
+        if p_code:
+            match = re.match(rf"^{prefix}-([0-9]+)$", p_code, re.IGNORECASE)
+            if match:
+                try:
+                    num = int(match.group(1))
+                    if num > 0:
+                        used_seqs.add(num)
+                except Exception:
+                    pass
+
+    next_seq = 1
+    while next_seq in used_seqs:
+        next_seq += 1
+
+    return f"{prefix}-{str(next_seq).zfill(3)}"
+
+
 def process_single_product_import(
     db: Session,
     raw_data: Dict[str, Any],
@@ -389,9 +431,19 @@ def process_single_product_import(
         Product.categoryId == category.id
     ).first()
 
+    raw_product_code = (raw_data.get("productCode") or "").strip().upper()
+    if not raw_product_code:
+        raw_product_code = get_next_available_product_code(db, name, category_name)
+
     if not product:
+        # Check productCode uniqueness
+        existing_code = db.query(Product).filter(Product.productCode == raw_product_code).first()
+        if existing_code:
+            raw_product_code = get_next_available_product_code(db, name, category_name)
+
         product = Product(
             id=str(uuid.uuid4()),
+            productCode=raw_product_code,
             name=name,
             description=description,
             price=price,
@@ -402,6 +454,8 @@ def process_single_product_import(
         db.add(product)
         db.flush()
     else:
+        if not product.productCode:
+            product.productCode = raw_product_code
         if description:
             product.description = description
         if price is not None and price > 0:
@@ -464,7 +518,7 @@ def process_single_product_import(
         sig = frozenset(sig_list)
         existing_variant_by_sig[sig] = ev
 
-    # 6. Handle Variants (Stock increment if matching specs, else create new variant)
+    # 6. Handle Variants (Stock increment if matching SKU or specs, else create new variant)
     variants_data = raw_data.get("variants") or []
     stock_val = raw_data.get("stock", 0)
     base_stock = int(stock_val) if stock_val is not None else 0
@@ -478,7 +532,7 @@ def process_single_product_import(
                 if str(k).strip() and str(v).strip()
             ])
 
-            sku = (v_data.get("sku") or "").strip()
+            sku = (v_data.get("sku") or "").strip().upper()
             v_stock = int(v_data.get("stock", 0))
             if v_stock < 1:
                 if product:
@@ -497,57 +551,74 @@ def process_single_product_import(
                     v_uploaded_img = uploaded_image_url
             v_images = [v_uploaded_img] if v_uploaded_img else [uploaded_image_url]
 
-            matching_variant = existing_variant_by_sig.get(incoming_sig)
-            if not matching_variant and not incoming_sig and len(existing_variants) == 1 and frozenset() in existing_variant_by_sig:
-                matching_variant = existing_variant_by_sig[frozenset()]
+            # 1. Check if SKU already exists anywhere in the DB -> Increment its stock
+            existing_sku_var = None
+            if sku:
+                existing_sku_var = db.query(ProductVariant).filter(
+                    func.lower(ProductVariant.sku) == sku.lower()
+                ).first()
 
-            if matching_variant:
-                matching_variant.stock += v_stock
-                current_imgs = list(matching_variant.images or [])
+            if existing_sku_var:
+                existing_sku_var.stock += v_stock
+                current_imgs = list(existing_sku_var.images or [])
                 for img in v_images:
                     if img and img not in current_imgs:
                         current_imgs.append(img)
-                matching_variant.images = current_imgs
-
-                if sku and sku != matching_variant.sku:
-                    other_sku = db.query(ProductVariant).filter(
-                        ProductVariant.sku == sku,
-                        ProductVariant.id != matching_variant.id
-                    ).first()
-                    if other_sku:
-                        return product, "SKU_CONFLICT", f"SKU '{sku}' already exists in the system"
-                    matching_variant.sku = sku
+                existing_sku_var.images = current_imgs
             else:
-                if not sku:
-                    sku = generate_sku()
+                # 2. Check if matching variant exists on this product by attributes
+                matching_variant = existing_variant_by_sig.get(incoming_sig)
+                if not matching_variant and not incoming_sig and len(existing_variants) == 1 and frozenset() in existing_variant_by_sig:
+                    matching_variant = existing_variant_by_sig[frozenset()]
 
-                existing_sku = db.query(ProductVariant).filter(ProductVariant.sku == sku).first()
-                if existing_sku:
-                    return product, "SKU_CONFLICT", f"SKU '{sku}' already exists in the system"
+                if matching_variant:
+                    matching_variant.stock += v_stock
+                    current_imgs = list(matching_variant.images or [])
+                    for img in v_images:
+                        if img and img not in current_imgs:
+                            current_imgs.append(img)
+                    matching_variant.images = current_imgs
+                    if sku and not matching_variant.sku:
+                        matching_variant.sku = sku
+                else:
+                    if not sku:
+                        # Auto-generate default SKU
+                        color_val = attributes.get("Color") or attributes.get("color") or ""
+                        size_val = attributes.get("Size") or attributes.get("size") or ""
+                        color_code = "".join([c for c in color_val if c.isalnum()][:3]).upper() or "DEF"
+                        size_code = size_val.strip().upper() or "DEF"
+                        sku = f"{product.productCode or 'PROD'}-{color_code}-{size_code}"
 
-                variant = ProductVariant(
-                    id=str(uuid.uuid4()),
-                    productId=product.id,
-                    sku=sku,
-                    stock=v_stock,
-                    images=v_images
-                )
-                db.add(variant)
-                db.flush()
-
-                for attr_name, attr_val in attributes.items():
-                    key = f"{str(attr_name).strip().lower()}:{str(attr_val).strip().lower()}"
-                    val_id = option_value_map.get(key)
-                    if val_id:
-                        vo = VariantOption(
+                    # Final check before insert
+                    existing_check = db.query(ProductVariant).filter(
+                        func.lower(ProductVariant.sku) == sku.lower()
+                    ).first()
+                    if existing_check:
+                        existing_check.stock += v_stock
+                    else:
+                        variant = ProductVariant(
                             id=str(uuid.uuid4()),
-                            variantId=variant.id,
-                            optionValueId=val_id
+                            productId=product.id,
+                            sku=sku,
+                            stock=v_stock,
+                            images=v_images
                         )
-                        db.add(vo)
+                        db.add(variant)
+                        db.flush()
 
-                existing_variant_by_sig[incoming_sig] = variant
-                existing_variants.append(variant)
+                        for attr_name, attr_val in attributes.items():
+                            key = f"{str(attr_name).strip().lower()}:{str(attr_val).strip().lower()}"
+                            val_id = option_value_map.get(key)
+                            if val_id:
+                                vo = VariantOption(
+                                    id=str(uuid.uuid4()),
+                                    variantId=variant.id,
+                                    optionValueId=val_id
+                                )
+                                db.add(vo)
+
+                        existing_variant_by_sig[incoming_sig] = variant
+                        existing_variants.append(variant)
     else:
         if base_stock < 1:
             if product:
@@ -564,18 +635,24 @@ def process_single_product_import(
             if uploaded_image_url and uploaded_image_url not in (matching_variant.images or []):
                 matching_variant.images = list(matching_variant.images or []) + [uploaded_image_url]
         elif len(existing_variants) == 0:
-            sku = generate_sku()
-            variant = ProductVariant(
-                id=str(uuid.uuid4()),
-                productId=product.id,
-                sku=sku,
-                stock=base_stock,
-                images=[uploaded_image_url]
-            )
-            db.add(variant)
-            db.flush()
-            existing_variant_by_sig[std_sig] = variant
-            existing_variants.append(variant)
+            sku = f"{product.productCode or 'PROD'}-DEF"
+            existing_check = db.query(ProductVariant).filter(
+                func.lower(ProductVariant.sku) == sku.lower()
+            ).first()
+            if existing_check:
+                existing_check.stock += base_stock
+            else:
+                variant = ProductVariant(
+                    id=str(uuid.uuid4()),
+                    productId=product.id,
+                    sku=sku,
+                    stock=base_stock,
+                    images=[uploaded_image_url]
+                )
+                db.add(variant)
+                db.flush()
+                existing_variant_by_sig[std_sig] = variant
+                existing_variants.append(variant)
         else:
             existing_variants[0].stock += base_stock
 
