@@ -1,7 +1,5 @@
 'use client';
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-
 const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest' },
   { value: 'price-asc', label: 'Price: Low to High' },
@@ -10,27 +8,23 @@ const SORT_OPTIONS = [
   { value: 'name-desc', label: 'Name: Z to A' }
 ] as const;
 
-export function SortDropdown() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const selectedSort = searchParams.get('sort') || 'newest';
+interface SortDropdownProps {
+  value?: string;
+  onChange?: (value: string) => void;
+}
 
+export function SortDropdown({
+  value = 'newest',
+  onChange
+}: SortDropdownProps) {
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    const params = new URLSearchParams(searchParams.toString());
-    if (value && value !== 'newest') {
-      params.set('sort', value);
-    } else {
-      params.delete('sort');
-    }
-    router.push(`${pathname}?${params.toString()}`);
+    onChange?.(e.target.value);
   };
 
   return (
     <select
       id="sort-by"
-      value={selectedSort}
+      value={value}
       onChange={handleChange}
       aria-label="Sort products"
       className="h-8 w-full rounded border border-[#E2E8F0] bg-white px-2 text-xs text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#007BFF]/40 sm:text-sm cursor-pointer"
