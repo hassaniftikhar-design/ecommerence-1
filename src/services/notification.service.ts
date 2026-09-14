@@ -3,9 +3,11 @@ import type { NotificationsResponse } from '@/types/notification.types';
 
 export async function getNotifications(
   page: number = 1,
-  limit: number = NOTIFICATIONS_PER_PAGE
+  limit: number = NOTIFICATIONS_PER_PAGE,
+  type?: string
 ): Promise<NotificationsResponse> {
-  const res = await fetch(`/api/notifications?page=${page}&limit=${limit}`, {
+  const typeQuery = type ? `&type=${encodeURIComponent(type)}` : '';
+  const res = await fetch(`/api/notifications?page=${page}&limit=${limit}${typeQuery}`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
     cache: 'no-store'
