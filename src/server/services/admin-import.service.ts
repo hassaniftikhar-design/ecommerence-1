@@ -8,6 +8,7 @@ import {
 } from '@/constants/generalconstants';
 import { cleanupImportStorage, saveUploadedImportFiles } from '@/lib/import-storage';
 import { prisma } from '@/lib/prisma';
+import { emitToUser } from '@/lib/socket/server';
 import { schedulerClient } from '@/services/scheduler/scheduler.client';
 
 /**
@@ -224,6 +225,13 @@ export async function resolveImportItemServer(input: {
     const job = await prisma.importJob.findUnique({ where: { id: jobId } });
     const filename = job?.filename || 'products.csv';
 
+    const affectedNotifs = await prisma.notification.findMany({
+      where: {
+        type: 'IMPORT_ERRORS',
+        orderId: jobId
+      }
+    });
+
     await prisma.notification.updateMany({
       where: {
         type: 'IMPORT_ERRORS',
@@ -235,6 +243,13 @@ export async function resolveImportItemServer(input: {
         isRead: true
       }
     });
+
+    for (const notif of affectedNotifs) {
+      const newUnreadCount = await prisma.notification.count({
+        where: { userId: notif.userId, isRead: false }
+      });
+      emitToUser(notif.userId, 'notification:unread-count', { count: newUnreadCount });
+    }
   }
 
   return {

@@ -10,6 +10,7 @@ import {
   validateOrderIdInput,
   validateCreateOrderInput
 } from '@/server/middlewares';
+import { createAndEmitNotificationServer } from '@/server/services/notification.service';
 
 function generateOrderNumber(): string {
   const randNum = Math.floor(100000 + Math.random() * 900000);
@@ -297,14 +298,12 @@ export async function createOrderServer(
       return newOrder;
     });
 
-    await prisma.notification.create({
-      data: {
-        userId,
-        title: 'Order Placed Successfully',
-        message: `Your order #${createdOrder.orderNumber} has been placed.`,
-        type: 'ORDER_PLACED',
-        orderId: createdOrder.id
-      }
+    await createAndEmitNotificationServer({
+      recipientId: userId,
+      title: 'Order Placed Successfully',
+      message: `Your order #${createdOrder.orderNumber} has been placed.`,
+      type: 'ORDER_PLACED',
+      orderId: createdOrder.id
     });
 
     // Enqueue order confirmation email in background scheduler
@@ -650,14 +649,12 @@ export async function updateOrderStatusServer(id: string, status: unknown) {
 
   const readableStatus = statusLabels[validStatus] || validStatus.toLowerCase();
 
-  await prisma.notification.create({
-    data: {
-      userId: existingOrder.userId,
-      title: 'Order Status Updated',
-      message: `Your order #${existingOrder.orderNumber} is now ${readableStatus}.`,
-      type: 'ORDER_STATUS_UPDATED',
-      orderId: updatedOrder.id
-    }
+  await createAndEmitNotificationServer({
+    recipientId: existingOrder.userId,
+    title: 'Order Status Updated',
+    message: `Your order #${existingOrder.orderNumber} is now ${readableStatus}.`,
+    type: 'ORDER_STATUS_UPDATED',
+    orderId: updatedOrder.id
   });
 
   // Enqueue order status changed email in background scheduler

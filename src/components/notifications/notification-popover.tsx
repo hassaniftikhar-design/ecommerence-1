@@ -10,6 +10,7 @@ import {
   NOTIFICATIONS_PER_PAGE,
   NOTIFICATIONS_LAZY_LOAD_DELAY_MS
 } from '@/constants/generalconstants';
+import { useSocket } from '@/providers/socket-provider';
 import { getNotifications, markNotificationAsRead } from '@/services/notification.service';
 import type { NotificationItem } from '@/types/notification.types';
 
@@ -34,17 +35,28 @@ interface NotificationPopoverProps {
 
 export function NotificationPopover({ adminOnly = false }: NotificationPopoverProps) {
   const router = useRouter();
-  const { status } = useSession();
-  const isAuthenticated = status === 'authenticated';
+  const {
+    unreadCount: globalUnreadCount,
+    adminUnreadCount: globalAdminUnreadCount,
+    hasMore: globalHasMore,
+    adminHasMore: globalAdminHasMore,
+    notifications: globalNotifications,
+    adminNotifications: globalAdminNotifications,
+    setNotifications,
+    setAdminNotifications,
+    setUnreadCount,
+    setAdminUnreadCount,
+    setHasMore: setGlobalHasMore,
+    setAdminHasMore: setGlobalAdminHasMore
+  } = useSocket();
 
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'unread' | 'all'>('unread');
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
+
+  const notifications = adminOnly ? globalAdminNotifications : globalNotifications;
+  const unreadCount = adminOnly ? globalAdminUnreadCount : globalUnreadCount;
+  const hasMore = adminOnly ? globalAdminHasMore : globalHasMore;
 
   const popoverRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -62,32 +74,6 @@ export function NotificationPopover({ adminOnly = false }: NotificationPopoverPr
     );
   };
 
-  // Fetch initial notifications (Page 1)
-  const fetchNotifications = useCallback(async () => {
-    if (!isAuthenticated) return;
-    try {
-      setLoading(true);
-      const data = await getNotifications(1, NOTIFICATIONS_PER_PAGE, adminOnly ? 'IMPORT_ERRORS' : undefined);
-      setNotifications(data.notifications || []);
-      setUnreadCount(data.unreadCount || 0);
-      setHasMore(!!data.hasMore);
-      setPage(1);
-    } catch (err) {
-      console.error('Failed to load notifications', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [isAuthenticated, adminOnly]);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchNotifications();
-
-      const interval = setInterval(fetchNotifications, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [isAuthenticated, fetchNotifications]);
-
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
@@ -99,25 +85,34 @@ export function NotificationPopover({ adminOnly = false }: NotificationPopoverPr
   }, []);
 
   const handleScroll = async () => {
-    if (!containerRef.current || loadingMore || !hasMore || loading) return;
+    if (!containerRef.current || loadingMore || !hasMore) return;
 
     const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
     if (scrollTop + clientHeight >= scrollHeight - 15) {
       setLoadingMore(true);
-      const nextPage = page + 1;
+      const nextPage = Math.floor(notifications.length / NOTIFICATIONS_PER_PAGE) + 1;
 
       await new Promise((resolve) => setTimeout(resolve, NOTIFICATIONS_LAZY_LOAD_DELAY_MS));
 
       try {
         const data = await getNotifications(nextPage, NOTIFICATIONS_PER_PAGE, adminOnly ? 'IMPORT_ERRORS' : undefined);
-        setNotifications((prev) => {
-          const existingIds = new Set(prev.map((n) => n.id));
-          const newItems = (data.notifications || []).filter((n) => !existingIds.has(n.id));
-          return [...prev, ...newItems];
-        });
-        setUnreadCount(data.unreadCount || 0);
-        setHasMore(!!data.hasMore);
-        setPage(nextPage);
+        if (adminOnly) {
+          setAdminNotifications((prev) => {
+            const existingIds = new Set(prev.map((n) => n.id));
+            const newItems = (data.notifications || []).filter((n) => !existingIds.has(n.id));
+            return [...prev, ...newItems];
+          });
+          setAdminUnreadCount(data.unreadCount || 0);
+          setGlobalAdminHasMore(Boolean(data.hasMore));
+        } else {
+          setNotifications((prev) => {
+            const existingIds = new Set(prev.map((n) => n.id));
+            const newItems = (data.notifications || []).filter((n) => !existingIds.has(n.id));
+            return [...prev, ...newItems];
+          });
+          setUnreadCount(data.unreadCount || 0);
+          setGlobalHasMore(Boolean(data.hasMore));
+        }
       } catch (err) {
         console.error('Failed to load more notifications', err);
       } finally {
@@ -129,17 +124,29 @@ export function NotificationPopover({ adminOnly = false }: NotificationPopoverPr
   const handleMarkAllRead = async () => {
     if (unreadCount === 0) return;
     await markNotificationAsRead(undefined, true);
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-    setUnreadCount(0);
+    if (adminOnly) {
+      setAdminNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setAdminUnreadCount(0);
+    } else {
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setUnreadCount(0);
+    }
   };
 
   const handleItemClick = async (item: NotificationItem) => {
     if (!item.isRead) {
       await markNotificationAsRead(item.id, false);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n))
-      );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+      if (adminOnly) {
+        setAdminNotifications((prev) =>
+          prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n))
+        );
+        setAdminUnreadCount((prev) => Math.max(0, prev - 1));
+      } else {
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n))
+        );
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
     }
 
     const resolved = isNotificationResolved(item);
@@ -232,11 +239,7 @@ export function NotificationPopover({ adminOnly = false }: NotificationPopoverPr
             onScroll={handleScroll}
             className="max-h-[340px] overflow-y-auto divide-y divide-slate-100"
           >
-            {loading ? (
-              <div className="py-10 text-center text-xs text-slate-400 font-medium">
-                Loading notifications...
-              </div>
-            ) : filteredNotifications.length === 0 ? (
+            {filteredNotifications.length === 0 ? (
               <div className="py-12 text-center text-slate-400 text-xs px-4">
                 {activeTab === 'unread'
                   ? adminOnly ? 'No unread import notifications' : 'No unread notifications'

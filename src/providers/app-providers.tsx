@@ -9,6 +9,7 @@ import { ToastProvider } from '@/components/ui/toast';
 import { CartProvider } from '@/providers/cart-provider';
 
 import { SessionExpiryHandler } from '@/components/auth/session-expiry-handler';
+import { SocketProvider } from '@/providers/socket-provider';
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const [queryClient] = React.useState(
@@ -25,12 +26,14 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
 
   return (
     <SessionProvider>
-      <SessionExpiryHandler />
-      <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <CartProvider>{children}</CartProvider>
-        </ToastProvider>
-      </QueryClientProvider>
+      <SocketProvider>
+        <SessionExpiryHandler />
+        <QueryClientProvider client={queryClient}>
+          <ToastProvider>
+            <CartProvider>{children}</CartProvider>
+          </ToastProvider>
+        </QueryClientProvider>
+      </SocketProvider>
     </SessionProvider>
   );
 }

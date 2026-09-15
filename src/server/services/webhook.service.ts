@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { stripe } from '@/lib/stripe/stripe-server';
 import { getFriendlyPaymentErrorMessage, logStripeError } from '@/lib/stripe/errors';
 import { validateStripeWebhookInput } from '@/server/middlewares';
+import { createAndEmitNotificationServer } from '@/server/services/notification.service';
 
 /**
  * Resolves the Payment entity for a PaymentIntent with robust metadata fallback
@@ -206,14 +207,12 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
   }
 
   // Create notification for customer
-  await prisma.notification.create({
-    data: {
-      userId: payment.order.userId,
-      title: 'Payment Received',
-      message: `Your payment of $${Number(payment.amount).toFixed(2)} for Order #${payment.order.orderNumber} was successful.`,
-      type: 'PAYMENT_SUCCEEDED',
-      orderId: payment.order.id
-    }
+  await createAndEmitNotificationServer({
+    recipientId: payment.order.userId,
+    title: 'Payment Received',
+    message: `Your payment of $${Number(payment.amount).toFixed(2)} for Order #${payment.order.orderNumber} was successful.`,
+    type: 'PAYMENT_SUCCEEDED',
+    orderId: payment.order.id
   });
 }
 
@@ -255,14 +254,12 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
   // Stock remains reserved for the user's order (will be handled by future expiration cron job)
 
   // 2. Create notification for customer
-  await prisma.notification.create({
-    data: {
-      userId: payment.order.userId,
-      title: 'Payment Failed',
-      message: `Payment failed for Order #${payment.order.orderNumber}: ${friendlyMessage || 'Payment was declined or canceled.'}`,
-      type: 'PAYMENT_FAILED',
-      orderId: payment.order.id
-    }
+  await createAndEmitNotificationServer({
+    recipientId: payment.order.userId,
+    title: 'Payment Failed',
+    message: `Payment failed for Order #${payment.order.orderNumber}: ${friendlyMessage || 'Payment was declined or canceled.'}`,
+    type: 'PAYMENT_FAILED',
+    orderId: payment.order.id
   });
 }
 
@@ -293,14 +290,12 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
     }
   });
 
-  await prisma.notification.create({
-    data: {
-      userId: payment.order.userId,
-      title: 'Payment Refunded',
-      message: `A refund of $${(charge.amount_refunded / 100).toFixed(2)} was processed for Order #${payment.order.orderNumber}.`,
-      type: 'PAYMENT_REFUNDED',
-      orderId: payment.order.id
-    }
+  await createAndEmitNotificationServer({
+    recipientId: payment.order.userId,
+    title: 'Payment Refunded',
+    message: `A refund of $${(charge.amount_refunded / 100).toFixed(2)} was processed for Order #${payment.order.orderNumber}.`,
+    type: 'PAYMENT_REFUNDED',
+    orderId: payment.order.id
   });
 }
 
