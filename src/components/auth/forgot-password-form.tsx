@@ -10,14 +10,13 @@ import { ROUTES } from '@/constants/routes';
 import { isValidEmail } from '@/utils/validation';
 
 import { forgotPassword } from '@/services/auth.service';
-import { useToast } from '@/components/ui/toast';
 
 export function ForgotPasswordForm() {
-  const { showSuccess, showError } = useToast();
   const [email, setEmail] = useState('');
   const [touched, setTouched] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   const validateEmail = (val: string): string | undefined => {
     if (!val.trim()) return 'Email is required';
@@ -45,31 +44,29 @@ export function ForgotPasswordForm() {
     try {
       setLoading(true);
       await forgotPassword({ email });
+    } catch {
+      // Intentionally suppress toast errors to avoid exposing email presence
+      // and display the clean inline security message
+    } finally {
       setEmail('');
       setTouched(false);
       setError(undefined);
-      showSuccess(
-        'Password reset instructions have been sent to your email.',
-        'Email Sent'
-      );
-    } catch (err) {
-      const errMsg =
-        (err as Error).message || 'This email does not exist in our Store.';
-      showError(errMsg, 'Password Reset Failed');
-    } finally {
       setLoading(false);
+      setSubmitted(true);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} noValidate>
-      {/* Informative Green Notice Box */}
-      <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/90 p-3 text-xs text-emerald-800 shadow-2xs">
-        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-        <p className="leading-relaxed font-medium">
-          A reset link will be sent if the email exists.
-        </p>
-      </div>
+      {/* Informative Green Notice Box shown upon clicking Forgot Password */}
+      {submitted && (
+        <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/90 p-3 text-xs text-emerald-800 shadow-2xs">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+          <p className="leading-relaxed font-medium">
+            A reset link will be sent if the email exists.
+          </p>
+        </div>
+      )}
 
       <FormField
         label="Enter email address"
@@ -78,6 +75,9 @@ export function ForgotPasswordForm() {
         placeholder="Please enter your email"
         value={email}
         onChange={(e) => {
+          if (submitted) {
+            setSubmitted(false);
+          }
           setEmail(e.target.value);
           if (touched) {
             setError(validateEmail(e.target.value));
