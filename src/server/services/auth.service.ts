@@ -104,7 +104,8 @@ export async function forgotPasswordServer(body: unknown) {
     const schedulerRes = await schedulerClient.enqueueForgotPasswordEmail({
       userId: user.id,
       email: user.email,
-      resetToken: token
+      resetToken: token,
+      expiryMinutes: PASSWORD_RESET_EXPIRATION_MINUTES
     });
 
     if (!schedulerRes.success) {

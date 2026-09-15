@@ -34,13 +34,13 @@ def test_forgot_password_template_rendering():
             "user_name": "Alice Smith",
             "user_email": "alice@example.com",
             "reset_url": "http://localhost:3000/reset-password?token=secret123",
-            "expiry_minutes": 15
+            "expiry_minutes": 10
         }
     )
     assert "Alice Smith" in rendered
     assert "alice@example.com" in rendered
     assert "http://localhost:3000/reset-password?token=secret123" in rendered
-    assert "15 minutes" in rendered
+    assert "10 minutes" in rendered
 
 
 def test_order_placed_template_rendering():
@@ -113,7 +113,7 @@ def test_process_forgot_password_email_success(db: Session, seed_user: User, moc
     args, kwargs = mock_smtp.call_args
     assert kwargs["to_email"] == seed_user.email
     assert "my_secure_token_abc" in kwargs["html_body"]
-    assert "15 minutes" in kwargs["html_body"]
+    assert "10 minutes" in kwargs["html_body"]
 
 
 def test_process_forgot_password_email_non_existent_user(db: Session):

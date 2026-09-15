@@ -557,6 +557,10 @@ def process_single_product_import(
                 ).first()
 
             if existing_sku_var:
+                if existing_sku_var.productId != product.id:
+                    if product:
+                        product.isActive = False
+                    return product, "DUPLICATE_SKU", f"SKU '{sku}' already exists on product '{existing_sku_var.product.name if existing_sku_var.product else 'Another Product'}'"
                 existing_sku_var.stock += v_stock
                 current_imgs = list(existing_sku_var.images or [])
                 for img in v_images:

@@ -262,7 +262,8 @@ describe('Server Auth Service (auth.service.ts)', () => {
       expect(schedulerClient.enqueueForgotPasswordEmail).toHaveBeenCalledWith({
         userId: mockRegularUser.id,
         email: mockRegularUser.email,
-        resetToken: expect.any(String)
+        resetToken: expect.any(String),
+        expiryMinutes: 10
       });
     });
 

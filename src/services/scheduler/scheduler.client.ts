@@ -78,13 +78,15 @@ export const schedulerClient = {
     userId?: string;
     email?: string;
     resetToken: string;
+    expiryMinutes?: number;
   }): Promise<{ success: boolean; taskId?: string; error?: string }> {
     const result = await schedulerRequest<EnqueueResponse>('/jobs/forgot-password', {
       method: 'POST',
       body: JSON.stringify({
         user_id: params.userId,
         email: params.email,
-        reset_token: params.resetToken
+        reset_token: params.resetToken,
+        expiry_minutes: params.expiryMinutes
       })
     });
 

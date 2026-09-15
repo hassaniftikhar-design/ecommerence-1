@@ -14,8 +14,7 @@ from app.constants import (
     EVENT_TYPE_ORDER_PLACED,
     EVENT_TYPE_CANCELLATION_WARNING,
     EVENT_TYPE_STATUS_PREFIX,
-    UNPAID_ORDER_REJECTION_HOURS,
-    DEFAULT_PASSWORD_RESET_EXPIRY_MINUTES
+    UNPAID_ORDER_REJECTION_HOURS
 )
 from app.models.ecommerce import Order, User, PaymentStatusEnum, OrderStatusEnum
 from app.models.email_event import EmailEvent
@@ -92,6 +91,7 @@ def process_forgot_password_email(
     reset_token: str,
     user_id: Optional[str] = None,
     email: Optional[str] = None,
+    expiry_minutes: Optional[int] = None,
     task_id: Optional[str] = None
 ) -> bool:
     """Process forgot password email job."""
@@ -122,7 +122,7 @@ def process_forgot_password_email(
             "user_name": user_name,
             "user_email": user_email,
             "reset_url": reset_url,
-            "expiry_minutes": DEFAULT_PASSWORD_RESET_EXPIRY_MINUTES
+            "expiry_minutes": expiry_minutes
         }
     )
 

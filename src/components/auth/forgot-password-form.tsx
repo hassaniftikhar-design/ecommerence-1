@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { AuthFooterLink } from '@/components/auth/auth-footer-link';
@@ -62,6 +63,14 @@ export function ForgotPasswordForm() {
 
   return (
     <form onSubmit={handleSubmit} noValidate>
+      {/* Informative Green Notice Box */}
+      <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50/90 p-3 text-xs text-emerald-800 shadow-2xs">
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+        <p className="leading-relaxed font-medium">
+          A reset link will be sent if the email exists.
+        </p>
+      </div>
+
       <FormField
         label="Enter email address"
         name="email"

@@ -8,6 +8,7 @@ class ForgotPasswordJobRequest(BaseModel):
     user_id: Optional[str] = Field(None, description="User ID in database")
     email: Optional[str] = Field(None, description="User email address")
     reset_token: str = Field(..., min_length=8, description="Secure password reset token")
+    expiry_minutes: Optional[int] = Field(None, description="Password reset expiration time in minutes")
 
     @model_validator(mode="after")
     def check_identifier(self):

@@ -27,7 +27,8 @@ def send_forgot_password_email_task(
     self,
     reset_token: str,
     user_id: str | None = None,
-    email: str | None = None
+    email: str | None = None,
+    expiry_minutes: int | None = None
 ) -> dict:
     """Send password reset email to user."""
     log_task_event(
@@ -43,6 +44,7 @@ def send_forgot_password_email_task(
             reset_token=reset_token,
             user_id=user_id,
             email=email,
+            expiry_minutes=expiry_minutes,
             task_id=self.request.id
         )
 

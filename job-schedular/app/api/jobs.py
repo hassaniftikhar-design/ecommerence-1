@@ -68,7 +68,8 @@ def enqueue_forgot_password_email(
     task = send_forgot_password_email_task.delay(
         reset_token=payload.reset_token,
         user_id=user.id,
-        email=user.email
+        email=user.email,
+        expiry_minutes=payload.expiry_minutes
     )
 
     return TaskEnqueueResponse(
