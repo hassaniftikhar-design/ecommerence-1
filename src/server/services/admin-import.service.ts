@@ -179,6 +179,27 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
 }
 
 /**
+ * Generates a clean CSV sample template for bulk product importing.
+ */
+export async function generateBulkProductImportCsvTemplateServer(): Promise<string> {
+  const dbCategories = await prisma.category.findMany({
+    orderBy: { name: 'asc' },
+    select: { name: true }
+  });
+
+  const categoryName = dbCategories[0]?.name ?? 'Apparel';
+
+  const rows = [
+    ['title', 'sku', 'price', 'categoryName', 'colorName', 'sizeName', 'stock', 'imagePath'],
+    ['Classic Heavyweight Tee', 'BRAC-001-BLK-M', '34.99', categoryName, 'Black', 'M', '50', 'tee_black.jpg'],
+    ['Classic Heavyweight Tee', 'BRAC-001-BLK-L', '34.99', categoryName, 'Black', 'L', '40', 'tee_black.jpg'],
+    ['Classic Heavyweight Tee', 'BRAC-001-WHT-M', '34.99', categoryName, 'White', 'M', '25', 'tee_white.jpg']
+  ];
+
+  return rows.map((r) => r.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(',')).join('\n');
+}
+
+/**
  * Resolves a failed product import item and reconciles remaining failures in DB.
  */
 export async function resolveImportItemServer(input: {

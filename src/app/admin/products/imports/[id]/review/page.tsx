@@ -9,21 +9,15 @@ import {
   AlertTriangle,
   CheckCircle2,
   AlertCircle,
-  Download,
   ExternalLink,
   Edit3,
   PlusCircle,
   Search,
-  Filter,
-  FileSpreadsheet,
-  Clock,
-  Layers,
-  ChevronDown,
-  ChevronUp,
-  Loader2
+  Clock
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ROUTES } from '@/constants/routes';
 
 interface ImportErrorItem {
@@ -58,6 +52,65 @@ interface ImportJobReviewData {
   errors: ImportErrorItem[];
 }
 
+function ImportReviewSkeleton() {
+  return (
+    <div className="space-y-8 w-full max-w-6xl mx-auto pb-32">
+      {/* Top Header Skeleton */}
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-10 w-10 rounded-xl" />
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-56 rounded-lg" />
+          <Skeleton className="h-4 w-72 rounded-md" />
+        </div>
+      </div>
+
+      {/* Summary Metric Cards Skeleton */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="bg-slate-50/70 border border-slate-200/80 rounded-3xl p-5 shadow-xs flex items-center justify-between"
+          >
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-20 rounded-md" />
+              <Skeleton className="h-7 w-12 rounded-lg" />
+            </div>
+            <Skeleton className="w-12 h-12 rounded-2xl" />
+          </div>
+        ))}
+      </div>
+
+      {/* Filter Bar Skeleton */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Skeleton className="h-8 w-28 rounded-xl" />
+          <Skeleton className="h-8 w-28 rounded-xl" />
+        </div>
+        <Skeleton className="h-8 w-full sm:w-64 rounded-xl" />
+      </div>
+
+      {/* List of Error Items Skeleton */}
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-6 w-16 rounded-lg" />
+                <Skeleton className="h-5 w-48 rounded-md" />
+                <Skeleton className="h-4 w-28 rounded-md" />
+              </div>
+            </div>
+            <Skeleton className="h-14 w-full rounded-2xl" />
+            <div className="flex items-center justify-end pt-2 border-t border-slate-100">
+              <Skeleton className="h-8 w-28 rounded-xl" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ImportReviewPage({
   params
 }: {
@@ -65,15 +118,14 @@ export default function ImportReviewPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ImportJobReviewData | null>(null);
 
-  const [filterTab, setFilterTab] = useState<'all' | 'unresolved' | 'resolved'>('unresolved');
+  const [filterTab, setFilterTab] = useState<'unresolved' | 'resolved'>('unresolved');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [expandedRow, setExpandedRow] = useState<number | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -103,16 +155,20 @@ export default function ImportReviewPage({
       }
     }
 
-    if (id) {
+    if (id && status === 'authenticated') {
       loadReviewData();
     }
 
     return () => {
       isMounted = false;
     };
-  }, [id]);
+  }, [id, status]);
 
-  if (session?.user?.role !== 'ADMIN') {
+  if (status === 'loading' || (loading && !data && !error)) {
+    return <ImportReviewSkeleton />;
+  }
+
+  if (status === 'unauthenticated' || (status === 'authenticated' && session?.user?.role !== 'ADMIN')) {
     return (
       <div className="py-16 text-center text-slate-600 font-medium">
         Access Denied. Please login with an Admin account.
@@ -166,14 +222,6 @@ export default function ImportReviewPage({
             </p>
           </div>
         </div>
-
-        <a
-          href={`/api/admin/imports/${id}/export-errors`}
-          download={`import_errors_${id}.csv`}
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 px-4 py-2.5 rounded-xl hover:bg-slate-50 transition shadow-xs cursor-pointer"
-        >
-          <Download className="h-4 w-4 text-slate-500" /> Download Error Report (CSV)
-        </a>
       </div>
 
       {error && (
@@ -183,36 +231,8 @@ export default function ImportReviewPage({
         </div>
       )}
 
-      {loading ? (
-        <div className="py-24 text-center text-slate-500 flex flex-col items-center justify-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-          <span className="text-xs font-semibold">Loading import error items...</span>
-        </div>
-      ) : data ? (
+      {data && (
         <>
-          {/* Job Overview Card */}
-          <div className="bg-slate-900 text-white rounded-3xl p-6 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-blue-400">File Import</span>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-400/30">
-                  {job?.status || 'COMPLETED_WITH_ERRORS'}
-                </span>
-              </div>
-              <h2 className="text-lg font-black text-white">{job?.filename || 'products.csv'}</h2>
-              <p className="text-xs text-slate-300">
-                Total Products: <span className="font-bold text-white">{job?.totalItems ?? 0}</span> • Successful: <span className="font-bold text-emerald-400">{job?.successfulItems ?? 0}</span> • Failed: <span className="font-bold text-red-400">{job?.failedItems ?? 0}</span>
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="text-right hidden sm:block">
-                <span className="text-[11px] text-slate-400 block">Job ID</span>
-                <span className="text-xs font-mono font-bold text-slate-200">{id.slice(0, 8)}...</span>
-              </div>
-            </div>
-          </div>
-
           {/* Summary Metric Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-red-50/60 border border-red-200/80 rounded-3xl p-5 shadow-xs flex items-center justify-between">
@@ -263,17 +283,6 @@ export default function ImportReviewPage({
               </button>
               <button
                 type="button"
-                onClick={() => setFilterTab('all')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  filterTab === 'all'
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
-                }`}
-              >
-                All Failed ({summary.totalFailed})
-              </button>
-              <button
-                type="button"
                 onClick={() => setFilterTab('resolved')}
                 className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   filterTab === 'resolved'
@@ -313,7 +322,6 @@ export default function ImportReviewPage({
             ) : (
               filteredErrors.map((item) => {
                 const isResolved = item.resolution_status === 'RESOLVED';
-                const isExpanded = expandedRow === item.row_index;
                 const rawPrice = item.raw_data?.price;
                 const priceFormatted = rawPrice !== undefined && rawPrice !== null && rawPrice !== '' ? `$${rawPrice}` : 'Price not set';
                 const categoryFormatted = item.raw_data?.categoryName || item.raw_data?.category || 'Category not set';
@@ -340,23 +348,6 @@ export default function ImportReviewPage({
                           <span>{categoryFormatted}</span>
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-2">
-                        {/* Status Badges */}
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
-                          Status: INACTIVE
-                        </span>
-
-                        {isResolved ? (
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3" /> Resolution: RESOLVED
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-red-100 text-red-800 border border-red-200">
-                            Resolution: OPEN
-                          </span>
-                        )}
-                      </div>
                     </div>
 
                     {/* Error Message Box */}
@@ -371,16 +362,7 @@ export default function ImportReviewPage({
                     </div>
 
                     {/* Bottom Action Row */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => setExpandedRow(isExpanded ? null : item.row_index)}
-                        className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
-                      >
-                        <span>{isExpanded ? 'Hide Raw Data' : 'Inspect Imported Data'}</span>
-                        {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                      </button>
-
+                    <div className="flex items-center justify-end pt-2 border-t border-slate-100">
                       <div className="flex items-center gap-2">
                         {isResolved ? (
                           <Button
@@ -419,25 +401,13 @@ export default function ImportReviewPage({
                         )}
                       </div>
                     </div>
-
-                    {/* Collapsible Raw Data Preview */}
-                    {isExpanded && item.raw_data && (
-                      <div className="mt-3 p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs font-mono text-slate-700 space-y-1 animate-in fade-in">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                          Imported Row Raw Payload
-                        </div>
-                        <pre className="overflow-x-auto whitespace-pre-wrap leading-relaxed text-[11px]">
-                          {JSON.stringify(item.raw_data, null, 2)}
-                        </pre>
-                      </div>
-                    )}
                   </div>
                 );
               })
             )}
           </div>
         </>
-      ) : null}
+      )}
     </div>
   );
 }

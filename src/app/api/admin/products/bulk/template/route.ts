@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server';
 
 import { getCurrentUser, isAdmin } from '@/lib/server-auth';
 import { apiError } from '@/lib/api-response';
-import { generateBulkProductImportTemplateServer } from '@/server/services/admin-import.service';
+import {
+  generateBulkProductImportTemplateServer,
+  generateBulkProductImportCsvTemplateServer
+} from '@/server/services/admin-import.service';
 
 export async function GET(request: Request) {
   try {
@@ -14,6 +17,20 @@ export async function GET(request: Request) {
         [],
         403
       );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const format = searchParams.get('format');
+
+    if (format === 'csv') {
+      const csvData = await generateBulkProductImportCsvTemplateServer();
+      return new NextResponse(csvData, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': 'attachment; filename="product_bulk_import_template.csv"'
+        }
+      });
     }
 
     const buffer = await generateBulkProductImportTemplateServer();
