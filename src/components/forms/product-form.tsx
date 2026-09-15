@@ -14,7 +14,7 @@ import { Select } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { FormField } from '@/components/forms/form-field';
 import { useToast } from '@/components/ui/toast';
-import { ROUTES, COLOR_OPTIONS, SIZE_OPTIONS } from '@/constants';
+import { ROUTES, COLOR_OPTIONS, SIZE_OPTIONS, DEFAULT_PRODUCT_IMAGE } from '@/constants';
 import { DefaultImageUpload } from '@/components/ui/default-image-upload';
 import { VariantImageUpload } from '@/components/ui/variant-image-upload';
 import { uploadImage, createProduct, updateProduct, getCategories, activateProduct, deactivateProduct } from '@/services/product.service';
@@ -116,10 +116,10 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   const [draftError, setDraftError] = useState<string | null>(null);
   const draftQtyInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Initialize color images when initialData is provided
+  // Initialize color images when in edit mode with existing variants
   useEffect(() => {
-    if (initialData && initialData.variants) {
-      const primaryUrl = initialData.imageUrl || '';
+    if (mode === 'edit' && initialData && initialData.variants) {
+      const primaryUrl = initialData.imageUrl || initialData.variants?.[0]?.images?.[0] || DEFAULT_PRODUCT_IMAGE;
       const extracted: Record<string, ColorImageItem> = {};
 
       for (const v of initialData.variants) {
@@ -128,22 +128,23 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
           v.attributes?.color ||
           v.variantOptions?.find((vo) => vo.optionName.toLowerCase() === 'color')?.value;
 
-        if (color && v.images && v.images.length > 0) {
-          const imgUrl = v.images[0];
-          if (imgUrl && imgUrl !== primaryUrl && !extracted[color]) {
-            extracted[color] = { previewUrl: imgUrl };
+        if (color) {
+          const customImg = (v.images && v.images.length > 0 && v.images[0]) ? v.images[0] : null;
+          const targetImg = customImg || primaryUrl;
+          if (targetImg && !extracted[color]) {
+            extracted[color] = { previewUrl: targetImg };
           }
         }
       }
 
       setColorImages(extracted);
     }
-  }, [initialData]);
+  }, [mode, initialData]);
 
   // Compute default values from initialData (both for edit mode and pre-filled create mode)
   const getDefaultValues = React.useCallback((): ProductFormSchemaValues => {
     if (initialData) {
-      const primaryUrl = initialData.imageUrl || initialData.variants?.[0]?.images?.[0] || '';
+      const primaryUrl = initialData.imageUrl || initialData.variants?.[0]?.images?.[0] || DEFAULT_PRODUCT_IMAGE;
       const prodCode = initialData.productCode || generateProductCode(initialData.name, initialData.category?.name || 'General');
 
       const formattedVariants =

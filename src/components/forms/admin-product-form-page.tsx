@@ -11,6 +11,7 @@ import { ProductForm } from '@/components/forms/product-form';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ROUTES } from '@/constants/routes';
+import { DEFAULT_PRODUCT_IMAGE } from '@/constants/generalconstants';
 import { getProductById } from '@/services/product.service';
 import type { Product } from '@/types/product.types';
 
@@ -38,7 +39,7 @@ export function AdminProductFormPageContent({ productId }: AdminProductFormPageP
     // Helper to format raw import data into a prefilled Product object
     const formatRawImportData = (errItem: any): Product => {
       const raw = errItem.raw_data || {};
-      const primaryImg = raw.imageUrl || raw.variants?.[0]?.images?.[0] || '';
+      const primaryImg = raw.imageUrl || raw.variants?.[0]?.images?.[0] || DEFAULT_PRODUCT_IMAGE;
 
       const prefilledVariants = (raw.variants && raw.variants.length > 0)
         ? raw.variants.map((v: any, idx: number) => ({
@@ -46,7 +47,7 @@ export function AdminProductFormPageContent({ productId }: AdminProductFormPageP
             productId: errItem.product_id || '',
             sku: v.sku || '',
             stock: Number(v.stock) > 0 ? Number(v.stock) : 1,
-            images: Array.isArray(v.images) && v.images.length > 0 ? v.images : (primaryImg ? [primaryImg] : []),
+            images: Array.isArray(v.images) && v.images.length > 0 && v.images[0] ? v.images : [primaryImg],
             attributes: v.attributes || {},
             variantOptions: Object.entries(v.attributes || {}).map(([optName, val]) => ({
               optionName: optName,

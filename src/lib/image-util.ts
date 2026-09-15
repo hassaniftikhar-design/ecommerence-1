@@ -1,8 +1,17 @@
 import { DEFAULT_PRODUCT_IMAGE } from '@/constants/generalconstants';
 
+const KNOWN_PUBLIC_ASSETS = new Set([
+  '/placeholder-product.png',
+  '/placeholder-product.svg',
+  '/placeholder.png',
+  '/placeholder.svg',
+  '/FastShopStore.png'
+]);
+
 /**
  * Safely parses and normalizes an image URL for Next.js <Image /> component or standard <img> tags.
- * Ensures the returned string starts with http://, https://, data:, blob:, or / so Next.js never throws.
+ * Ensures the returned string is a valid hosted URL, data/blob URL, or recognized static asset in public/.
+ * If the image is missing or is an unhosted local filename, returns the default placeholder image.
  */
 export function getValidImageUrl(
   url?: string | null,
@@ -13,11 +22,18 @@ export function getValidImageUrl(
   }
 
   const trimmed = url.trim();
-  if (!trimmed || trimmed === 'null' || trimmed === 'undefined' || trimmed === '[object Object]') {
+  if (
+    !trimmed ||
+    trimmed === 'null' ||
+    trimmed === 'undefined' ||
+    trimmed === '[object Object]' ||
+    trimmed === 'None' ||
+    trimmed === 'NaN'
+  ) {
     return fallback;
   }
 
-  // Absolute http/https URL
+  // Absolute http/https URL (e.g. Cloudinary, Unsplash)
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     return trimmed;
   }
@@ -27,11 +43,13 @@ export function getValidImageUrl(
     return trimmed;
   }
 
-  // Relative path already starting with /
-  if (trimmed.startsWith('/')) {
-    return trimmed;
+  // Known valid static asset in public/
+  const normalizedPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  if (KNOWN_PUBLIC_ASSETS.has(normalizedPath)) {
+    return normalizedPath;
   }
 
-  // Unprefixed relative filename/path (e.g., "sleveless_green.png" or "uploads/image.jpg")
-  return `/${trimmed}`;
+  // Any other local filename that is not hosted on Cloudinary and not a known public asset
+  // should gracefully use the default placeholder image so it renders cleanly and never 404s.
+  return fallback;
 }
