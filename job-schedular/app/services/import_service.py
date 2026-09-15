@@ -418,10 +418,8 @@ def process_single_product_import(
     raw_image_url = raw_data.get("imageUrl")
     uploaded_image_url = resolve_and_upload_image(raw_image_url, images_folder, image_cache)
     if not uploaded_image_url:
-        if raw_image_url and (raw_image_url.startswith("http://") or raw_image_url.startswith("https://") or raw_image_url.startswith("/")):
+        if raw_image_url and (raw_image_url.startswith("http://") or raw_image_url.startswith("https://")):
             uploaded_image_url = raw_image_url
-        elif raw_image_url:
-            uploaded_image_url = f"/{raw_image_url.strip()}"
         else:
             uploaded_image_url = DEFAULT_PRODUCT_IMAGE
 
@@ -543,13 +541,13 @@ def process_single_product_import(
             orig_img = v_data.get("original_image_path") or (v_data.get("images", [None])[0] if v_data.get("images") else None)
             v_uploaded_img = resolve_and_upload_image(orig_img, images_folder, image_cache)
             if not v_uploaded_img:
-                if orig_img and (orig_img.startswith("http://") or orig_img.startswith("https://") or orig_img.startswith("/")):
+                if orig_img and (orig_img.startswith("http://") or orig_img.startswith("https://")):
                     v_uploaded_img = orig_img
-                elif orig_img:
-                    v_uploaded_img = f"/{orig_img.strip()}"
-                else:
+                elif uploaded_image_url and uploaded_image_url != DEFAULT_PRODUCT_IMAGE:
                     v_uploaded_img = uploaded_image_url
-            v_images = [v_uploaded_img] if v_uploaded_img else [uploaded_image_url]
+                else:
+                    v_uploaded_img = DEFAULT_PRODUCT_IMAGE
+            v_images = [v_uploaded_img] if v_uploaded_img else [DEFAULT_PRODUCT_IMAGE]
 
             # 1. Check if SKU already exists anywhere in the DB -> Increment its stock
             existing_sku_var = None
