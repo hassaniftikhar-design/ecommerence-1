@@ -34,13 +34,13 @@ const SocketContext = createContext<SocketContextValue>({
   adminHasMore: false,
   notifications: [],
   adminNotifications: [],
-  setNotifications: () => {},
-  setAdminNotifications: () => {},
-  setUnreadCount: () => {},
-  setAdminUnreadCount: () => {},
-  setHasMore: () => {},
-  setAdminHasMore: () => {},
-  refreshNotifications: async () => {}
+  setNotifications: () => { },
+  setAdminNotifications: () => { },
+  setUnreadCount: () => { },
+  setAdminUnreadCount: () => { },
+  setHasMore: () => { },
+  setAdminHasMore: () => { },
+  refreshNotifications: async () => { }
 });
 
 export function SocketProvider({ children }: { children: React.ReactNode }) {
