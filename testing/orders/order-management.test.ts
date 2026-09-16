@@ -358,6 +358,55 @@ describe('Order Management, State Transitions & Payment Methods Suite', () => {
       expect(result.totalUnits).toBe(2);
       expect(result.totalAmount).toBe(220.0);
     });
+
+    it('filters orders by orderNumber and customer name for ADMIN role', async () => {
+      mockPrisma.order.findMany.mockResolvedValueOnce([]);
+      mockPrisma.order.count.mockResolvedValueOnce(0);
+      mockPrisma.order.aggregate.mockResolvedValueOnce({ _sum: { totalAmount: new Decimal(0) } });
+      mockPrisma.orderItem.aggregate.mockResolvedValueOnce({ _sum: { quantity: 0 } });
+
+      await listOrdersServer({
+        userRole: 'ADMIN',
+        page: 1,
+        limit: 10,
+        query: '123456'
+      });
+
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            OR: [
+              { orderNumber: { contains: '123456', mode: 'insensitive' } },
+              { user: { name: { contains: '123456', mode: 'insensitive' } } }
+            ]
+          })
+        })
+      );
+    });
+
+    it('filters orders strictly by orderNumber for USER role', async () => {
+      mockPrisma.order.findMany.mockResolvedValueOnce([]);
+      mockPrisma.order.count.mockResolvedValueOnce(0);
+      mockPrisma.order.aggregate.mockResolvedValueOnce({ _sum: { totalAmount: new Decimal(0) } });
+      mockPrisma.orderItem.aggregate.mockResolvedValueOnce({ _sum: { quantity: 0 } });
+
+      await listOrdersServer({
+        userId: TEST_USER_ID,
+        userRole: 'USER',
+        page: 1,
+        limit: 10,
+        query: '654321'
+      });
+
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            userId: TEST_USER_ID,
+            orderNumber: { contains: '654321', mode: 'insensitive' }
+          })
+        })
+      );
+    });
   });
 
   /* -------------------------------------------------------------------------- */

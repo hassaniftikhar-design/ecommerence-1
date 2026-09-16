@@ -224,8 +224,8 @@ export function AdminProductsView() {
                         hasImportError
                           ? 'border-l-4 border-l-red-700 bg-red-50/40 border-red-200 hover:bg-red-50/70'
                           : !product.isActive
-                          ? 'bg-slate-50/40 opacity-85 hover:bg-slate-50/70 border-slate-100'
-                          : 'hover:bg-slate-50/70 border-slate-100'
+                            ? 'bg-slate-50/40 opacity-85 hover:bg-slate-50/70 border-slate-100'
+                            : 'hover:bg-slate-50/70 border-slate-100'
                       )}
                     >
                       <TableCell className="py-3">
@@ -376,19 +376,19 @@ export function AdminProductsView() {
                                     >
                                       <div className="flex items-center gap-2.5">
                                         <Image
-                                           src={getValidImageUrl(variant.images?.[0] || displayImage)}
-                                           alt={`${product.name} variant`}
-                                           title="Click to view full image"
-                                           width={36}
-                                           height={36}
-                                           onClick={(e) => {
-                                             e.stopPropagation();
-                                             setPreviewImage({
-                                               url: getValidImageUrl(variant.images?.[0] || displayImage),
-                                               title: `${product.name} - ${color} ${size}`
-                                             });
-                                           }}
-                                           className="h-9 w-9 shrink-0 rounded object-cover border border-slate-200 cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-2xs"
+                                          src={getValidImageUrl(variant.images?.[0] || displayImage)}
+                                          alt={`${product.name} variant`}
+                                          title="Click to view full image"
+                                          width={36}
+                                          height={36}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setPreviewImage({
+                                              url: getValidImageUrl(variant.images?.[0] || displayImage),
+                                              title: `${product.name} - ${color} ${size}`
+                                            });
+                                          }}
+                                          className="h-9 w-9 shrink-0 rounded object-cover border border-slate-200 cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-2xs"
                                         />
                                         <div className="space-y-0.5">
                                           <div className="flex items-center gap-1.5">

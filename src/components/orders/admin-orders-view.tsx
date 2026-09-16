@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 
 import Link from 'next/link';
 
-import { Search, ShoppingBag, Package, DollarSign, ArrowUpRight } from 'lucide-react';
+import { Search, ShoppingBag, Package, DollarSign, ArrowUpRight, X } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
 import { ROUTES } from '@/constants/routes';
@@ -66,7 +66,11 @@ export function AdminOrdersView() {
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
+    setLoading(true);
   };
+
+  const isDebouncing = searchQuery !== debouncedSearchQuery;
+  const showSkeletons = loading || isDebouncing;
 
   if (status === 'loading') {
     return (
@@ -139,12 +143,26 @@ export function AdminOrdersView() {
         <div className="relative w-full sm:w-72 h-9">
           <input
             type="text"
-            placeholder="Search order #, customer, etc..."
+            placeholder="Search by order # or customer name..."
             value={searchQuery}
             onChange={handleSearchChange}
             className="w-full h-9 rounded-lg border border-slate-200 bg-white pl-3 pr-9 text-xs sm:text-sm text-slate-700 placeholder-slate-400 outline-none focus:border-[#007BFF]"
           />
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+          {searchQuery ? (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setLoading(true);
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition cursor-pointer"
+              title="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : (
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+          )}
         </div>
       </div>
 
@@ -164,7 +182,7 @@ export function AdminOrdersView() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {loading ? (
+            {showSkeletons ? (
               Array.from({ length: 5 }).map((_, idx) => (
                 <TableRow key={idx} className="border-b border-slate-100">
                   <TableCell><Skeleton className="h-4 w-20" /></TableCell>

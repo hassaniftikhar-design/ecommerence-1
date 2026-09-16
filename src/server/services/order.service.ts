@@ -40,24 +40,16 @@ export async function listOrdersServer(params: ListOrdersServerParams) {
 
   const baseUserFilter = userRole === 'ADMIN' ? {} : userId ? { userId } : { userId: 'guest-or-none' };
   const searchFilter = query.trim()
-    ? {
-      OR: [
-        { orderNumber: { contains: query.trim(), mode: 'insensitive' as const } },
-        { id: { contains: query.trim(), mode: 'insensitive' as const } },
-        { user: { name: { contains: query.trim(), mode: 'insensitive' as const } } },
-        { user: { email: { contains: query.trim(), mode: 'insensitive' as const } } },
-        { items: { some: { title: { contains: query.trim(), mode: 'insensitive' as const } } } },
-        {
-          items: {
-            some: {
-              product: {
-                category: { name: { contains: query.trim(), mode: 'insensitive' as const } }
-              }
-            }
-          }
-        }
-      ]
-    }
+    ? userRole === 'ADMIN'
+      ? {
+        OR: [
+          { orderNumber: { contains: query.trim(), mode: 'insensitive' as const } },
+          { user: { name: { contains: query.trim(), mode: 'insensitive' as const } } }
+        ]
+      }
+      : {
+        orderNumber: { contains: query.trim(), mode: 'insensitive' as const }
+      }
     : {};
 
   const whereClause = { ...baseUserFilter, ...searchFilter };
