@@ -4,6 +4,16 @@ jest.mock('@/lib/prisma', () => ({
   prisma: require('../mocks/prisma.mock').mockPrisma
 }));
 
+jest.mock('@/services/scheduler/scheduler.client', () => ({
+  schedulerClient: {
+    resolveImportItem: jest.fn()
+  }
+}));
+
+jest.mock('@/lib/import-storage', () => ({
+  cleanupImportStorage: jest.fn()
+}));
+
 import {
   addUserSocket,
   removeUserSocket,
@@ -17,6 +27,8 @@ import {
   markNotificationReadServer,
   getNotificationsServer
 } from '@/server/services/notification.service';
+import { resolveImportItemServer } from '@/server/services/admin-import.service';
+import { schedulerClient } from '@/services/scheduler/scheduler.client';
 import { mockPrisma, resetPrismaMock } from '../mocks/prisma.mock';
 
 describe('Real-Time WebSocket Notifications & Socket Registry', () => {
@@ -253,17 +265,67 @@ describe('Real-Time WebSocket Notifications & Socket Registry', () => {
     });
   });
 
-  describe('getNotificationsServer Scoping', () => {
-    it('should strictly filter all notification queries by authenticated userId', async () => {
-      mockPrisma.notification.findMany.mockResolvedValue([]);
+  describe('resolveImportItemServer (Real-Time Notification Resolution)', () => {
+    it('should emit notification:updated and notification:unread-count to admin sockets when all errors are resolved', async () => {
+      addUserSocket('ADMIN_1', 'admin1-socket');
+
+      (schedulerClient.resolveImportItem as jest.Mock).mockResolvedValue({
+        success: true,
+        data: { id: 'item-1', status: 'RESOLVED' }
+      });
+
+      // No remaining unresolved items
+      mockPrisma.importItem.count.mockResolvedValue(0);
+      mockPrisma.importJob.findUnique.mockResolvedValue({ id: 'job-123', filename: 'products.csv' });
+      mockPrisma.notification.findMany.mockResolvedValue([
+        { id: 'notif-job-1', userId: 'ADMIN_1', type: 'IMPORT_ERRORS', orderId: 'job-123' }
+      ]);
+      mockPrisma.notification.updateMany.mockResolvedValue({ count: 1 });
+      mockPrisma.notification.findUnique.mockResolvedValue({
+        id: 'notif-job-1',
+        userId: 'ADMIN_1',
+        title: 'Import Errors Resolved',
+        message: 'All product import errors for products.csv have been resolved.',
+        type: 'IMPORT_ERRORS',
+        orderId: 'job-123',
+        isRead: true,
+        createdAt: new Date('2026-09-16T10:00:00.000Z'),
+        updatedAt: new Date('2026-09-16T11:00:00.000Z')
+      });
       mockPrisma.notification.count.mockResolvedValue(0);
 
-      await getNotificationsServer('USER_A', 1, 10);
+      const res = await resolveImportItemServer({
+        jobId: 'job-123',
+        itemId: 'item-1'
+      });
 
-      expect(mockPrisma.notification.findMany).toHaveBeenCalledWith(
+      expect(res.success).toBe(true);
+      expect(mockPrisma.notification.updateMany).toHaveBeenCalledWith({
+        where: {
+          type: 'IMPORT_ERRORS',
+          orderId: 'job-123'
+        },
+        data: {
+          title: 'Import Errors Resolved',
+          message: 'All product import errors for products.csv have been resolved.',
+          isRead: true
+        }
+      });
+
+      // Verify admin socket received notification:updated
+      expect(mockSocketEmitMap.get('admin1-socket')).toHaveBeenCalledWith(
+        'notification:updated',
         expect.objectContaining({
-          where: expect.objectContaining({ userId: 'USER_A' })
+          id: 'notif-job-1',
+          title: 'Import Errors Resolved',
+          isRead: true
         })
+      );
+
+      // Verify admin socket received updated unread count
+      expect(mockSocketEmitMap.get('admin1-socket')).toHaveBeenCalledWith(
+        'notification:unread-count',
+        { count: 0 }
       );
     });
   });

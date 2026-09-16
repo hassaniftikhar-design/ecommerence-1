@@ -215,11 +215,11 @@ export default function BulkProductUploadPage() {
         </div>
 
         <a
-          href="/api/admin/products/bulk/template?format=csv"
-          download="products_bulk_import_template.csv"
+          href="/api/admin/products/bulk/template"
+          download="product_bulk_import_template.xlsx"
           className="inline-flex items-center gap-2 text-xs font-semibold text-blue-600 bg-blue-50 border border-blue-200/80 px-4 py-2.5 rounded-xl hover:bg-blue-100/70 transition shadow-xs cursor-pointer"
         >
-          <Download className="h-4 w-4" /> Download Sample Template (.csv)
+          <Download className="h-4 w-4" /> Download Excel Template (.xlsx)
         </a>
       </div>
 
@@ -241,7 +241,7 @@ export default function BulkProductUploadPage() {
             </div>
             <h3 className="text-lg font-bold text-slate-900">Upload Product CSV File</h3>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Provide your CSV file containing product titles, prices (&ge; $1.00), stock (&ge; 1), categories, and variant specifications.
+              Use the Excel template to select from Category, Color, and Size dropdowns, save/export it as a <span className="font-semibold text-slate-700">.csv</span> file, and upload it here.
             </p>
           </div>
 

@@ -90,6 +90,8 @@ export async function formatCartResponseServer(cartId: string) {
     const imageUrl = item.variant?.images[0] || DEFAULT_PRODUCT_IMAGE;
     const itemStock = item.variant ? item.variant.stock : 0;
 
+    const isVariantDeleted = Boolean(item.variantId && !item.variant);
+
     return {
       id: item.id,
       productId: item.productId,
@@ -101,6 +103,8 @@ export async function formatCartResponseServer(cartId: string) {
       price: unitPrice,
       quantity: item.quantity,
       stock: itemStock,
+      isActive: Boolean(item.product.isActive),
+      isVariantDeleted,
       totalPrice
     };
   });

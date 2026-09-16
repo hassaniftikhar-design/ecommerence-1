@@ -200,7 +200,7 @@ export default function CheckoutPage() {
       // Check for out-of-stock items among selected checkout items
       const outOfStockItem = checkoutItems.find((item) => {
         const available = item.stock ?? 0;
-        return available === 0 || item.quantity > available;
+        return !item.isVariantDeleted && (available === 0 || item.quantity > available);
       });
 
       if (outOfStockItem) {
@@ -210,6 +210,20 @@ export default function CheckoutPage() {
           msg = `Order can't be placed because only ${available} unit(s) of '${outOfStockItem.name}' remain in stock (you requested ${outOfStockItem.quantity}). Please update your cart quantity.`;
         }
         setOutOfStockAlert(msg);
+        return;
+      }
+
+      // Check for inactive items among selected checkout items
+      const inactiveItem = checkoutItems.find((item) => item.isActive === false);
+      if (inactiveItem) {
+        setOutOfStockAlert(`Order can't be placed because '${inactiveItem.name}' is currently inactive or unavailable. Please return to your shopping bag and remove it.`);
+        return;
+      }
+
+      // Check for deleted variant items among selected checkout items
+      const deletedVariantItem = checkoutItems.find((item) => item.isVariantDeleted === true);
+      if (deletedVariantItem) {
+        setOutOfStockAlert(`Order can't be placed because the selected variant of '${deletedVariantItem.name}' is no longer available. Please return to your shopping bag and update your selection.`);
         return;
       }
 
@@ -360,8 +374,16 @@ export default function CheckoutPage() {
         });
         return;
       }
-      if (errorObj?.errors?.includes?.('OUT_OF_STOCK') || errorObj?.message?.toLowerCase()?.includes('out of stock')) {
-        setOutOfStockAlert(errorObj.message || 'An item in your cart is currently out of stock. Please update your cart.');
+      if (
+        errorObj?.errors?.includes?.('OUT_OF_STOCK') ||
+        errorObj?.errors?.includes?.('INACTIVE_PRODUCT') ||
+        errorObj?.errors?.includes?.('VARIANT_DELETED') ||
+        errorObj?.message?.toLowerCase()?.includes('out of stock') ||
+        errorObj?.message?.toLowerCase()?.includes('inactive') ||
+        errorObj?.message?.toLowerCase()?.includes('does not exist') ||
+        errorObj?.message?.toLowerCase()?.includes('variant')
+      ) {
+        setOutOfStockAlert(errorObj.message || 'An item in your cart is currently unavailable. Please update your cart.');
         return;
       }
       setError(errorObj.message || 'Failed to place order. Please try again.');

@@ -134,6 +134,24 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
           }
         };
 
+        const handleNotificationUpdated = (item: NotificationItem) => {
+          setNotifications((prev) =>
+            prev.map((n) =>
+              n.id === item.id || (n.type === 'IMPORT_ERRORS' && item.type === 'IMPORT_ERRORS' && n.orderId && n.orderId === item.orderId)
+                ? { ...n, ...item }
+                : n
+            )
+          );
+
+          setAdminNotifications((prev) =>
+            prev.map((n) =>
+              n.id === item.id || (n.type === 'IMPORT_ERRORS' && item.type === 'IMPORT_ERRORS' && n.orderId && n.orderId === item.orderId)
+                ? { ...n, ...item }
+                : n
+            )
+          );
+        };
+
         const handleUnreadCount = (data: { count: number }) => {
           if (typeof data?.count === 'number') {
             setUnreadCount(data.count);
@@ -145,6 +163,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         socketClient.on('disconnect', handleDisconnect);
         socketClient.on('connect_error', handleConnectError);
         socketClient.on('notification:new', handleNewNotification);
+        socketClient.on('notification:updated', handleNotificationUpdated);
         socketClient.on('notification:unread-count', handleUnreadCount);
 
         return () => {
@@ -152,6 +171,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
           socketClient.off('disconnect', handleDisconnect);
           socketClient.off('connect_error', handleConnectError);
           socketClient.off('notification:new', handleNewNotification);
+          socketClient.off('notification:updated', handleNotificationUpdated);
           socketClient.off('notification:unread-count', handleUnreadCount);
         };
       }

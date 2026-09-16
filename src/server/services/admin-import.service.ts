@@ -266,9 +266,25 @@ export async function resolveImportItemServer(input: {
     });
 
     for (const notif of affectedNotifs) {
+      const updatedNotif = await prisma.notification.findUnique({
+        where: { id: notif.id }
+      });
       const newUnreadCount = await prisma.notification.count({
         where: { userId: notif.userId, isRead: false }
       });
+      if (updatedNotif) {
+        emitToUser(notif.userId, 'notification:updated', {
+          id: updatedNotif.id,
+          userId: updatedNotif.userId,
+          title: updatedNotif.title,
+          message: updatedNotif.message,
+          type: updatedNotif.type,
+          orderId: updatedNotif.orderId,
+          isRead: updatedNotif.isRead,
+          createdAt: updatedNotif.createdAt.toISOString(),
+          updatedAt: updatedNotif.updatedAt.toISOString()
+        });
+      }
       emitToUser(notif.userId, 'notification:unread-count', { count: newUnreadCount });
     }
   }

@@ -14,6 +14,8 @@ export interface CartItem {
   price: number;
   quantity: number;
   stock?: number;
+  isActive?: boolean;
+  isVariantDeleted?: boolean;
   totalPrice: number;
 }
 

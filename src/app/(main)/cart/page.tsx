@@ -9,6 +9,8 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { AlertCircle, ArrowLeft } from 'lucide-react';
 
+import dynamic from 'next/dynamic';
+
 import { CartSkeleton } from '@/components/cart/cart-skeleton';
 import { CartTable } from '@/components/cart/cart-table';
 import { CartSummary } from '@/components/cart/cart-summary';
@@ -26,6 +28,11 @@ import type { CartItem, CartTotals } from '@/types/cart.types';
 
 import { OrderSuccessModal } from '@/components/orders/order-success-modal';
 import { OutOfStockModal } from '@/components/cart/out-of-stock-modal';
+
+const PriceChangedModal = dynamic(
+  () => import('@/components/checkout/price-changed-modal').then((mod) => mod.PriceChangedModal),
+  { ssr: false }
+);
 
 const computeTotals = (itemList: CartItem[], selectedIds: string[]): CartTotals => {
   const selectedItems = itemList.filter((item) => selectedIds.includes(item.id));
@@ -53,7 +60,15 @@ export default function CartPage() {
     orderId: string;
     orderNumber: string;
   } | null>(null);
-  const [outOfStockMessage, setOutOfStockMessage] = useState<string | null>(null);
+  const [stockOrStatusModal, setStockOrStatusModal] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message?: string;
+  }>({ isOpen: false });
+  const [priceChangedAlert, setPriceChangedAlert] = useState<{
+    isOpen: boolean;
+    newTotal: number;
+  }>({ isOpen: false, newTotal: 0 });
   const [loading, setLoading] = useState(true);
   const [checkingStock, setCheckingStock] = useState(false);
   const [deletingBulk, setDeletingBulk] = useState(false);
@@ -82,33 +97,91 @@ export default function CartPage() {
       setCheckingStock(true);
       setError(null);
 
-      // Re-fetch fresh cart state to verify live inventory
+      // Re-fetch fresh cart state to verify live inventory, status, and prices
       const freshCart = await getCart();
-      setItems(freshCart.items);
-      setTotals(computeTotals(freshCart.items, selectedItemIds));
+      const freshSelectedItems = freshCart.items.filter((item) => selectedItemIds.includes(item.id));
 
-      // Find if any selected item is out of stock or exceeds stock
-      const outOfStockItem = freshCart.items.find((item) => {
+      // CHECK 1: Out of Stock
+      const outOfStockItem = freshSelectedItems.find((item) => {
         const available = item.stock ?? 0;
-        return selectedItemIds.includes(item.id) && (available === 0 || item.quantity > available);
+        return available === 0 || item.quantity > available;
       });
 
       if (outOfStockItem) {
+        setItems(freshCart.items);
+        setTotals(computeTotals(freshCart.items, selectedItemIds));
         const available = outOfStockItem.stock ?? 0;
         let msg = `Order can't be placed because '${outOfStockItem.name}' is currently out of stock. Please update your cart quantity.`;
         if (available > 0) {
           msg = `Order can't be placed because only ${available} unit(s) of '${outOfStockItem.name}' remain in stock (you requested ${outOfStockItem.quantity}). Please update your cart quantity.`;
         }
-        setOutOfStockMessage(msg);
+        setStockOrStatusModal({
+          isOpen: true,
+          title: "Order Can't Be Placed",
+          message: msg
+        });
         setCheckingStock(false);
         return;
       }
 
-      // Live stock verified, proceed to checkout (keep disabled until page navigates)
+      // CHECK 2: Active or Inactive Status
+      const inactiveItem = freshSelectedItems.find((item) => item.isActive === false);
+
+      if (inactiveItem) {
+        setItems(freshCart.items);
+        setTotals(computeTotals(freshCart.items, selectedItemIds));
+        setStockOrStatusModal({
+          isOpen: true,
+          title: 'Product Unavailable',
+          message: `Order can't be placed because '${inactiveItem.name}' is currently inactive or unavailable. Please remove it from your shopping bag to proceed.`
+        });
+        setCheckingStock(false);
+        return;
+      }
+
+      // CHECK 3: Variant Deleted Check
+      const deletedVariantItem = freshSelectedItems.find((item) => item.isVariantDeleted === true);
+
+      if (deletedVariantItem) {
+        setItems(freshCart.items);
+        setTotals(computeTotals(freshCart.items, selectedItemIds));
+        setStockOrStatusModal({
+          isOpen: true,
+          title: 'Variant Unavailable',
+          message: `Order can't be placed because the selected variant of '${deletedVariantItem.name}' is no longer available. Please remove it from your shopping bag to proceed.`
+        });
+        setCheckingStock(false);
+        return;
+      }
+
+      // CHECK 4: Price Change
+      const previousSelectedItems = items.filter((item) => selectedItemIds.includes(item.id));
+      const previousSubTotal = previousSelectedItems.reduce((acc, i) => acc + i.totalPrice, 0);
+      const previousTotal = Math.round((previousSubTotal + Math.round(previousSubTotal * TAX_RATE * 100) / 100) * 100) / 100;
+
+      const freshSubTotal = freshSelectedItems.reduce((acc, i) => acc + i.totalPrice, 0);
+      const freshTotal = Math.round((freshSubTotal + Math.round(freshSubTotal * TAX_RATE * 100) / 100) * 100) / 100;
+
+      const hasPriceChanged = Math.abs(previousTotal - freshTotal) > 0.01;
+
+      if (hasPriceChanged) {
+        setItems(freshCart.items);
+        setTotals(computeTotals(freshCart.items, selectedItemIds));
+        setPriceChangedAlert({
+          isOpen: true,
+          newTotal: freshTotal
+        });
+        setCheckingStock(false);
+        return;
+      }
+
+      // All 3 checks passed: proceed to checkout
+      setItems(freshCart.items);
+      setTotals(computeTotals(freshCart.items, selectedItemIds));
       const itemsQuery = selectedItemIds.length > 0 ? `?items=${encodeURIComponent(selectedItemIds.join(','))}` : '';
       router.push(`${ROUTES.checkout}${itemsQuery}`);
     } catch (err: unknown) {
-      setError((err as Error).message || 'Failed to verify product stock. Please try again.');
+      setError((err as Error).message || 'Failed to verify product details. Please try again.');
       setCheckingStock(false);
     }
   };
@@ -252,11 +325,27 @@ export default function CartPage() {
         </>
       )}
 
-      {outOfStockMessage && (
+      {stockOrStatusModal.isOpen && (
         <OutOfStockModal
           isOpen={true}
-          message={outOfStockMessage}
-          onClose={() => setOutOfStockMessage(null)}
+          title={stockOrStatusModal.title}
+          message={stockOrStatusModal.message}
+          onClose={() => setStockOrStatusModal({ isOpen: false })}
+        />
+      )}
+
+      {priceChangedAlert.isOpen && (
+        <PriceChangedModal
+          isOpen={true}
+          newTotal={priceChangedAlert.newTotal}
+          onAccept={() => {
+            setPriceChangedAlert({ isOpen: false, newTotal: 0 });
+            const itemsQuery = selectedItemIds.length > 0 ? `?items=${encodeURIComponent(selectedItemIds.join(','))}` : '';
+            router.push(`${ROUTES.checkout}${itemsQuery}`);
+          }}
+          onCancel={() => {
+            setPriceChangedAlert({ isOpen: false, newTotal: 0 });
+          }}
         />
       )}
 

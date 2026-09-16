@@ -234,55 +234,149 @@ export async function getProductsServer(params: GetProductsServerParams) {
   });
 
   let formattedProducts = products.map(formatProductResponse);
+  let uncreatedCount = 0;
 
-  if (userIsAdmin && products.length > 0) {
+  if (userIsAdmin) {
     try {
       const productIds = products.map((p) => p.id);
-      const unresolvedItems = await prisma.importItem.findMany({
-        where: {
-          product_id: { in: productIds },
-          status: 'FAILED',
-          resolution_status: { not: 'RESOLVED' }
-        }
-      });
+      if (productIds.length > 0) {
+        const unresolvedItems = await prisma.importItem.findMany({
+          where: {
+            product_id: { in: productIds },
+            status: 'FAILED',
+            resolution_status: { not: 'RESOLVED' }
+          }
+        });
 
-      const importItemMap = new Map<string, { itemId: string; jobId: string; errorMessage: string; errorType: string }>();
-      for (const it of unresolvedItems) {
-        if (it.product_id) {
-          importItemMap.set(it.product_id, {
-            itemId: it.id,
-            jobId: it.job_id,
-            errorMessage: it.error_message || '',
-            errorType: it.error_type || 'VALIDATION_ERROR'
-          });
+        const importItemMap = new Map<string, { itemId: string; jobId: string; errorMessage: string; errorType: string }>();
+        for (const it of unresolvedItems) {
+          if (it.product_id) {
+            importItemMap.set(it.product_id, {
+              itemId: it.id,
+              jobId: it.job_id,
+              errorMessage: it.error_message || '',
+              errorType: it.error_type || 'VALIDATION_ERROR'
+            });
+          }
         }
+
+        formattedProducts = formattedProducts.map((fp) => {
+          const errInfo = importItemMap.get(fp.id);
+          if (errInfo) {
+            return { ...fp, importError: errInfo };
+          }
+          return fp;
+        });
       }
 
-      formattedProducts = formattedProducts.map((fp) => {
-        const errInfo = importItemMap.get(fp.id);
-        if (errInfo) {
-          return { ...fp, importError: errInfo };
+      // Also include unresolved import items that failed before DB product creation
+      if (statusQuery !== 'active') {
+        const orphanUnresolvedItems = await prisma.importItem.findMany({
+          where: {
+            product_id: null,
+            status: 'FAILED',
+            resolution_status: { not: 'RESOLVED' }
+          },
+          orderBy: { created_at: 'desc' }
+        });
+
+        const mappedOrphans = orphanUnresolvedItems.map((item) => {
+          const raw = (item.raw_data || {}) as Record<string, any>;
+          const title = raw.name || raw.title || 'Import Error Product';
+          const price = typeof raw.price === 'number' ? raw.price : parseFloat(String(raw.price || 0)) || 0;
+          const catName = raw.categoryName || raw.category || 'Unassigned';
+          const variants = Array.isArray(raw.variants)
+            ? raw.variants.map((v: any, idx: number) => ({
+                id: `unresolved-var-${item.id}-${idx}`,
+                productId: item.id,
+                sku: v.sku || '',
+                stock: typeof v.stock === 'number' ? v.stock : parseInt(String(v.stock || 0), 10) || 0,
+                images: Array.isArray(v.images) ? v.images : [raw.imageUrl || DEFAULT_PRODUCT_IMAGE],
+                attributes: (v.attributes || {}) as Record<string, string>,
+                variantOptions: Object.entries(v.attributes || {}).map(([optionName, value]) => ({
+                  optionName,
+                  value: String(value)
+                })),
+                createdAt: item.created_at.toISOString(),
+                updatedAt: item.updated_at.toISOString()
+              }))
+            : [];
+
+          const totalStock = variants.length > 0
+            ? variants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0)
+            : (typeof raw.stock === 'number' ? raw.stock : parseInt(String(raw.stock || 0), 10) || 0);
+
+          return {
+            id: item.id,
+            productCode: (raw.productCode || `ERR-${item.row_index}`) as string | null,
+            name: title,
+            isActive: false,
+            inactiveAt: null,
+            category: { id: '', name: catName },
+            createdBy: null,
+            options: [],
+            variants,
+            price,
+            stock: totalStock,
+            imageUrl: raw.imageUrl || null,
+            lowestPrice: price,
+            totalStock,
+            variantCount: variants.length || 1,
+            importError: {
+              itemId: item.id,
+              jobId: item.job_id,
+              errorMessage: item.error_message || '',
+              errorType: item.error_type || 'VALIDATION_ERROR'
+            },
+            createdAt: item.created_at.toISOString(),
+            updatedAt: item.updated_at.toISOString()
+          };
+        });
+
+        let filteredOrphans = mappedOrphans;
+
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          filteredOrphans = filteredOrphans.filter((p) => {
+            return (
+              p.name.toLowerCase().includes(q) ||
+              (p.category && p.category.name.toLowerCase().includes(q)) ||
+              (p.productCode && p.productCode.toLowerCase().includes(q)) ||
+              p.variants.some((v: any) => v.sku && v.sku.toLowerCase().includes(q))
+            );
+          });
         }
-        return fp;
-      });
+
+        if (categoryQuery) {
+          filteredOrphans = filteredOrphans.filter(
+            (p) => p.category.name.toLowerCase() === categoryQuery.toLowerCase()
+          );
+        }
+
+        uncreatedCount = filteredOrphans.length;
+        if (isPaginatedCall ? pageNumber === 1 : true) {
+          formattedProducts = [...filteredOrphans, ...formattedProducts];
+        }
+      }
     } catch (e) {
       console.warn('Failed to fetch unresolved import items for products:', e);
     }
   }
 
-  const effectiveLimit = isPaginatedCall ? limitNumber : totalCount || 1;
-  const totalPages = Math.max(1, Math.ceil(totalCount / effectiveLimit));
+  const combinedTotal = totalCount + uncreatedCount;
+  const effectiveLimit = isPaginatedCall ? limitNumber : combinedTotal || 1;
+  const totalPages = Math.max(1, Math.ceil(combinedTotal / effectiveLimit));
 
   return {
     products: formattedProducts,
     page: isPaginatedCall ? pageNumber : 1,
-    limit: isPaginatedCall ? limitNumber : totalCount,
-    total: totalCount,
-    hasMore: isPaginatedCall ? pageNumber * limitNumber < totalCount : false,
+    limit: isPaginatedCall ? limitNumber : combinedTotal,
+    total: combinedTotal,
+    hasMore: isPaginatedCall ? pageNumber * limitNumber < combinedTotal : false,
     pagination: {
       page: isPaginatedCall ? pageNumber : 1,
-      limit: isPaginatedCall ? limitNumber : totalCount,
-      totalItems: totalCount,
+      limit: isPaginatedCall ? limitNumber : combinedTotal,
+      totalItems: combinedTotal,
       totalPages: isPaginatedCall ? totalPages : 1,
       hasNextPage: isPaginatedCall ? pageNumber < totalPages : false,
       hasPrevPage: isPaginatedCall ? pageNumber > 1 : false
