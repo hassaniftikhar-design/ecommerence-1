@@ -68,6 +68,7 @@ export default function CartPage() {
   const [priceChangedAlert, setPriceChangedAlert] = useState<{
     isOpen: boolean;
     newTotal: number;
+    changedItems?: { name: string; oldPrice?: number; newPrice?: number }[];
   }>({ isOpen: false, newTotal: 0 });
   const [loading, setLoading] = useState(true);
   const [checkingStock, setCheckingStock] = useState(false);
@@ -156,20 +157,34 @@ export default function CartPage() {
 
       // CHECK 4: Price Change
       const previousSelectedItems = items.filter((item) => selectedItemIds.includes(item.id));
+
+      const changedItems: { name: string; oldPrice: number; newPrice: number }[] = [];
+      for (const freshItem of freshSelectedItems) {
+        const prevItem = previousSelectedItems.find((p) => p.id === freshItem.id);
+        if (prevItem && Math.abs(prevItem.price - freshItem.price) > 0.001) {
+          changedItems.push({
+            name: freshItem.name,
+            oldPrice: prevItem.price,
+            newPrice: freshItem.price
+          });
+        }
+      }
+
       const previousSubTotal = previousSelectedItems.reduce((acc, i) => acc + i.totalPrice, 0);
       const previousTotal = Math.round((previousSubTotal + Math.round(previousSubTotal * TAX_RATE * 100) / 100) * 100) / 100;
 
       const freshSubTotal = freshSelectedItems.reduce((acc, i) => acc + i.totalPrice, 0);
       const freshTotal = Math.round((freshSubTotal + Math.round(freshSubTotal * TAX_RATE * 100) / 100) * 100) / 100;
 
-      const hasPriceChanged = Math.abs(previousTotal - freshTotal) > 0.01;
+      const hasPriceChanged = changedItems.length > 0 || Math.abs(previousTotal - freshTotal) > 0.01;
 
       if (hasPriceChanged) {
         setItems(freshCart.items);
         setTotals(computeTotals(freshCart.items, selectedItemIds));
         setPriceChangedAlert({
           isOpen: true,
-          newTotal: freshTotal
+          newTotal: freshTotal,
+          changedItems: changedItems.length > 0 ? changedItems : freshSelectedItems.map((i) => ({ name: i.name, newPrice: i.price }))
         });
         setCheckingStock(false);
         return;
@@ -338,6 +353,7 @@ export default function CartPage() {
         <PriceChangedModal
           isOpen={true}
           newTotal={priceChangedAlert.newTotal}
+          changedItems={priceChangedAlert.changedItems}
           onAccept={() => {
             setPriceChangedAlert({ isOpen: false, newTotal: 0 });
             const itemsQuery = selectedItemIds.length > 0 ? `?items=${encodeURIComponent(selectedItemIds.join(','))}` : '';

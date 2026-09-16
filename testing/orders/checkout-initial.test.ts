@@ -305,7 +305,7 @@ describe('Checkout & Initial Order Placement Suite', () => {
       expect(result.success).toBe(false);
       expect(result.status).toBe(409);
       expect(result.errors).toContain('PRICE_CHANGED');
-      expect(result.data).toEqual({ newTotal: 220.0 });
+      expect(result.data).toEqual(expect.objectContaining({ newTotal: 220.0 }));
 
       // Stripe MUST NEVER be called
       expect(stripe.paymentIntents.create).not.toHaveBeenCalled();

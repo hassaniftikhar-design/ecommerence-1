@@ -106,6 +106,7 @@ export default function CheckoutPage() {
   const [priceChangedAlert, setPriceChangedAlert] = useState<{
     isOpen: boolean;
     newTotal: number;
+    changedItems?: { name: string; oldPrice?: number; newPrice?: number; price?: number }[];
   }>({ isOpen: false, newTotal: 0 });
   const [paymentFailedAlert, setPaymentFailedAlert] = useState<{
     isOpen: boolean;
@@ -366,11 +367,12 @@ export default function CheckoutPage() {
 
       router.push(`/orders/${res.orderId}/payment-status`);
     } catch (err: unknown) {
-      const errorObj = err as { message?: string; errors?: string[]; newTotal?: number; data?: { newTotal?: number } };
+      const errorObj = err as { message?: string; errors?: string[]; newTotal?: number; data?: { newTotal?: number; changedProducts?: { name: string; price?: number }[] } };
       if (err instanceof PriceChangedError || errorObj?.errors?.includes?.('PRICE_CHANGED')) {
         setPriceChangedAlert({
           isOpen: true,
-          newTotal: errorObj.newTotal || errorObj?.data?.newTotal || 0
+          newTotal: errorObj.newTotal || errorObj?.data?.newTotal || 0,
+          changedItems: errorObj?.data?.changedProducts
         });
         return;
       }
@@ -901,8 +903,8 @@ export default function CheckoutPage() {
                           errorMessage: msg
                         });
                       }}
-                      onPriceChanged={(newTotal) => {
-                        setPriceChangedAlert({ isOpen: true, newTotal });
+                      onPriceChanged={(newTotal, changedItems) => {
+                        setPriceChangedAlert({ isOpen: true, newTotal, changedItems });
                       }}
                       onOutOfStock={(msg) => {
                         setOutOfStockAlert(msg);
@@ -1040,6 +1042,7 @@ export default function CheckoutPage() {
       <PriceChangedModal
         isOpen={priceChangedAlert.isOpen}
         newTotal={priceChangedAlert.newTotal}
+        changedItems={priceChangedAlert.changedItems}
         onAccept={() => {
           setPriceChangedAlert({ isOpen: false, newTotal: 0 });
           loadCheckoutData();

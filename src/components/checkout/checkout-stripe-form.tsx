@@ -26,7 +26,7 @@ interface CheckoutStripeFormProps {
   hasValidAddress?: boolean;
   onAddressMissing?: () => void;
   onOrderPlaced?: (orderId: string) => void;
-  onPriceChanged?: (newTotal: number) => void;
+  onPriceChanged?: (newTotal: number, changedItems?: { name: string; oldPrice?: number; newPrice?: number; price?: number }[]) => void;
   onOutOfStock?: (message: string) => void;
   onPaymentFailed?: (orderId: string, errorMessage: string, orderNumber?: string) => void;
   onBackToInfo?: () => void;
@@ -183,9 +183,9 @@ export function CheckoutStripeForm({
         }
       }
     } catch (err: unknown) {
-      const errorObj = err as { errors?: string[]; data?: { newTotal?: number }; message?: string };
+      const errorObj = err as { errors?: string[]; data?: { newTotal?: number; changedProducts?: { name: string; price?: number }[] }; message?: string };
       if (errorObj?.errors?.includes?.('PRICE_CHANGED') && errorObj?.data?.newTotal) {
-        onPriceChanged?.(errorObj.data.newTotal);
+        onPriceChanged?.(errorObj.data.newTotal, errorObj.data.changedProducts);
         return;
       }
       if (

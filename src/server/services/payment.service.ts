@@ -148,7 +148,10 @@ export async function createCheckoutPaymentIntentServer(
       status: 409,
       errors: ['PRICE_CHANGED'],
       message: 'Prices have updated. Please review your new total.',
-      data: { newTotal: totalAmount }
+      data: {
+        newTotal: totalAmount,
+        changedProducts: cartLines.map((l) => ({ name: l.title, price: l.price }))
+      }
     };
   }
 
