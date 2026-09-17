@@ -1,3 +1,4 @@
+import { getCurrentUser } from '@/lib/server-auth';
 import { apiSuccess, apiError } from '@/lib/api-response';
 import {
   updateCartItemQuantityServer,
@@ -23,10 +24,17 @@ async function handleQuantityUpdate(
   { id }: { id: string }
 ) {
   try {
+    const user = await getCurrentUser(request);
+    const userId = user?.id || user?.sub;
+
+    if (!userId) {
+      return apiError('Unauthorized. You must be logged in to access cart.', [], 401);
+    }
+
     const body = await request.json();
     const { quantity } = body;
 
-    const result = await updateCartItemQuantityServer(id, quantity);
+    const result = await updateCartItemQuantityServer(userId, id, quantity);
 
     if (!result.success) {
       return apiError(result.message, result.errors, result.status);
@@ -43,8 +51,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await getCurrentUser(request);
+    const userId = user?.id || user?.sub;
+
+    if (!userId) {
+      return apiError('Unauthorized. You must be logged in to access cart.', [], 401);
+    }
+
     const { id } = await params;
-    const result = await removeCartItemServer(id);
+    const result = await removeCartItemServer(userId, id);
 
     if (!result.success) {
       return apiError(result.message, result.errors, result.status);

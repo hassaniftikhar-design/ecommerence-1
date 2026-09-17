@@ -490,9 +490,7 @@ export default function CheckoutPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Column: Form Content */}
         <div className="lg:col-span-7 space-y-6">
-          {/* ======================================================== */}
-          {/* STEP 1: DELIVERY INFORMATION FORM */}
-          {/* ======================================================== */}
+
           {step === 'info' && (
             <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs space-y-6">
               <div>

@@ -230,7 +230,7 @@ export async function removeMultipleCartItemsServer(userId: string, itemIds: str
   return { success: true as const, status: 200, cartData, message: 'Selected items removed from cart' };
 }
 
-export async function updateCartItemQuantityServer(id: string, quantity: number) {
+export async function updateCartItemQuantityServer(userId: string, id: string, quantity: number) {
   const idValidation = validateCartItemIdInput(id);
   if (!idValidation.success) {
     return idValidation;
@@ -244,8 +244,13 @@ export async function updateCartItemQuantityServer(id: string, quantity: number)
   const validId = idValidation.data;
   const validQuantity = qtyValidation.data;
 
-  const cartItem = await prisma.cartItem.findUnique({
-    where: { id: validId },
+  const userCartId = await getOrCreateCartServer(userId);
+
+  const cartItem = await prisma.cartItem.findFirst({
+    where: {
+      id: validId,
+      cartId: userCartId
+    },
     include: {
       product: { include: { variants: true } },
       variant: true
@@ -272,19 +277,24 @@ export async function updateCartItemQuantityServer(id: string, quantity: number)
     data: { quantity: targetQuantity }
   });
 
-  const cartData = await formatCartResponseServer(cartItem.cartId);
+  const cartData = await formatCartResponseServer(userCartId);
   return { success: true as const, status: 200, cartData, message: 'Cart item quantity updated' };
 }
 
-export async function removeCartItemServer(id: string) {
+export async function removeCartItemServer(userId: string, id: string) {
   const idValidation = validateCartItemIdInput(id);
   if (!idValidation.success) {
     return idValidation;
   }
 
   const validId = idValidation.data;
-  const cartItem = await prisma.cartItem.findUnique({
-    where: { id: validId }
+  const userCartId = await getOrCreateCartServer(userId);
+
+  const cartItem = await prisma.cartItem.findFirst({
+    where: {
+      id: validId,
+      cartId: userCartId
+    }
   });
 
   if (!cartItem) {
@@ -295,6 +305,6 @@ export async function removeCartItemServer(id: string) {
     where: { id: validId }
   });
 
-  const cartData = await formatCartResponseServer(cartItem.cartId);
+  const cartData = await formatCartResponseServer(userCartId);
   return { success: true as const, status: 200, cartData, message: 'Cart item removed' };
 }
