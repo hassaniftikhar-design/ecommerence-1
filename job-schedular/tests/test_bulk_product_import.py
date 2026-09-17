@@ -845,3 +845,85 @@ def test_resolve_import_item_preserves_historical_job_status_and_error(
     db.refresh(job)
     assert job.status == ImportJobStatus.COMPLETED_WITH_ERRORS.value
 
+
+def test_parse_csv_ignores_duplicate_skus_across_rows(tmp_path):
+    """Verify that duplicate SKUs in a CSV (both on the same product and across different products) are ignored in parsing."""
+    from app.services.import_service import parse_csv_into_grouped_products
+
+    csv_file = tmp_path / "products.csv"
+    csv_content = (
+        "title,sku,price,categoryName,colorName,sizeName,stock,imagePath\n"
+        "Product A,SKU-A-001,25.00,Apparel,Black,M,10,img1.png\n"
+        "Product A,SKU-A-001,25.00,Apparel,Black,M,20,img1_dup.png\n"
+        "Product B,SKU-A-001,30.00,Apparel,Red,L,15,img2.png\n"
+        "Product B,SKU-B-002,30.00,Apparel,Blue,XL,5,img3.png\n"
+    )
+    csv_file.write_text(csv_content, encoding="utf-8")
+
+    parsed = parse_csv_into_grouped_products(str(csv_file))
+
+    # Product A should have exactly 1 variant with stock 10 (2nd row ignored, stock not added to 30)
+    prod_a = next((p for p in parsed if p["name"] == "Product A"), None)
+    assert prod_a is not None
+    assert len(prod_a["variants"]) == 1
+    assert prod_a["variants"][0]["sku"] == "SKU-A-001"
+    assert prod_a["variants"][0]["stock"] == 10
+
+    # Product B should have only SKU-B-002 (the duplicate SKU-A-001 row was silently skipped)
+    prod_b = next((p for p in parsed if p["name"] == "Product B"), None)
+    assert prod_b is not None
+    assert len(prod_b["variants"]) == 1
+    assert prod_b["variants"][0]["sku"] == "SKU-B-002"
+    assert prod_b["variants"][0]["stock"] == 5
+
+
+def test_csv_import_increments_existing_db_stock(
+    db: Session,
+    seed_admin_user: User,
+    seed_category: Category,
+    tmp_path
+):
+    """Verify that when a CSV variant already exists in DB, its stock is incremented."""
+    from app.services.import_service import create_file_import_job, process_import_job
+    from app.models.ecommerce import ProductVariant
+
+    # First CSV creates Product and Variant with stock 10
+    csv_file_1 = tmp_path / "first_batch.csv"
+    csv_file_1.write_text(
+        f"title,sku,price,categoryName,colorName,sizeName,stock,imagePath\n"
+        f"Sneakers,SNK-BLK-42,120.00,{seed_category.name},Black,42,10,s1.png\n",
+        encoding="utf-8"
+    )
+
+    job1 = create_file_import_job(
+        db=db,
+        created_by_id=seed_admin_user.id,
+        filename="first_batch.csv",
+        csv_path=str(csv_file_1)
+    )
+    process_import_job(db=db, job_id=job1.id)
+
+    var = db.query(ProductVariant).filter(ProductVariant.sku == "SNK-BLK-42").first()
+    assert var is not None
+    assert var.stock == 10
+
+    # Second CSV with same SKU and stock 15 -> should increment DB stock to 25
+    csv_file_2 = tmp_path / "second_batch.csv"
+    csv_file_2.write_text(
+        f"title,sku,price,categoryName,colorName,sizeName,stock,imagePath\n"
+        f"Sneakers,SNK-BLK-42,120.00,{seed_category.name},Black,42,15,s1.png\n",
+        encoding="utf-8"
+    )
+
+    job2 = create_file_import_job(
+        db=db,
+        created_by_id=seed_admin_user.id,
+        filename="second_batch.csv",
+        csv_path=str(csv_file_2)
+    )
+    process_import_job(db=db, job_id=job2.id)
+
+    db.refresh(var)
+    assert var.stock == 25
+
+

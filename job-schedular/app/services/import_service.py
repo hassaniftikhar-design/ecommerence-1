@@ -9,7 +9,7 @@ import time
 import uuid
 from decimal import Decimal
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, FrozenSet
+from typing import Any, Dict, List, Optional, Tuple, FrozenSet, Set
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -150,6 +150,11 @@ def parse_csv_into_grouped_products(csv_path: str) -> List[Dict[str, Any]]:
     Parse a CSV file and group rows into product definitions.
     Strictly preserves CASE-SENSITIVE product titles:
     Matching key = (exact title, exact price, exact categoryName).
+
+    Deduplication Rule:
+    - Tracks global seen SKUs across the entire CSV.
+    - If a row contains a duplicate SKU (or matching generated SKU if SKU column is omitted),
+      the duplicate row is silently ignored and skipped in parsing before batch creation.
     """
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"CSV file not found at path: {csv_path}")
@@ -171,6 +176,7 @@ def parse_csv_into_grouped_products(csv_path: str) -> List[Dict[str, Any]]:
 
     # Group by (exact_title, exact_price, exact_category)
     grouped: Dict[Tuple[str, str, str], Dict[str, Any]] = {}
+    seen_skus: Set[str] = set()
 
     for row in raw_rows:
         # Preserve EXACT casing for title and category
@@ -183,6 +189,20 @@ def parse_csv_into_grouped_products(csv_path: str) -> List[Dict[str, Any]]:
         img_path = (row.get("imagepath") or row.get("imageurl") or row.get("image") or "").strip()
         color = (row.get("colorname") or row.get("color") or "").strip()
         size = (row.get("sizename") or row.get("size") or "").strip()
+
+        # Compute effective SKU for deduplication across the entire CSV
+        if sku:
+            effective_sku = sku.upper()
+        else:
+            clean_title = "".join([c for c in title if c.isalnum()]).upper()[:4] or "PROD"
+            color_code = "".join([c for c in color if c.isalnum()][:3]).upper() or "DEF"
+            size_code = "".join([c for c in size if c.isalnum()]).upper() or "DEF"
+            effective_sku = f"{clean_title}-{color_code}-{size_code}"
+
+        # If duplicate SKU found anywhere in CSV, silently skip row completely
+        if effective_sku in seen_skus:
+            continue
+        seen_skus.add(effective_sku)
 
         try:
             stock = max(0, int(stock_str))
@@ -221,18 +241,6 @@ def parse_csv_into_grouped_products(csv_path: str) -> List[Dict[str, Any]]:
                 prod_entry["options"]["Size"] = set()
             prod_entry["options"]["Size"].add(size)
 
-        # Deduplicate identical SKUs within the same product group in CSV
-        if sku:
-            existing_var = next(
-                (v for v in prod_entry["variants"] if v.get("sku") and v["sku"].upper() == sku.upper()),
-                None
-            )
-            if existing_var:
-                existing_var["stock"] += stock
-                if img_path and img_path not in existing_var["images"]:
-                    existing_var["images"].append(img_path)
-                continue
-
         variant_entry = {
             "sku": sku or None,
             "stock": stock,
@@ -245,6 +253,9 @@ def parse_csv_into_grouped_products(csv_path: str) -> List[Dict[str, Any]]:
     # Format into canonical product payload list
     result = []
     for (t, p, c), prod_dict in grouped.items():
+        if not prod_dict["variants"]:
+            continue
+
         # Convert options dict of sets to list of dicts
         options_list = []
         for opt_name, vals in prod_dict["options"].items():
