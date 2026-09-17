@@ -167,8 +167,8 @@ export const productFormSchema = z
     productCode: z.string().trim().optional(),
     categoryName: z.string().trim().min(1, 'Category is required'),
     price: z
-      .number({ invalid_type_error: 'Price must be a number' })
-      .min(0, 'Price cannot be negative'),
+      .number({ invalid_type_error: 'Price is required and must be a number' })
+      .positive('Price is required and must be greater than 0'),
     defaultImageFile: z.any().optional(),
     defaultImageUrl: z.string().optional(),
     variants: z.array(productVariantItemSchema)

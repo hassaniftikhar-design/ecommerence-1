@@ -38,8 +38,8 @@ import { TAX_RATE } from '@/constants/generalconstants';
 import { OutOfStockModal } from '@/components/cart/out-of-stock-modal';
 import { CheckoutStripeForm } from '@/components/checkout/checkout-stripe-form';
 import { PaymentFailedModal } from '@/components/checkout/payment-failed-modal';
+import { FormField } from '@/components/forms/form-field';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { CartItem, CartTotals } from '@/types/cart.types';
 import type { SavedPaymentMethod } from '@/types/payment.types';
@@ -100,6 +100,7 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [savingAddress, setSavingAddress] = useState(false);
   const [codSubmitting, setCodSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [outOfStockAlert, setOutOfStockAlert] = useState<string | null>(null);
@@ -175,74 +176,53 @@ export default function CheckoutPage() {
         setStep('payment');
         setPaymentType('card');
         return;
-      }
+      } else {
+        // Normal fresh checkout load
+        const [cartData, cardsData, addressData] = await Promise.all([
+          getCart(),
+          getSavedPaymentMethods().catch(() => []),
+          getUserAddress().catch(() => null)
+        ]);
 
-      const [cartData, cardsData, addressData] = await Promise.all([
-        getCart(),
-        getSavedPaymentMethods().catch(() => []),
-        getUserAddress().catch(() => null)
-      ]);
-
-      if (cartData.items.length === 0) {
-        router.replace(ROUTES.cart);
-        return;
-      }
-
-      // Filter to selected items if specified in URL query
-      let checkoutItems = cartData.items;
-      if (itemsParam) {
-        const allowedIds = itemsParam.split(',').filter(Boolean);
-        const filtered = cartData.items.filter((item) => allowedIds.includes(item.id));
-        if (filtered.length > 0) {
-          checkoutItems = filtered;
+        if (cartData.items.length === 0) {
+          router.replace(ROUTES.cart);
+          return;
         }
-      }
 
-      // Check for out-of-stock items among selected checkout items
-      const outOfStockItem = checkoutItems.find((item) => {
-        const available = item.stock ?? 0;
-        return !item.isVariantDeleted && (available === 0 || item.quantity > available);
-      });
-
-      if (outOfStockItem) {
-        const available = outOfStockItem.stock ?? 0;
-        let msg = `Order can't be placed because '${outOfStockItem.name}' is currently out of stock. Please update your cart quantity.`;
-        if (available > 0) {
-          msg = `Order can't be placed because only ${available} unit(s) of '${outOfStockItem.name}' remain in stock (you requested ${outOfStockItem.quantity}). Please update your cart quantity.`;
+        // Filter by selected item IDs from URL query params (if any)
+        let filteredItems = cartData.items;
+        if (itemsParam) {
+          const selectedIds = new Set(itemsParam.split(','));
+          filteredItems = cartData.items.filter((item) => selectedIds.has(item.id));
         }
-        setOutOfStockAlert(msg);
-        return;
+
+        if (filteredItems.length === 0) {
+          router.replace(ROUTES.cart);
+          return;
+        }
+
+        setItems(filteredItems);
+        setSavedCards(cardsData);
+        setAddress(addressData);
+
+        const subTotal = filteredItems.reduce((sum, item) => sum + item.totalPrice, 0);
+        const tax = Math.round(subTotal * TAX_RATE * 100) / 100;
+        setTotals({
+          subTotal,
+          tax,
+          total: subTotal + tax
+        });
+
+        setFormData({
+          fullName: addressData?.name || session?.user?.name || '',
+          email: session?.user?.email || '',
+          phone: addressData?.phone || '',
+          addressLine: addressData?.addressLine || '',
+          city: addressData?.city || '',
+          postalCode: addressData?.postalCode || '',
+          country: addressData?.country || 'United States'
+        });
       }
-
-      // Check for inactive items among selected checkout items
-      const inactiveItem = checkoutItems.find((item) => item.isActive === false);
-      if (inactiveItem) {
-        setOutOfStockAlert(`Order can't be placed because '${inactiveItem.name}' is currently inactive or unavailable. Please return to your shopping bag and remove it.`);
-        return;
-      }
-
-      // Check for deleted variant items among selected checkout items
-      const deletedVariantItem = checkoutItems.find((item) => item.isVariantDeleted === true);
-      if (deletedVariantItem) {
-        setOutOfStockAlert(`Order can't be placed because the selected variant of '${deletedVariantItem.name}' is no longer available. Please return to your shopping bag and update your selection.`);
-        return;
-      }
-
-      setItems(checkoutItems);
-      setSavedCards(cardsData);
-      setAddress(addressData);
-      setTotals(computeTotals(checkoutItems));
-
-      // Populate address form data
-      setFormData({
-        fullName: session?.user?.name || addressData?.name || '',
-        email: session?.user?.email || addressData?.email || '',
-        phone: addressData?.phone || '',
-        addressLine: addressData?.addressLine || '',
-        city: addressData?.city || '',
-        postalCode: addressData?.postalCode || '',
-        country: addressData?.country || 'United States'
-      });
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -272,6 +252,13 @@ export default function CheckoutPage() {
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (formError) setFormError(null);
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
   };
 
   // Step 1 -> Step 2 validation and address saving
@@ -285,30 +272,31 @@ export default function CheckoutPage() {
     const trimmedPostal = formData.postalCode.trim();
     const trimmedCountry = formData.country.trim();
 
+    const errors: Record<string, string> = {};
     if (!trimmedName) {
-      setFormError('Full Name is required');
-      return;
+      errors.fullName = 'Full Name is required';
     }
     if (!trimmedPhone) {
-      setFormError('Phone Number is required');
-      return;
+      errors.phone = 'Phone Number is required';
     }
     if (!trimmedAddress) {
-      setFormError('Street Address is required');
-      return;
+      errors.addressLine = 'Street Address is required';
     }
     if (!trimmedCity) {
-      setFormError('City is required');
-      return;
+      errors.city = 'City is required';
     }
     if (!trimmedPostal) {
-      setFormError('Postal Code is required');
-      return;
+      errors.postalCode = 'Postal Code is required';
     }
     if (!trimmedCountry) {
-      setFormError('Country is required');
+      errors.country = 'Country is required';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
+    setFieldErrors({});
 
     const isAddressUnchanged =
       address !== null &&
@@ -525,139 +513,104 @@ export default function CheckoutPage() {
 
               <form onSubmit={handleContinueToPayment} className="space-y-5">
                 {/* CONTACT SECTION */}
-                <div className="space-y-3.5">
+                <div className="space-y-4">
                   <div className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">
                     Contact
                   </div>
 
                   {/* Full Name */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700">
-                      Full Name <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                      <Input
-                        type="text"
-                        placeholder="John Doe"
-                        value={formData.fullName}
-                        onChange={(e) => handleInputChange('fullName', e.target.value)}
-                        className="pl-10 h-11 text-xs sm:text-sm rounded-xl border-slate-200 focus:border-[#007BFF]"
-                      />
-                    </div>
-                  </div>
+                  <FormField
+                    label="Full Name"
+                    name="fullName"
+                    placeholder="John Doe"
+                    value={formData.fullName}
+                    onChange={(e) => handleInputChange('fullName', e.target.value)}
+                    error={fieldErrors.fullName}
+                    required
+                    className="mb-0"
+                  />
 
                   {/* Email & Phone (2-Columns) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-700">
-                        Email Address <span className="text-[11px] font-normal text-slate-400">(Read-only)</span>
-                      </label>
-                      <div className="relative">
-                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input
-                          type="email"
-                          placeholder="you@example.com"
-                          value={formData.email}
-                          disabled
-                          readOnly
-                          className="pl-10 h-11 text-xs sm:text-sm rounded-xl border-slate-200 bg-slate-100/90 text-slate-500 cursor-not-allowed select-none"
-                        />
-                      </div>
-                    </div>
+                    <FormField
+                      label="Email Address"
+                      name="email"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={formData.email}
+                      disabled
+                      readOnly
+                      className="mb-0"
+                    />
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-700">
-                        Phone Number <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input
-                          type="tel"
-                          placeholder="(555) 000-0000"
-                          value={formData.phone}
-                          onChange={(e) => handleInputChange('phone', e.target.value)}
-                          className="pl-10 h-11 text-xs sm:text-sm rounded-xl border-slate-200 focus:border-[#007BFF]"
-                        />
-                      </div>
-                    </div>
+                    <FormField
+                      label="Phone Number"
+                      name="phone"
+                      type="tel"
+                      placeholder="(555) 000-0000"
+                      value={formData.phone}
+                      onChange={(e) => handleInputChange('phone', e.target.value)}
+                      error={fieldErrors.phone}
+                      required
+                      className="mb-0"
+                    />
                   </div>
                 </div>
 
                 {/* SHIPPING ADDRESS SECTION */}
-                <div className="space-y-3.5 pt-2">
+                <div className="space-y-4 pt-2">
                   <div className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">
                     Shipping Address
                   </div>
 
                   {/* Street Address */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700">
-                      Street Address <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                      <Input
-                        type="text"
-                        placeholder="123 Main Street, Apt 4B"
-                        value={formData.addressLine}
-                        onChange={(e) => handleInputChange('addressLine', e.target.value)}
-                        className="pl-10 h-11 text-xs sm:text-sm rounded-xl border-slate-200 focus:border-[#007BFF]"
-                      />
-                    </div>
-                  </div>
+                  <FormField
+                    label="Street Address"
+                    name="addressLine"
+                    placeholder="123 Main Street, Apt 4B"
+                    value={formData.addressLine}
+                    onChange={(e) => handleInputChange('addressLine', e.target.value)}
+                    error={fieldErrors.addressLine}
+                    required
+                    className="mb-0"
+                  />
 
                   {/* City & Postal Code (2-Columns) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-700">
-                        City <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <Building className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input
-                          type="text"
-                          placeholder="New York"
-                          value={formData.city}
-                          onChange={(e) => handleInputChange('city', e.target.value)}
-                          className="pl-10 h-11 text-xs sm:text-sm rounded-xl border-slate-200 focus:border-[#007BFF]"
-                        />
-                      </div>
-                    </div>
+                    <FormField
+                      label="City"
+                      name="city"
+                      placeholder="New York"
+                      value={formData.city}
+                      onChange={(e) => handleInputChange('city', e.target.value)}
+                      error={fieldErrors.city}
+                      required
+                      className="mb-0"
+                    />
 
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-slate-700">
-                        Postal Code <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <Hash className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input
-                          type="text"
-                          placeholder="10001"
-                          value={formData.postalCode}
-                          onChange={(e) => handleInputChange('postalCode', e.target.value)}
-                          className="pl-10 h-11 text-xs sm:text-sm rounded-xl border-slate-200 focus:border-[#007BFF]"
-                        />
-                      </div>
-                    </div>
+                    <FormField
+                      label="Postal Code"
+                      name="postalCode"
+                      placeholder="10001"
+                      value={formData.postalCode}
+                      onChange={(e) => handleInputChange('postalCode', e.target.value)}
+                      error={fieldErrors.postalCode}
+                      required
+                      className="mb-0"
+                    />
                   </div>
 
                   {/* Country */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-slate-700">
-                      Country <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                      <Input
-                        type="text"
-                        placeholder="United States"
-                        value={formData.country}
-                        onChange={(e) => handleInputChange('country', e.target.value)}
-                        className="pl-10 h-11 text-xs sm:text-sm rounded-xl border-slate-200 focus:border-[#007BFF]"
-                      />
-                    </div>
-                  </div>
+                  <FormField
+                    label="Country"
+                    name="country"
+                    placeholder="United States"
+                    value={formData.country}
+                    onChange={(e) => handleInputChange('country', e.target.value)}
+                    error={fieldErrors.country}
+                    required
+                    className="mb-0"
+                  />
                 </div>
 
                 {/* Continue to Payment Button */}

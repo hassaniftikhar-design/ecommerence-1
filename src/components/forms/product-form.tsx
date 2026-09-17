@@ -37,6 +37,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [productCodeConflictError, setProductCodeConflictError] = useState<string | null>(null);
   const [statusChangeError, setStatusChangeError] = useState<string | null>(null);
+  const [totalStockError, setTotalStockError] = useState<string | null>(null);
 
   // Color-based image map: { "Red": { file, previewUrl }, "Blue": { file, previewUrl } }
   const [colorImages, setColorImages] = useState<Record<string, ColorImageItem>>({});
@@ -183,7 +184,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         name: initialData.name || '',
         productCode: prodCode,
         categoryName: initialData.category?.name || 'General',
-        price: initialData.lowestPrice ?? initialData.price ?? 0,
+        price: initialData.lowestPrice ?? initialData.price ?? ('' as unknown as number),
         defaultImageUrl: primaryUrl,
         variants: formattedVariants
       };
@@ -193,7 +194,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
       name: '',
       productCode: '',
       categoryName: 'General',
-      price: 0,
+      price: '' as unknown as number,
       defaultImageUrl: '',
       variants: []
     };
@@ -206,6 +207,8 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
     watch,
     setValue,
     reset,
+    setError,
+    clearErrors,
     formState: { errors }
   } = useForm<ProductFormSchemaValues>({
     resolver: zodResolver(productFormSchema),
@@ -406,53 +409,36 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   const handleRemoveVariant = (index: number) => {
     if (fields.length <= 1) {
       setFormErrorMessages([
-        'A product must have at least one variant. To delete or remove this product from the store, please deactivate or delete the product itself.'
+        'A product must have at least one variant. To delete or remove this product from the store, please deactivate the product.'
       ]);
       return;
     }
     remove(index);
   };
 
-  const onInvalid = (fieldErrors: FieldErrors<ProductFormSchemaValues>) => {
-    const errorMessages: string[] = [];
-
-    if (fieldErrors.name?.message) errorMessages.push(fieldErrors.name.message);
-    if (fieldErrors.productCode?.message) errorMessages.push(fieldErrors.productCode.message);
-    if (fieldErrors.categoryName?.message) errorMessages.push(fieldErrors.categoryName.message);
-    if (fieldErrors.price?.message) errorMessages.push(fieldErrors.price.message);
-    if (fieldErrors.defaultImageUrl?.message) errorMessages.push(fieldErrors.defaultImageUrl.message);
-    if (fieldErrors.variants?.message) errorMessages.push(fieldErrors.variants.message);
-    if (fieldErrors.variants?.root?.message) errorMessages.push(fieldErrors.variants.root.message);
-
-    if (Array.isArray(fieldErrors.variants)) {
-      fieldErrors.variants.forEach((vErr, idx) => {
-        if (vErr?.sku?.message) errorMessages.push(`Variant ${idx + 1} SKU: ${vErr.sku.message}`);
-        if (vErr?.color?.message) errorMessages.push(`Variant ${idx + 1} Color: ${vErr.color.message}`);
-        if (vErr?.size?.message) errorMessages.push(`Variant ${idx + 1} Size: ${vErr.size.message}`);
-        if (vErr?.quantity?.message) errorMessages.push(`Variant ${idx + 1} Quantity: ${vErr.quantity.message}`);
-      });
-    }
-
-    if (errorMessages.length === 0) {
-      errorMessages.push('Please check the form for invalid fields before saving.');
-    }
-
-    setFormErrorMessages(errorMessages);
+  const onInvalid = () => {
+    // Client-side validation errors are automatically bound to form fields via react-hook-form errors.
+    setFormErrorMessages([]);
   };
 
   const onSubmit = async (data: ProductFormSchemaValues) => {
     try {
       setSubmitting(true);
       setProductCodeConflictError(null);
+      setTotalStockError(null);
+      setCustomCategoryError(null);
+      clearErrors();
+      setFormErrorMessages([]);
 
-      if (data.price < 0) {
-        setFormErrorMessages(['Price cannot be negative']);
+      if (data.price === undefined || data.price === null || isNaN(data.price) || data.price <= 0) {
+        setError('price', { type: 'manual', message: 'Price is required and must be greater than 0' });
         setSubmitting(false);
         return;
       }
 
       if (totalStock <= 0) {
-        setFormErrorMessages(['Total Quantity cannot be zero']);
+        setTotalStockError('Total Quantity cannot be zero');
+        setError('variants', { type: 'manual', message: 'Total Quantity cannot be zero' });
         setSubmitting(false);
         return;
       }
@@ -464,7 +450,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
       }
 
       if (!finalDefaultImageUrl) {
-        setFormErrorMessages(['Default Product Image is required']);
+        setError('defaultImageUrl', { type: 'manual', message: 'Default Product Image is required' });
         setSubmitting(false);
         return;
       }
@@ -566,10 +552,34 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean);
-      setFormErrorMessages(parsedList.length > 0 ? parsedList : [rawMsg]);
-      if (rawMsg.toLowerCase().includes('product code') || rawMsg.includes('DUPLICATE_PRODUCT_CODE')) {
-        setProductCodeConflictError(rawMsg);
-      }
+
+      const unhandledErrors: string[] = [];
+
+      parsedList.forEach((msg) => {
+        const lower = msg.toLowerCase();
+        if (lower.includes('product code') || lower.includes('duplicate_product_code')) {
+          setProductCodeConflictError(msg);
+          setError('productCode', { type: 'manual', message: msg });
+        } else if (lower.includes('sku') || lower.includes('duplicate_sku')) {
+          setError('variants', { type: 'manual', message: msg });
+        } else if (lower.includes('title') || (lower.includes('name') && !lower.includes('category'))) {
+          setError('name', { type: 'manual', message: msg });
+        } else if (lower.includes('category')) {
+          setError('categoryName', { type: 'manual', message: msg });
+          setCustomCategoryError(msg);
+        } else if (lower.includes('price')) {
+          setError('price', { type: 'manual', message: msg });
+        } else if (lower.includes('image')) {
+          setError('defaultImageUrl', { type: 'manual', message: msg });
+        } else if (lower.includes('quantity') || lower.includes('stock')) {
+          setTotalStockError(msg);
+          setError('variants', { type: 'manual', message: msg });
+        } else {
+          unhandledErrors.push(msg);
+        }
+      });
+
+      setFormErrorMessages(unhandledErrors);
     } finally {
       setSubmitting(false);
     }
@@ -631,6 +641,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                 <FormField
                   label="Product Title"
                   placeholder="Enter product title..."
+                  required
                   error={errors.name?.message}
                   {...register('name')}
                 />
@@ -667,7 +678,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                             setProductCodeConflictError(null);
                           }
                         })
-                        .catch(() => {});
+                        .catch(() => { });
                     }
                   })}
                   className={cn(
@@ -689,8 +700,9 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                   label="Price ($)"
                   type="number"
                   step="0.01"
-                  min="0"
+                  min="0.01"
                   placeholder="00.00"
+                  required
                   error={errors.price?.message}
                   {...register('price', {
                     valueAsNumber: true,
@@ -710,10 +722,20 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                   type="number"
                   readOnly
                   value={totalStock}
-                  className="bg-slate-100/80 cursor-not-allowed font-medium text-slate-700"
+                  aria-invalid={!!(totalStockError || (errors.variants?.message && totalStock <= 0))}
+                  className={cn(
+                    'bg-slate-100/80 cursor-not-allowed font-medium text-slate-700',
+                    (totalStockError || (errors.variants?.message && totalStock <= 0)) && 'border-danger focus-visible:ring-danger'
+                  )}
                   title="Total stock is calculated automatically as the sum of all variant quantities"
                 />
-                <p className="mt-1 text-xs text-slate-500">Auto-calculated from variants</p>
+                {totalStockError || (errors.variants?.message && totalStock <= 0) ? (
+                  <p role="alert" className="mt-1.5 text-xs text-danger font-medium">
+                    {totalStockError || errors.variants?.message}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-slate-500">Auto-calculated from variants</p>
+                )}
               </div>
             </div>
 

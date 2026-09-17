@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { FormField } from '@/components/forms/form-field';
 import { updateUserAddress } from '@/services/user.service';
 import type { UserAddress } from '@/types/user.types';
 
@@ -39,6 +39,7 @@ export function ShippingAddressCard({
     phone: address?.phone || ''
   });
 
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -61,27 +62,42 @@ export function ShippingAddressCard({
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (formError) setFormError(null);
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.addressLine.trim()) {
-      setFormError('Street address is required');
+    const trimmedAddress = formData.addressLine.trim();
+    const trimmedCity = formData.city.trim();
+    const trimmedPostal = formData.postalCode.trim();
+    const trimmedCountry = formData.country.trim();
+
+    const errors: Record<string, string> = {};
+    if (!trimmedAddress) {
+      errors.addressLine = 'Street address is required';
+    }
+    if (!trimmedCity) {
+      errors.city = 'City is required';
+    }
+    if (!trimmedPostal) {
+      errors.postalCode = 'Postal / Zip code is required';
+    }
+    if (!trimmedCountry) {
+      errors.country = 'Country is required';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
-    if (!formData.city.trim()) {
-      setFormError('City is required');
-      return;
-    }
-    if (!formData.postalCode.trim()) {
-      setFormError('Postal / Zip code is required');
-      return;
-    }
-    if (!formData.country.trim()) {
-      setFormError('Country is required');
-      return;
-    }
+    setFieldErrors({});
 
     const isAddressUnchanged =
       Boolean(address) &&
@@ -197,73 +213,63 @@ export function ShippingAddressCard({
       ) : (
         /* EDIT / ADD FORM VIEW */
         <form onSubmit={handleSave} className="space-y-3.5 pt-1">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
-              Street Address <span className="text-red-500">*</span>
-            </label>
-            <Input
-              value={formData.addressLine}
-              onChange={(e) => handleChange('addressLine', e.target.value)}
-              placeholder="e.g. 123 Main Street, Apt 4B"
-              className="text-xs h-9 rounded-lg"
+          <FormField
+            label="Street Address"
+            name="addressLine"
+            value={formData.addressLine}
+            onChange={(e) => handleChange('addressLine', e.target.value)}
+            placeholder="e.g. 123 Main Street, Apt 4B"
+            error={fieldErrors.addressLine}
+            required
+            className="mb-0"
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <FormField
+              label="City"
+              name="city"
+              value={formData.city}
+              onChange={(e) => handleChange('city', e.target.value)}
+              placeholder="e.g. New York"
+              error={fieldErrors.city}
               required
+              className="mb-0"
+            />
+
+            <FormField
+              label="Postal / Zip Code"
+              name="postalCode"
+              value={formData.postalCode}
+              onChange={(e) => handleChange('postalCode', e.target.value)}
+              placeholder="e.g. 10001"
+              error={fieldErrors.postalCode}
+              required
+              className="mb-0"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                City <span className="text-red-500">*</span>
-              </label>
-              <Input
-                value={formData.city}
-                onChange={(e) => handleChange('city', e.target.value)}
-                placeholder="e.g. New York"
-                className="text-xs h-9 rounded-lg"
-                required
-              />
-            </div>
+            <FormField
+              label="Country"
+              name="country"
+              value={formData.country}
+              onChange={(e) => handleChange('country', e.target.value)}
+              placeholder="e.g. United States"
+              error={fieldErrors.country}
+              required
+              className="mb-0"
+            />
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Postal / Zip Code <span className="text-red-500">*</span>
-              </label>
-              <Input
-                value={formData.postalCode}
-                onChange={(e) => handleChange('postalCode', e.target.value)}
-                placeholder="e.g. 10001"
-                className="text-xs h-9 rounded-lg"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Country <span className="text-red-500">*</span>
-              </label>
-              <Input
-                value={formData.country}
-                onChange={(e) => handleChange('country', e.target.value)}
-                placeholder="e.g. United States"
-                className="text-xs h-9 rounded-lg"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Contact Phone Number
-              </label>
-              <Input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => handleChange('phone', e.target.value)}
-                placeholder="e.g. +1 (555) 019-2834"
-                className="text-xs h-9 rounded-lg"
-              />
-            </div>
+            <FormField
+              label="Contact Phone Number"
+              name="phone"
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => handleChange('phone', e.target.value)}
+              placeholder="e.g. +1 (555) 019-2834"
+              error={fieldErrors.phone}
+              className="mb-0"
+            />
           </div>
 
           <div className="flex justify-end gap-2 pt-2">

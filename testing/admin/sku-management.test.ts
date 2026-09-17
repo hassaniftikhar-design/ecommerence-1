@@ -210,4 +210,31 @@ describe('SKU Validation in Schemas (validators)', () => {
     const updateResult = updateProductSchema.safeParse(updateData);
     expect(updateResult.success).toBe(true);
   });
+
+  it('rejects zero or negative or invalid price in productFormSchema', () => {
+    const zeroPriceData = {
+      name: 'Leather Jacket',
+      productCode: 'JACK-001',
+      categoryName: 'Apparel',
+      price: 0,
+      defaultImageUrl: 'https://example.com/jacket.jpg',
+      variants: [
+        {
+          sku: 'JACK-001-BLK-M',
+          color: 'Black',
+          size: 'M',
+          quantity: 10
+        }
+      ]
+    };
+    const zeroResult = productFormSchema.safeParse(zeroPriceData);
+    expect(zeroResult.success).toBe(false);
+    if (!zeroResult.success) {
+      expect(zeroResult.error.errors.some((e) => e.message.includes('Price is required and must be greater than 0'))).toBe(true);
+    }
+
+    const negativePriceData = { ...zeroPriceData, price: -10 };
+    const negResult = productFormSchema.safeParse(negativePriceData);
+    expect(negResult.success).toBe(false);
+  });
 });
