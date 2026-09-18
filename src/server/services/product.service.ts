@@ -1,5 +1,3 @@
-import { randomBytes } from 'crypto';
-
 import { Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/prisma';
@@ -15,58 +13,22 @@ import {
   validateCreateProductInput,
   validateUpdateProductInput
 } from '@/server/middlewares';
+import type {
+  RawProduct,
+  RawImportProductData,
+  RawImportVariant,
+  GetProductsServerParams,
+  NormalizedUpdateVariant
+} from '@/types/product.types';
 
-function generateSku(): string {
-  return `SKU-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString('hex').toUpperCase()}`;
-}
-
-export interface RawVariantOption {
-  optionValue: {
-    value: string;
-    option: {
-      name: string;
-    };
-  };
-}
-
-export interface RawVariant {
-  id: string;
-  productId: string;
-  sku: string;
-  stock: number;
-  images: string[];
-  variantOptions?: RawVariantOption[];
-  createdAt: Date | string;
-  updatedAt: Date | string;
-}
-
-export interface RawProductOptionValue {
-  id: string;
-  optionId: string;
-  value: string;
-}
-
-export interface RawProductOption {
-  id: string;
-  productId: string;
-  name: string;
-  values?: RawProductOptionValue[];
-}
-
-export interface RawProduct {
-  id: string;
-  productCode?: string | null;
-  name: string;
-  price: Prisma.Decimal | number;
-  isActive: boolean;
-  inactiveAt?: Date | string | null;
-  category?: { id: string; name: string } | null;
-  createdBy?: { id: string; name: string } | null;
-  options?: RawProductOption[];
-  variants?: RawVariant[];
-  createdAt: Date | string;
-  updatedAt: Date | string;
-}
+export type {
+  RawProduct,
+  RawVariant,
+  RawVariantOption,
+  RawProductOption,
+  RawProductOptionValue,
+  GetProductsServerParams
+} from '@/types/product.types';
 
 export function formatProductResponse(product: RawProduct) {
   let primaryImage = DEFAULT_PRODUCT_IMAGE;
@@ -135,17 +97,6 @@ export function formatProductResponse(product: RawProduct) {
     createdAt: product.createdAt instanceof Date ? product.createdAt.toISOString() : product.createdAt,
     updatedAt: product.updatedAt instanceof Date ? product.updatedAt.toISOString() : product.updatedAt
   };
-}
-
-export interface GetProductsServerParams {
-  searchQuery?: string;
-  categoryQuery?: string;
-  sortQuery?: string;
-  statusQuery?: string;
-  pageNumber?: number;
-  limitNumber?: number;
-  isPaginatedCall?: boolean;
-  userIsAdmin?: boolean;
 }
 
 export async function getProductsServer(params: GetProductsServerParams) {
@@ -281,29 +232,29 @@ export async function getProductsServer(params: GetProductsServerParams) {
         });
 
         const mappedOrphans = orphanUnresolvedItems.map((item) => {
-          const raw = (item.raw_data || {}) as Record<string, any>;
+          const raw = (item.raw_data || {}) as RawImportProductData;
           const title = raw.name || raw.title || 'Import Error Product';
           const price = typeof raw.price === 'number' ? raw.price : parseFloat(String(raw.price || 0)) || 0;
           const catName = raw.categoryName || raw.category || 'Unassigned';
           const variants = Array.isArray(raw.variants)
-            ? raw.variants.map((v: any, idx: number) => ({
-                id: `unresolved-var-${item.id}-${idx}`,
-                productId: item.id,
-                sku: v.sku || '',
-                stock: typeof v.stock === 'number' ? v.stock : parseInt(String(v.stock || 0), 10) || 0,
-                images: Array.isArray(v.images) ? v.images : [raw.imageUrl || DEFAULT_PRODUCT_IMAGE],
-                attributes: (v.attributes || {}) as Record<string, string>,
-                variantOptions: Object.entries(v.attributes || {}).map(([optionName, value]) => ({
-                  optionName,
-                  value: String(value)
-                })),
-                createdAt: item.created_at.toISOString(),
-                updatedAt: item.updated_at.toISOString()
-              }))
+            ? raw.variants.map((v: RawImportVariant, idx: number) => ({
+              id: `unresolved-var-${item.id}-${idx}`,
+              productId: item.id,
+              sku: v.sku || '',
+              stock: typeof v.stock === 'number' ? v.stock : parseInt(String(v.stock || 0), 10) || 0,
+              images: Array.isArray(v.images) ? v.images : [raw.imageUrl || DEFAULT_PRODUCT_IMAGE],
+              attributes: (v.attributes || {}) as Record<string, string>,
+              variantOptions: Object.entries(v.attributes || {}).map(([optionName, value]) => ({
+                optionName,
+                value: String(value)
+              })),
+              createdAt: item.created_at.toISOString(),
+              updatedAt: item.updated_at.toISOString()
+            }))
             : [];
 
           const totalStock = variants.length > 0
-            ? variants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0)
+            ? variants.reduce((sum: number, v) => sum + (v.stock || 0), 0)
             : (typeof raw.stock === 'number' ? raw.stock : parseInt(String(raw.stock || 0), 10) || 0);
 
           return {
@@ -318,7 +269,7 @@ export async function getProductsServer(params: GetProductsServerParams) {
             variants,
             price,
             stock: totalStock,
-            imageUrl: raw.imageUrl || null,
+            imageUrl: raw.imageUrl || DEFAULT_PRODUCT_IMAGE,
             lowestPrice: price,
             totalStock,
             variantCount: variants.length || 1,
@@ -342,7 +293,7 @@ export async function getProductsServer(params: GetProductsServerParams) {
               p.name.toLowerCase().includes(q) ||
               (p.category && p.category.name.toLowerCase().includes(q)) ||
               (p.productCode && p.productCode.toLowerCase().includes(q)) ||
-              p.variants.some((v: any) => v.sku && v.sku.toLowerCase().includes(q))
+              p.variants.some((v) => v.sku && v.sku.toLowerCase().includes(q))
             );
           });
         }
@@ -662,10 +613,16 @@ export async function createProductServer(body: unknown, adminUserId: string) {
     }
 
     return { success: true as const, status: 201, product: formatProductResponse(fullProduct) };
-  } catch (error: any) {
-    if (error?.code === 'P2002') {
-      const target = Array.isArray(error.meta?.target) ? error.meta.target.join(', ') : String(error.meta?.target || '');
-      const isSku = target.includes('sku') || String(error.message || '').toLowerCase().includes('sku');
+  } catch (error: unknown) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code: unknown }).code === 'P2002'
+    ) {
+      const prismaErr = error as { meta?: { target?: string[] | string }; message?: string };
+      const target = Array.isArray(prismaErr.meta?.target) ? prismaErr.meta.target.join(', ') : String(prismaErr.meta?.target || '');
+      const isSku = target.includes('sku') || String(prismaErr.message || '').toLowerCase().includes('sku');
       const errSku = targetSkus[0] || 'specified SKU';
       return {
         success: false as const,
@@ -676,11 +633,12 @@ export async function createProductServer(body: unknown, adminUserId: string) {
           : 'A unique constraint violation occurred while saving the product.'
       };
     }
+    const errMessage = error instanceof Error ? error.message : 'Failed to create product';
     return {
       success: false as const,
       status: 500,
-      errors: [(error as Error).message],
-      message: (error as Error).message || 'Failed to create product'
+      errors: [errMessage],
+      message: errMessage
     };
   }
 }
@@ -760,7 +718,7 @@ export async function updateProductServer(id: string, body: unknown) {
   }
 
   // Pre-process variants and their SKUs if variants array is provided
-  let normalizedVariants: any[] | undefined = undefined;
+  let normalizedVariants: NormalizedUpdateVariant[] | undefined = undefined;
   const targetSkus: string[] = [];
 
   if (variants !== undefined && variants.length > 0) {
@@ -995,10 +953,16 @@ export async function updateProductServer(id: string, body: unknown) {
     }
 
     return { success: true as const, status: 200, product: formatProductResponse(fullProduct) };
-  } catch (error: any) {
-    if (error?.code === 'P2002') {
-      const target = Array.isArray(error.meta?.target) ? error.meta.target.join(', ') : String(error.meta?.target || '');
-      const isSku = target.includes('sku') || String(error.message || '').toLowerCase().includes('sku');
+  } catch (error: unknown) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code: unknown }).code === 'P2002'
+    ) {
+      const prismaErr = error as { meta?: { target?: string[] | string }; message?: string };
+      const target = Array.isArray(prismaErr.meta?.target) ? prismaErr.meta.target.join(', ') : String(prismaErr.meta?.target || '');
+      const isSku = target.includes('sku') || String(prismaErr.message || '').toLowerCase().includes('sku');
       const errSku = targetSkus[0] || 'specified SKU';
       return {
         success: false as const,
@@ -1009,11 +973,12 @@ export async function updateProductServer(id: string, body: unknown) {
           : 'A unique constraint violation occurred while updating the product.'
       };
     }
+    const errMessage = error instanceof Error ? error.message : 'Failed to update product';
     return {
       success: false as const,
       status: 500,
-      errors: [(error as Error).message],
-      message: (error as Error).message || 'Failed to update product'
+      errors: [errMessage],
+      message: errMessage
     };
   }
 }
@@ -1228,4 +1193,3 @@ export async function checkProductCodeAvailableServer(
     nextAvailableCode
   };
 }
-

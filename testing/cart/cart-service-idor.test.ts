@@ -5,7 +5,7 @@ import {
   removeCartItemServer
 } from '@/server/services/cart.service';
 import { mockPrisma, resetPrismaMock } from '../mocks/prisma.mock';
-import { mockCart, mockCartItem, MOCK_CART_ID, MOCK_CART_ITEM_ID } from '../mocks/cart.mock';
+import { mockCartItem, MOCK_CART_ITEM_ID } from '../mocks/cart.mock';
 
 jest.mock('@/lib/prisma', () => ({
   prisma: require('../mocks/prisma.mock').mockPrisma

@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useRef } from 'react';
+
 import Image from 'next/image';
+
 import {
   Trash2,
   Plus,
@@ -12,8 +14,11 @@ import {
   Package,
   ImagePlus
 } from 'lucide-react';
+
 import { Input } from '@/components/ui/input';
+
 import { Button } from '@/components/ui/button';
+
 import { getValidImageUrl } from '@/lib/image-util';
 import { getColorHex, COLOR_OPTIONS, SIZE_OPTIONS } from '@/constants/generalconstants';
 import type { GroupedProduct, ParsedVariant } from '@/lib/bulk-import-parser';

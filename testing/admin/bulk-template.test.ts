@@ -1,7 +1,7 @@
 import ExcelJS from 'exceljs';
 import {
   COLOR_OPTIONS,
-  SIZE_OPTIONS,
+  SIZE_OPTIONS
 } from '@/constants/generalconstants';
 
 describe('Bulk Import XLSX Template Generator', () => {
@@ -20,7 +20,7 @@ describe('Bulk Import XLSX Template Generator', () => {
       { header: 'colorName', key: 'colorName', width: 18 },
       { header: 'sizeName', key: 'sizeName', width: 14 },
       { header: 'stock', key: 'stock', width: 14 },
-      { header: 'imagePath', key: 'imagePath', width: 30 },
+      { header: 'imagePath', key: 'imagePath', width: 30 }
     ];
 
     const categoryNames = ['Apparel', 'Electronics', 'Footwear'];
@@ -40,7 +40,7 @@ describe('Bulk Import XLSX Template Generator', () => {
         showErrorMessage: true,
         errorStyle: 'stop',
         errorTitle: 'Invalid Category',
-        error: 'Please select a category from the dropdown.',
+        error: 'Please select a category from the dropdown.'
       };
 
       // Color
@@ -51,7 +51,7 @@ describe('Bulk Import XLSX Template Generator', () => {
         showErrorMessage: true,
         errorStyle: 'stop',
         errorTitle: 'Invalid Color',
-        error: 'Please select a color from the dropdown.',
+        error: 'Please select a color from the dropdown.'
       };
 
       // Size
@@ -62,7 +62,7 @@ describe('Bulk Import XLSX Template Generator', () => {
         showErrorMessage: true,
         errorStyle: 'stop',
         errorTitle: 'Invalid Size',
-        error: 'Please select a size from the dropdown.',
+        error: 'Please select a size from the dropdown.'
       };
     }
 

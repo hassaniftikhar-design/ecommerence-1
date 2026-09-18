@@ -5,7 +5,6 @@ const smtpPort = process.env.SMTP_PORT;
 const smtpUser = process.env.SMTP_USER;
 const smtpPass = process.env.SMTP_PASS;
 const emailFrom = process.env.EMAIL_FROM;
-const nextAuthUrl = process.env.NEXTAUTH_URL;
 
 function getTransporter() {
   if (
@@ -57,7 +56,7 @@ export async function sendEmail({
     html
   });
 }
- 
+
 export async function sendFacebookVerificationOtpEmail(
   to: string,
   otp: string

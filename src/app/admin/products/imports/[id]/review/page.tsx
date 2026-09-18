@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, use } from 'react';
+
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+
 import { useSession } from 'next-auth/react';
 import {
   ArrowLeft,
@@ -13,12 +14,25 @@ import {
   Edit3,
   PlusCircle,
   Search,
-  Clock
+  Clock,
+  Trash2,
+  Loader2
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/components/ui/toast';
+import { useSocket } from '@/providers/socket-provider';
 import { ROUTES } from '@/constants/routes';
+import type { RawImportProductData } from '@/types/product.types';
 
 interface ImportErrorItem {
   id?: string;
@@ -29,7 +43,7 @@ interface ImportErrorItem {
   product_id?: string;
   resolution_status?: string;
   resolved_at?: string;
-  raw_data?: any;
+  raw_data?: RawImportProductData;
 }
 
 interface ImportJobReviewData {
@@ -117,8 +131,9 @@ export default function ImportReviewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const router = useRouter();
   const { data: session, status } = useSession();
+  const { showSuccess, showError } = useToast();
+  const { refreshNotifications } = useSocket();
 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -126,6 +141,61 @@ export default function ImportReviewPage({
 
   const [filterTab, setFilterTab] = useState<'unresolved' | 'resolved'>('unresolved');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Removing uncreated product state
+  const [itemToRemove, setItemToRemove] = useState<ImportErrorItem | null>(null);
+  const [resolvingItemId, setResolvingItemId] = useState<string | null>(null);
+
+  const handleConfirmRemove = async () => {
+    if (!itemToRemove || !itemToRemove.id) return;
+
+    const itemId = itemToRemove.id;
+    try {
+      setResolvingItemId(itemId);
+      const res = await fetch(`/api/admin/imports/items/${itemId}/resolve`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: id })
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.message || 'Failed to remove item from review');
+      }
+
+      // Update local state smoothly
+      setData((prev) => {
+        if (!prev) return prev;
+        const updatedErrors = prev.errors.map((err) =>
+          err.id === itemId
+            ? { ...err, resolution_status: 'RESOLVED', resolved_at: new Date().toISOString() }
+            : err
+        );
+        const resolvedCount = updatedErrors.filter((e) => e.resolution_status === 'RESOLVED').length;
+        const remainingCount = Math.max(0, prev.summary.totalFailed - resolvedCount);
+
+        return {
+          ...prev,
+          summary: {
+            ...prev.summary,
+            resolvedCount,
+            remainingCount
+          },
+          errors: updatedErrors
+        };
+      });
+
+      refreshNotifications(true);
+      refreshNotifications(false);
+      showSuccess('Product removed from import review list.', 'Item Dismissed');
+      setItemToRemove(null);
+    } catch (err) {
+      console.error('Failed to remove item:', err);
+      showError((err as Error).message || 'Failed to remove item', 'Error');
+    } finally {
+      setResolvingItemId(null);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -273,22 +343,20 @@ export default function ImportReviewPage({
               <button
                 type="button"
                 onClick={() => setFilterTab('unresolved')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  filterTab === 'unresolved'
-                    ? 'bg-amber-500 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
-                }`}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${filterTab === 'unresolved'
+                  ? 'bg-amber-500 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
+                  }`}
               >
                 Unresolved ({summary.remainingCount})
               </button>
               <button
                 type="button"
                 onClick={() => setFilterTab('resolved')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  filterTab === 'resolved'
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
-                }`}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${filterTab === 'resolved'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200/70'
+                  }`}
               >
                 Resolved ({summary.resolvedCount})
               </button>
@@ -329,9 +397,8 @@ export default function ImportReviewPage({
                 return (
                   <div
                     key={item.id || item.row_index}
-                    className={`bg-white border rounded-3xl p-6 transition-all shadow-xs space-y-4 ${
-                      isResolved ? 'border-emerald-200 bg-emerald-50/10' : 'border-slate-200 hover:border-slate-300'
-                    }`}
+                    className={`bg-white border rounded-3xl p-6 transition-all shadow-xs space-y-4 ${isResolved ? 'border-emerald-200 bg-emerald-50/10' : 'border-slate-200 hover:border-slate-300'
+                      }`}
                   >
                     {/* Item Top Row */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -388,16 +455,30 @@ export default function ImportReviewPage({
                             </Link>
                           </Button>
                         ) : (
-                          <Button
-                            size="sm"
-                            asChild
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs"
-                          >
-                            <Link href={`/admin/products/new?importItemId=${item.id}&jobId=${id}`}>
-                              <PlusCircle className="h-3.5 w-3.5 mr-1" />
-                              <span>Create & Fix Product</span>
-                            </Link>
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={resolvingItemId === item.id}
+                              onClick={() => setItemToRemove(item)}
+                              className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 text-xs font-semibold rounded-xl cursor-pointer"
+                            >
+                              <Trash2 className="h-3.5 w-3.5 mr-1" />
+                              <span>Remove</span>
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              asChild
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs"
+                            >
+                              <Link href={`/admin/products/new?importItemId=${item.id}&jobId=${id}`}>
+                                <PlusCircle className="h-3.5 w-3.5 mr-1" />
+                                <span>Create & Fix Product</span>
+                              </Link>
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -408,6 +489,48 @@ export default function ImportReviewPage({
           </div>
         </>
       )}
+
+      {/* Confirmation Dialog for Removing Uncreated Product */}
+      <AlertDialog open={Boolean(itemToRemove)} onOpenChange={(open) => !open && setItemToRemove(null)}>
+        <AlertDialogContent className="sm:max-w-md p-6 rounded-3xl space-y-4">
+          <AlertDialogHeader className="space-y-2">
+            <AlertDialogTitle className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Trash2 className="h-5 w-5 text-red-600" />
+              Remove from Review?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              Are you sure you want to remove <span className="font-bold text-slate-800">{itemToRemove?.product_name || itemToRemove?.raw_data?.name || 'this product'}</span> (Row #{itemToRemove?.row_index}) from the review list? This product was not added to the catalog and will be dismissed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setItemToRemove(null)}
+              disabled={Boolean(resolvingItemId)}
+              className="rounded-xl border-slate-200 text-xs font-semibold"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmRemove}
+              disabled={Boolean(resolvingItemId)}
+              className="rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5"
+            >
+              {resolvingItemId ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Removing...</span>
+                </>
+              ) : (
+                <span>Yes, Remove</span>
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

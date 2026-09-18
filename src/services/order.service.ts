@@ -96,5 +96,3 @@ export async function convertOrderToCod(orderId: string): Promise<{ orderId: str
   });
   return parseApiResponse<{ orderId: string; orderNumber: string }>(response);
 }
-
-

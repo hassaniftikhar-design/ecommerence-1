@@ -1,9 +1,13 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+
 import { useSession } from 'next-auth/react';
+
 import type { Socket } from 'socket.io-client';
+
 import { initSocket, disconnectSocket, isSocketEnabled } from '@/lib/socket/client';
+
 import { getNotifications } from '@/services/notification.service';
 import type { NotificationItem } from '@/types/notification.types';
 
@@ -181,37 +185,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       setIsConnected(false);
     }
   }, [status]);
-
-  // Fallback polling only when WebSocket is disconnected
-  useEffect(() => {
-    console.log('[FALLBACK] EFFECT', {
-      status,
-      isConnected,
-      isAdmin
-    });
-
-    if (status !== 'authenticated' || isConnected) {
-      console.log('[FALLBACK] NOT STARTING');
-      return;
-    }
-
-    console.log('[FALLBACK] STARTING POLLING');
-
-    const interval = setInterval(() => {
-      console.log('[FALLBACK] POLLING NOW');
-
-      refreshNotifications(false);
-
-      if (isAdmin) {
-        refreshNotifications(true);
-      }
-    }, 30000);
-
-    return () => {
-      console.log('[FALLBACK] CLEANUP');
-      clearInterval(interval);
-    };
-  }, [status, isConnected, isAdmin, refreshNotifications]);
 
   return (
     <SocketContext.Provider

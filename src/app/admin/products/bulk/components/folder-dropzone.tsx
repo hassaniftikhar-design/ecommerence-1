@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useRef, useState } from 'react';
+
 import {
   Upload as UploadIcon,
   FolderUp,
@@ -12,8 +13,11 @@ import {
   Loader2,
   FileCheck2
 } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
+
 import { cn } from '@/lib/utils';
+
 import type { FolderImageIndex } from '@/lib/bulk-import-parser';
 
 interface FolderDropzoneProps {

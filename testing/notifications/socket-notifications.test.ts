@@ -24,8 +24,7 @@ import {
 } from '@/lib/socket/server';
 import {
   createAndEmitNotificationServer,
-  markNotificationReadServer,
-  getNotificationsServer
+  markNotificationReadServer
 } from '@/server/services/notification.service';
 import { resolveImportItemServer } from '@/server/services/admin-import.service';
 import { schedulerClient } from '@/services/scheduler/scheduler.client';

@@ -241,5 +241,3 @@ export const productFormSchema = z
   });
 
 export type ProductFormSchemaValues = z.infer<typeof productFormSchema>;
-
-

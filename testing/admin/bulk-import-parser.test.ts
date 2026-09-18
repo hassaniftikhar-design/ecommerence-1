@@ -117,7 +117,7 @@ Cotton Polo,39.00,Apparel,Navy,M,15,polo2.jpg`;
 
       expect(grouped).toHaveLength(1);
       expect(grouped[0]?.errors.length).toBeGreaterThan(0);
-      expect(grouped[0]?.errors[0]).toContain("Duplicate variant for color 'Navy' and size 'M'");
+      expect(grouped[0]?.errors[0]).toContain('Duplicate variant for color \'Navy\' and size \'M\' ');
     });
 
     it('treats titles differing only in case as separate products ("jacket" vs "Jacket" vs "JACKET")', () => {

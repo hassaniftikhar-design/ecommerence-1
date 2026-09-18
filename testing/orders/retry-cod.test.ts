@@ -9,7 +9,6 @@ import { convertOrderToCodServer } from '@/server/services/order.service';
 import {
   TEST_ORDER_ID,
   mockTestOrder,
-  mockTestOrderItem1,
   mockTestDeliveredOrder,
   mockTestRejectedOrder
 } from '../fixtures/order.fixtures';

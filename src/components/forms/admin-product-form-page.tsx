@@ -13,11 +13,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ROUTES } from '@/constants/routes';
 import { DEFAULT_PRODUCT_IMAGE } from '@/constants/generalconstants';
 import { getProductById } from '@/services/product.service';
-import type { Product } from '@/types/product.types';
-
-interface AdminProductFormPageProps {
-  productId?: string;
-}
+import type {
+  Product,
+  ProductVariant,
+  ImportErrorItemReview,
+  AdminProductFormPageProps
+} from '@/types/product.types';
 
 export function AdminProductFormPageContent({ productId }: AdminProductFormPageProps) {
   const router = useRouter();
@@ -37,12 +38,12 @@ export function AdminProductFormPageContent({ productId }: AdminProductFormPageP
     let isMounted = true;
 
     // Helper to format raw import data into a prefilled Product object
-    const formatRawImportData = (errItem: any): Product => {
+    const formatRawImportData = (errItem: ImportErrorItemReview): Product => {
       const raw = errItem.raw_data || {};
       const primaryImg = raw.imageUrl || raw.variants?.[0]?.images?.[0] || DEFAULT_PRODUCT_IMAGE;
 
-      const prefilledVariants = (raw.variants && raw.variants.length > 0)
-        ? raw.variants.map((v: any, idx: number) => ({
+      const prefilledVariants: ProductVariant[] = (raw.variants && raw.variants.length > 0)
+        ? raw.variants.map((v, idx) => ({
             id: `temp-${idx}`,
             productId: errItem.product_id || '',
             sku: v.sku || '',
@@ -75,9 +76,9 @@ export function AdminProductFormPageContent({ productId }: AdminProductFormPageP
 
       return {
         id: errItem.product_id || '',
-        name: raw.name || '',
+        name: raw.name || raw.title || '',
         price: Number(raw.price) >= 0 ? Number(raw.price) : 0,
-        stock: prefilledVariants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0),
+        stock: prefilledVariants.reduce((sum, v) => sum + (v.stock || 0), 0),
         imageUrl: primaryImg,
         isActive: true,
         category: {
@@ -88,11 +89,11 @@ export function AdminProductFormPageContent({ productId }: AdminProductFormPageP
           id: '',
           name: ''
         },
-        options: (raw.options || []).map((o: any, idx: number) => ({
+        options: (raw.options || []).map((o, idx) => ({
           id: `opt-${idx}`,
           productId: errItem.product_id || '',
           name: o.name,
-          values: (o.values || []).map((val: string, vIdx: number) => ({
+          values: (o.values || []).map((val, vIdx) => ({
             id: `val-${vIdx}`,
             optionId: `opt-${idx}`,
             value: String(val)
@@ -123,9 +124,12 @@ export function AdminProductFormPageContent({ productId }: AdminProductFormPageP
             // If product was not in DB, but we have import item and job references, load raw import item data
             if (importItemId && jobId) {
               const res = await fetch(`/api/admin/imports/${jobId}/review`);
-              const json = await res.json();
+              const json = (await res.json()) as {
+                success?: boolean;
+                data?: { errors?: ImportErrorItemReview[] };
+              };
               if (res.ok && json.success && json.data) {
-                const errItem = (json.data.errors || []).find((e: any) => e.id === importItemId);
+                const errItem = (json.data.errors || []).find((e) => e.id === importItemId);
                 if (errItem) {
                   const prefilled = formatRawImportData(errItem);
                   if (isMounted) {
@@ -143,9 +147,12 @@ export function AdminProductFormPageContent({ productId }: AdminProductFormPageP
         // 2. If creating new product pre-filled from an import error item
         if (importItemId && jobId) {
           const res = await fetch(`/api/admin/imports/${jobId}/review`);
-          const json = await res.json();
+          const json = (await res.json()) as {
+            success?: boolean;
+            data?: { errors?: ImportErrorItemReview[] };
+          };
           if (res.ok && json.success && json.data) {
-            const errItem = (json.data.errors || []).find((e: any) => e.id === importItemId);
+            const errItem = (json.data.errors || []).find((e) => e.id === importItemId);
             if (errItem) {
               const prefilled = formatRawImportData(errItem);
               if (isMounted) {
@@ -198,7 +205,6 @@ export function AdminProductFormPageContent({ productId }: AdminProductFormPageP
   return (
     <div className="space-y-6 pb-12">
       <BackHeading title={pageTitle} href={backHref} />
-
 
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center shadow-xs space-y-4">

@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { Edit2, Search, ChevronDown, ChevronUp, X, AlertTriangle } from 'lucide-react';
 import { useSession } from 'next-auth/react';
@@ -19,7 +20,7 @@ import {
   TableRow
 } from '@/components/ui/table';
 import { ROUTES } from '@/constants/routes';
-import { getProductsPaginated, type ProductsPaginationMeta } from '@/services/product.service';
+import { getProductsPaginated, getImportJobStatus, type ProductsPaginationMeta } from '@/services/product.service';
 import { VariantBadge } from '@/components/common/variant-badge';
 import type { Product, ProductStatusFilter } from '@/types/product.types';
 import { useDebounce } from '@/hooks/use-debounce';
@@ -28,10 +29,16 @@ import { WelcomeToast } from '@/components/common/welcome-toast';
 import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { getValidImageUrl } from '@/lib/image-util';
+import { useSocket } from '@/providers/socket-provider';
 
 export function AdminProductsView() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const jobId = searchParams.get('jobId');
   const { data: session, status } = useSession();
   const { showError } = useToast();
+  const { refreshNotifications } = useSocket();
+
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,6 +55,7 @@ export function AdminProductsView() {
   });
 
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
+  const completedJobHandledRef = useRef<string | null>(null);
 
   // Image preview modal state
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
@@ -85,6 +93,53 @@ export function AdminProductsView() {
     fetchProductsList(1, debouncedSearchQuery, statusFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearchQuery, statusFilter]);
+
+  // Track in-flight bulk import job and auto-refresh table upon completion
+  useEffect(() => {
+    if (!jobId) return;
+
+    let isMounted = true;
+    let pollTimer: NodeJS.Timeout | null = null;
+
+    const checkJob = async () => {
+      try {
+        const job = await getImportJobStatus(jobId);
+        if (!isMounted || !job) return;
+
+        if (
+          job.status === 'COMPLETED' ||
+          job.status === 'COMPLETED_WITH_ERRORS' ||
+          job.status === 'FAILED'
+        ) {
+          if (completedJobHandledRef.current !== jobId) {
+            completedJobHandledRef.current = jobId;
+
+            // Immediately reload product list and update notifications
+            fetchProductsList(1, debouncedSearchQuery, statusFilter);
+            refreshNotifications(true);
+            refreshNotifications(false);
+
+            // Clean up URL query param without page reload
+            router.replace(ROUTES.adminProducts);
+          }
+          return;
+        }
+
+        // Still processing: poll again in 1.2s
+        pollTimer = setTimeout(checkJob, 1200);
+      } catch (err) {
+        console.warn('Failed to poll bulk import status in products view:', err);
+      }
+    };
+
+    checkJob();
+
+    return () => {
+      isMounted = false;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId, router, debouncedSearchQuery, statusFilter, refreshNotifications]);
 
   // Page change
   const handlePageChange = (newPage: number) => {

@@ -3,39 +3,20 @@
  * Token is kept strictly server-side.
  */
 
+import type {
+  ImportJobStatus,
+  ResolveImportItemResponse,
+  SchedulerEnqueueResponse
+} from '@/types/product.types';
+
+export type {
+  ImportJobStatus,
+  ResolveImportItemResponse,
+  SchedulerEnqueueResponse
+} from '@/types/product.types';
+
 const SCHEDULER_URL = process.env.JOB_SCHEDULER_URL || 'http://localhost:8000';
 const INTERNAL_SERVICE_TOKEN = process.env.INTERNAL_SERVICE_TOKEN || 'supersecret_internal_service_token_default';
-
-interface EnqueueResponse {
-  task_id: string;
-  status: string;
-  message: string;
-}
-
-export interface ImportJobStatus {
-  id: string;
-  filename?: string;
-  status: string;
-  total_items: number;
-  processed_items: number;
-  successful_items: number;
-  failed_items: number;
-  created_at: string;
-  updated_at: string;
-  started_at?: string;
-  completed_at?: string;
-  errors: Array<{
-    id?: string;
-    row_index: number;
-    product_name?: string;
-    error_type?: string;
-    error: string;
-    product_id?: string;
-    resolution_status?: string;
-    resolved_at?: string;
-    raw_data?: any;
-  }>;
-}
 
 async function schedulerRequest<T>(
   endpoint: string,
@@ -53,7 +34,10 @@ async function schedulerRequest<T>(
     });
 
     if (!res.ok) {
-      const errorBody = await res.json().catch(() => ({}));
+      const errorBody = (await res.json().catch(() => ({}))) as {
+        error?: { message?: string };
+        detail?: string;
+      };
       const errorMessage =
         errorBody?.error?.message ||
         errorBody?.detail ||
@@ -80,7 +64,7 @@ export const schedulerClient = {
     resetToken: string;
     expiryMinutes?: number;
   }): Promise<{ success: boolean; taskId?: string; error?: string }> {
-    const result = await schedulerRequest<EnqueueResponse>('/jobs/forgot-password', {
+    const result = await schedulerRequest<SchedulerEnqueueResponse>('/jobs/forgot-password', {
       method: 'POST',
       body: JSON.stringify({
         user_id: params.userId,
@@ -103,7 +87,7 @@ export const schedulerClient = {
     email: string;
     otp: string;
   }): Promise<{ success: boolean; taskId?: string; error?: string }> {
-    const result = await schedulerRequest<EnqueueResponse>('/jobs/facebook-otp', {
+    const result = await schedulerRequest<SchedulerEnqueueResponse>('/jobs/facebook-otp', {
       method: 'POST',
       body: JSON.stringify({
         email: params.email,
@@ -121,7 +105,7 @@ export const schedulerClient = {
    * Enqueue order placed confirmation email task.
    */
   async enqueueOrderPlacedEmail(orderId: string): Promise<{ success: boolean; taskId?: string; error?: string }> {
-    const result = await schedulerRequest<EnqueueResponse>('/jobs/order-placed', {
+    const result = await schedulerRequest<SchedulerEnqueueResponse>('/jobs/order-placed', {
       method: 'POST',
       body: JSON.stringify({ order_id: orderId })
     });
@@ -140,7 +124,7 @@ export const schedulerClient = {
     previousStatus?: string,
     newStatus?: string
   ): Promise<{ success: boolean; taskId?: string; error?: string }> {
-    const result = await schedulerRequest<EnqueueResponse>('/jobs/order-status', {
+    const result = await schedulerRequest<SchedulerEnqueueResponse>('/jobs/order-status', {
       method: 'POST',
       body: JSON.stringify({
         order_id: orderId,
@@ -165,7 +149,7 @@ export const schedulerClient = {
     csvPath: string;
     imagesPath?: string;
   }): Promise<{ success: boolean; taskId?: string; error?: string }> {
-    const result = await schedulerRequest<EnqueueResponse>('/jobs/product-import', {
+    const result = await schedulerRequest<SchedulerEnqueueResponse>('/jobs/product-import', {
       method: 'POST',
       body: JSON.stringify({
         job_id: params.jobId,
@@ -189,7 +173,7 @@ export const schedulerClient = {
     products: unknown[],
     createdById: string
   ): Promise<{ success: boolean; taskId?: string; error?: string }> {
-    const result = await schedulerRequest<EnqueueResponse>('/jobs/product-import', {
+    const result = await schedulerRequest<SchedulerEnqueueResponse>('/jobs/product-import', {
       method: 'POST',
       body: JSON.stringify({
         created_by_id: createdById,
@@ -221,9 +205,9 @@ export const schedulerClient = {
     jobId: string,
     itemId: string,
     productId?: string
-  ): Promise<{ success: boolean; data?: any; error?: string }> {
+  ): Promise<{ success: boolean; data?: ResolveImportItemResponse; error?: string }> {
     const query = productId ? `?product_id=${encodeURIComponent(productId)}` : '';
-    return schedulerRequest<any>(`/jobs/product-import/${jobId}/items/${itemId}/resolve${query}`, {
+    return schedulerRequest<ResolveImportItemResponse>(`/jobs/product-import/${jobId}/items/${itemId}/resolve${query}`, {
       method: 'PATCH'
     });
   }

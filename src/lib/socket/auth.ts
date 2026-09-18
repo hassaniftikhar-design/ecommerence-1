@@ -1,5 +1,7 @@
 import type { IncomingMessage } from 'http';
+
 import { getToken } from 'next-auth/jwt';
+
 import { isSessionExpired } from '@/constants';
 import type { AuthToken } from '@/lib/server-auth';
 
@@ -44,7 +46,7 @@ export async function authenticateSocketRequest(
     }
 
     const token = (await getToken({
-      req: reqWithCookies as any,
+      req: reqWithCookies as Parameters<typeof getToken>[0]['req'],
       secret
     })) as AuthToken | null;
 

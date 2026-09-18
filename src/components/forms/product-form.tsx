@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 
 import { useRouter } from 'next/navigation';
 
-import { useForm, useFieldArray, Controller, type FieldErrors } from 'react-hook-form';
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Plus, Trash2, AlertCircle, ArrowLeft } from 'lucide-react';
 
@@ -19,7 +19,7 @@ import { DefaultImageUpload } from '@/components/ui/default-image-upload';
 import { VariantImageUpload } from '@/components/ui/variant-image-upload';
 import { uploadImage, createProduct, updateProduct, getCategories, activateProduct, deactivateProduct } from '@/services/product.service';
 import { productFormSchema, type ProductFormSchemaValues } from '@/lib/validators';
-import { generateProductCode, generateDefaultSku, normalizeSku, replaceSkuProductCode } from '@/lib/sku-util';
+import { generateProductCode, generateDefaultSku, replaceSkuProductCode } from '@/lib/sku-util';
 import type { Product, ProductFormProps } from '@/types/product.types';
 import { cn } from '@/lib/utils';
 
@@ -976,7 +976,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               const skuError = errors.variants?.[index]?.sku?.message;
 
               const vColor = (watch(`variants.${index}.color`) || '').trim();
-              const variantId = (watch(`variants.${index}`) as any)?.id;
+              const variantId = (watch(`variants.${index}`) as { id?: string })?.id;
               const isExistingVariant = mode === 'edit' && Boolean(variantId);
 
               return (

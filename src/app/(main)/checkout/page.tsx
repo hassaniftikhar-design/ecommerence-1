@@ -11,12 +11,7 @@ import { Elements } from '@stripe/react-stripe-js';
 
 import {
   User,
-  Mail,
-  Phone,
   MapPin,
-  Building,
-  Hash,
-  Globe,
   CreditCard,
   Banknote,
   Check,
@@ -50,17 +45,6 @@ const PriceChangedModal = dynamic(
   () => import('@/components/checkout/price-changed-modal').then((mod) => mod.PriceChangedModal),
   { ssr: false }
 );
-
-function computeTotals(items: CartItem[]): CartTotals {
-  const subTotal = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const tax = subTotal * TAX_RATE;
-  const total = subTotal + tax;
-  return {
-    subTotal: Math.round(subTotal * 100) / 100,
-    tax: Math.round(tax * 100) / 100,
-    total: Math.round(total * 100) / 100
-  };
-}
 
 export default function CheckoutPage() {
   const { data: session, status } = useSession();

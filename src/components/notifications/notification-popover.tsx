@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
 import { useRouter } from 'next/navigation';
 
 import { Bell, Package, ShoppingBag, AlertTriangle, ArrowRight, CheckCircle2 } from 'lucide-react';
-import { useSession } from 'next-auth/react';
 
 import {
   NOTIFICATIONS_PER_PAGE,
@@ -256,9 +256,8 @@ export function NotificationPopover({ adminOnly = false }: NotificationPopoverPr
                     <div
                       key={item.id}
                       onClick={() => handleItemClick(item)}
-                      className={`flex items-start gap-3.5 p-4 transition-colors ${
-                        isResolved ? 'cursor-default' : 'cursor-pointer hover:bg-slate-50/80'
-                      } ${!item.isRead ? 'bg-blue-50/20' : ''}`}
+                      className={`flex items-start gap-3.5 p-4 transition-colors ${isResolved ? 'cursor-default' : 'cursor-pointer hover:bg-slate-50/80'
+                        } ${!item.isRead ? 'bg-blue-50/20' : ''}`}
                     >
                       {/* Left Category Icon */}
                       <div className="shrink-0 pt-0.5">

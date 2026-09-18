@@ -6,10 +6,10 @@ import Link from 'next/link';
 
 import { useRouter } from 'next/navigation';
 
+import dynamic from 'next/dynamic';
+
 import { useSession } from 'next-auth/react';
 import { AlertCircle, ArrowLeft } from 'lucide-react';
-
-import dynamic from 'next/dynamic';
 
 import { CartSkeleton } from '@/components/cart/cart-skeleton';
 import { CartTable } from '@/components/cart/cart-table';
@@ -118,7 +118,7 @@ export default function CartPage() {
         }
         setStockOrStatusModal({
           isOpen: true,
-          title: "Order Can't Be Placed",
+          title: 'Order Can not Be Placed',
           message: msg
         });
         setCheckingStock(false);

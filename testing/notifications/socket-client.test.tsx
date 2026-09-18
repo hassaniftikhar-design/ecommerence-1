@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { useSession } from 'next-auth/react';
 import { SocketProvider, useSocket } from '@/providers/socket-provider';
 import { initSocket, disconnectSocket, isSocketEnabled } from '@/lib/socket/client';

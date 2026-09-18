@@ -1,7 +1,11 @@
 import http from 'http';
+
 import { parse } from 'url';
+
 import next from 'next';
+
 import { Server as SocketIOServer } from 'socket.io';
+
 import { addUserSocket, removeUserSocket, setIO } from './src/lib/socket/server';
 import { authenticateSocketRequest } from './src/lib/socket/auth';
 

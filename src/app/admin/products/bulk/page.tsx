@@ -1,8 +1,11 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+
 import Link from 'next/link';
+
 import { useRouter } from 'next/navigation';
+
 import { useSession } from 'next-auth/react';
 import {
   ArrowLeft,
@@ -29,6 +32,9 @@ import {
   AlertDialogFooter
 } from '@/components/ui/alert-dialog';
 import { ROUTES } from '@/constants/routes';
+import { useSocket } from '@/providers/socket-provider';
+import { getImportJobStatus } from '@/services/product.service';
+import type { ImportJobStatus } from '@/types/product.types';
 
 function BulkImportSkeleton() {
   return (
@@ -77,6 +83,7 @@ function BulkImportSkeleton() {
 export default function BulkProductUploadPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
+  const { refreshNotifications } = useSocket();
 
   const [selectedCsvFile, setSelectedCsvFile] = useState<File | null>(null);
   const [selectedImageFiles, setSelectedImageFiles] = useState<File[]>([]);
@@ -86,10 +93,41 @@ export default function BulkProductUploadPage() {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [showSuccessPopup, setShowSuccessPopup] = useState<boolean>(false);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [jobStatusData, setJobStatusData] = useState<ImportJobStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const csvInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
+
+  // Poll background job status while modal is open
+  useEffect(() => {
+    if (!showSuccessPopup || !currentJobId) return;
+
+    let isMounted = true;
+    const fetchStatus = async () => {
+      try {
+        const job = await getImportJobStatus(currentJobId);
+        if (isMounted && job) {
+          setJobStatusData(job);
+          if (job.status === 'COMPLETED' || job.status === 'COMPLETED_WITH_ERRORS' || job.status === 'FAILED') {
+            refreshNotifications(true);
+            refreshNotifications(false);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to poll import job status:', err);
+      }
+    };
+
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 1200);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [showSuccessPopup, currentJobId, refreshNotifications]);
 
   // Handle CSV Selection (CSV format only)
   const handleCsvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -129,6 +167,7 @@ export default function BulkProductUploadPage() {
       setSubmitting(true);
       setError(null);
       setUploadProgress(15);
+      setJobStatusData(null);
 
       // Smooth progress animation while network upload is active
       const progressTimer = setInterval(() => {
@@ -161,9 +200,15 @@ export default function BulkProductUploadPage() {
       }
 
       // Upload finished & enqueued
+      const returnedJobId = data.data?.jobId || null;
+      setCurrentJobId(returnedJobId);
       setUploadProgress(100);
       setSubmitting(false);
       setShowSuccessPopup(true);
+
+      // Immediately refresh notifications
+      refreshNotifications(true);
+      refreshNotifications(false);
     } catch (err) {
       setError((err as Error).message || 'An unexpected error occurred during submission.');
       setUploadProgress(0);
@@ -171,9 +216,15 @@ export default function BulkProductUploadPage() {
     }
   };
 
-  const handleDone = () => {
+  const handleDone = async () => {
     setShowSuccessPopup(false);
-    router.push(ROUTES.adminProducts);
+    await refreshNotifications(true);
+    await refreshNotifications(false);
+    if (currentJobId) {
+      router.push(`${ROUTES.adminProducts}?jobId=${currentJobId}`);
+    } else {
+      router.push(ROUTES.adminProducts);
+    }
     router.refresh();
   };
 
@@ -247,13 +298,12 @@ export default function BulkProductUploadPage() {
 
           <div
             onClick={() => !submitting && csvInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 ${
-              submitting
-                ? 'opacity-60 cursor-not-allowed bg-slate-50 border-slate-200'
-                : selectedCsvFile
+            className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 ${submitting
+              ? 'opacity-60 cursor-not-allowed bg-slate-50 border-slate-200'
+              : selectedCsvFile
                 ? 'border-emerald-400 bg-emerald-50/30'
                 : 'border-slate-200 hover:border-blue-400 hover:bg-blue-50/20'
-            }`}
+              }`}
           >
             <input
               ref={csvInputRef}
@@ -296,14 +346,13 @@ export default function BulkProductUploadPage() {
 
         {/* Step 2: Image Folder Dropzone (Disabled until CSV is uploaded) */}
         <div
-          className={`bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col justify-between space-y-6 transition-all ${
-            !selectedCsvFile ? 'opacity-60 bg-slate-50/50' : ''
-          }`}
+          className={`bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs flex flex-col justify-between space-y-6 transition-all ${!selectedCsvFile ? 'opacity-60 bg-slate-50/50' : ''
+            }`}
         >
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-600">
               <span className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-[10px]">2</span>
-              <span>Optional Assets</span>
+              <span>Image Assets</span>
             </div>
             <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               Upload Product Images Folder
@@ -316,22 +365,21 @@ export default function BulkProductUploadPage() {
 
           <div
             onClick={() => !submitting && selectedCsvFile && folderInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all flex flex-col items-center justify-center gap-3 ${
-              !selectedCsvFile
-                ? 'opacity-60 cursor-not-allowed bg-slate-50 border-slate-200'
-                : submitting
+            className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all flex flex-col items-center justify-center gap-3 ${!selectedCsvFile
+              ? 'opacity-60 cursor-not-allowed bg-slate-50 border-slate-200'
+              : submitting
                 ? 'opacity-60 cursor-not-allowed bg-slate-50 border-slate-200'
                 : imageFolderCount > 0
-                ? 'border-indigo-400 bg-indigo-50/30 cursor-pointer'
-                : 'border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/20 cursor-pointer'
-            }`}
+                  ? 'border-indigo-400 bg-indigo-50/30 cursor-pointer'
+                  : 'border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/20 cursor-pointer'
+              }`}
           >
             <input
               ref={folderInputRef}
               type="file"
               disabled={submitting || !selectedCsvFile}
               multiple
-              // @ts-ignore
+              // @ts-expect-error webkitdirectory is a non-standard HTML attribute for directory selection
               webkitdirectory=""
               directory=""
               onChange={handleFolderChange}
@@ -426,22 +474,57 @@ export default function BulkProductUploadPage() {
       {/* Success Modal Dialog */}
       <AlertDialog open={showSuccessPopup} onOpenChange={setShowSuccessPopup}>
         <AlertDialogContent className="sm:max-w-md p-8 rounded-3xl text-center space-y-6">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
-            <CheckCircle2 className="h-8 w-8" />
-          </div>
+          {jobStatusData?.status === 'PROCESSING' || jobStatusData?.status === 'QUEUED' ? (
+            <div className="w-16 h-16 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mx-auto shadow-xs">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : jobStatusData?.status === 'COMPLETED_WITH_ERRORS' ? (
+            <div className="w-16 h-16 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto shadow-xs">
+              <AlertCircle className="h-8 w-8" />
+            </div>
+          ) : (
+            <div className="w-16 h-16 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
+              <CheckCircle2 className="h-8 w-8" />
+            </div>
+          )}
 
           <AlertDialogHeader className="space-y-2 text-center">
             <AlertDialogTitle className="text-xl font-black text-slate-900">
-              Import Queued Successfully!
+              {jobStatusData?.status === 'PROCESSING'
+                ? 'Processing Products...'
+                : jobStatusData?.status === 'COMPLETED'
+                  ? 'Import Completed!'
+                  : jobStatusData?.status === 'COMPLETED_WITH_ERRORS'
+                    ? 'Import Completed with Notes'
+                    : 'Import Queued Successfully!'}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Your products will be uploaded soon. You will receive a notification once the background import process is complete.
+              {jobStatusData?.status === 'PROCESSING' ? (
+                <>
+                  Processing <span className="font-bold text-slate-900">{jobStatusData.processed_items}</span> of{' '}
+                  <span className="font-bold text-slate-900">{jobStatusData.total_items || '...'}</span> products.
+                </>
+              ) : jobStatusData?.status === 'COMPLETED' ? (
+                <>
+                  Successfully imported <span className="font-bold text-emerald-700">{jobStatusData.successful_items}</span> products into your catalog.
+                </>
+              ) : jobStatusData?.status === 'COMPLETED_WITH_ERRORS' ? (
+                <>
+                  Imported <span className="font-bold text-emerald-700">{jobStatusData.successful_items}</span> products. <span className="font-bold text-amber-700">{jobStatusData.failed_items}</span> items require review.
+                </>
+              ) : (
+                'Your products are queued for background processing. You will receive real-time notifications as items are imported.'
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           <div className="p-3 bg-blue-50/80 border border-blue-200/70 rounded-2xl flex items-center gap-2.5 text-xs text-blue-800 font-medium text-left">
             <Bell className="h-4 w-4 text-blue-600 shrink-0" />
-            <span>You can monitor real-time progress in the notifications bell.</span>
+            <span>
+              {jobStatusData?.status === 'COMPLETED'
+                ? 'Catalog has been updated. Click below to view products.'
+                : 'You can monitor live progress and error reviews in the notifications bell.'}
+            </span>
           </div>
 
           <AlertDialogFooter className="sm:justify-center pt-2">
@@ -450,7 +533,7 @@ export default function BulkProductUploadPage() {
               onClick={handleDone}
               className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md cursor-pointer transition-colors"
             >
-              Done
+              {jobStatusData?.status === 'COMPLETED' ? 'View Products' : 'Done'}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

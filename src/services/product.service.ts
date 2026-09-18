@@ -1,4 +1,4 @@
-import type { Product } from '@/types/product.types';
+import type { Product, ImportJobStatus } from '@/types/product.types';
 import { DEFAULT_PRODUCT_IMAGE, PRODUCT_FETCH_BATCH_SIZE } from '@/constants/generalconstants';
 import type { ApiResponse } from '@/lib/api-response';
 
@@ -550,4 +550,11 @@ export async function deactivateProduct(id: string): Promise<Product> {
 
 export async function deleteProduct(id: string): Promise<void> {
   await deactivateProduct(id);
+}
+
+export async function getImportJobStatus(jobId: string): Promise<ImportJobStatus> {
+  const response = await fetch(`/api/admin/imports/${jobId}`, {
+    cache: 'no-store'
+  });
+  return parseApiResponse<ImportJobStatus>(response);
 }
