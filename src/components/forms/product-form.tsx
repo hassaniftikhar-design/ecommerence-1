@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Trash2, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, AlertCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -168,7 +168,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               sku: v.sku || generateDefaultSku(prodCode, color, size),
               color: color || 'Black',
               size: size || 'M',
-              quantity: v.stock > 0 ? v.stock : 1
+              quantity: (typeof v.stock === 'number' && v.stock >= 0) ? v.stock : 0
             };
           })
           : [
@@ -176,7 +176,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
               sku: generateDefaultSku(prodCode, 'Black', 'M'),
               color: 'Black',
               size: 'M',
-              quantity: (initialData.stock && initialData.stock > 0) ? initialData.stock : 5
+              quantity: (typeof initialData.stock === 'number' && initialData.stock >= 0) ? initialData.stock : 0
             }
           ];
 
@@ -449,8 +449,11 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
         finalDefaultImageUrl = await uploadImage(data.defaultImageFile);
       }
 
-      if (!finalDefaultImageUrl) {
-        setError('defaultImageUrl', { type: 'manual', message: 'Default Product Image is required' });
+      if (!finalDefaultImageUrl || finalDefaultImageUrl === DEFAULT_PRODUCT_IMAGE || finalDefaultImageUrl.includes('placeholder-product.png')) {
+        setError('defaultImageUrl', {
+          type: 'manual',
+          message: 'A valid product image is required. Please upload an image to replace the placeholder.'
+        });
         setSubmitting(false);
         return;
       }
@@ -606,33 +609,63 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
       <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
         <div className="flex flex-col md:flex-row items-stretch gap-6 lg:gap-8">
           {/* Left Column: Required Default Product Image */}
-          <div className="w-full md:w-72 lg:w-80 shrink-0 flex flex-col">
-            <Label className="text-sm font-semibold text-slate-700 mb-1.5 block">
-              Default Product Image <span className="text-red-500">*</span>
-            </Label>
-            <div className="flex-1 flex flex-col">
-              <Controller
-                name="defaultImageUrl"
-                control={control}
-                render={({ field }) => (
-                  <DefaultImageUpload
-                    file={watch('defaultImageFile')}
-                    previewUrl={field.value}
-                    onChange={(newFile, newPreviewUrl) => {
-                      setValue('defaultImageFile', newFile);
-                      field.onChange(newPreviewUrl || '');
-                    }}
-                    disabled={submitting}
+          {(() => {
+            const hasImportError = Boolean(initialData?.importError);
+            const importErrorMessage = initialData?.importError?.errorMessage || '';
+            const currentDefaultImage = watch('defaultImageUrl');
+            const hasImageImportError = hasImportError && (
+              importErrorMessage.toLowerCase().includes('image') ||
+              currentDefaultImage === DEFAULT_PRODUCT_IMAGE ||
+              !currentDefaultImage
+            );
+
+            return (
+              <div className="w-full md:w-72 lg:w-80 shrink-0 flex flex-col">
+                <Label className="text-sm font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                  <span>
+                    Default Product Image <span className="text-red-500">*</span>
+                  </span>
+                  {hasImageImportError && (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
+                      <AlertTriangle className="h-3 w-3" />
+                      Image Missing
+                    </span>
+                  )}
+                </Label>
+                <div className={cn(
+                  'flex-1 flex flex-col transition-all',
+                  hasImageImportError && 'rounded-2xl p-1.5 border-2 border-dashed border-amber-400 bg-amber-50/50 ring-2 ring-amber-400/20'
+                )}>
+                  <Controller
+                    name="defaultImageUrl"
+                    control={control}
+                    render={({ field }) => (
+                      <DefaultImageUpload
+                        file={watch('defaultImageFile')}
+                        previewUrl={field.value}
+                        onChange={(newFile, newPreviewUrl) => {
+                          setValue('defaultImageFile', newFile);
+                          field.onChange(newPreviewUrl || '');
+                        }}
+                        disabled={submitting}
+                      />
+                    )}
                   />
+                </div>
+                {hasImageImportError && (
+                  <div className="mt-2 flex items-start gap-1.5 text-[11px] font-medium text-amber-800 bg-amber-100/80 p-2 rounded-lg border border-amber-300/80">
+                    <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+                    <span>Using placeholder image. Please upload a product image.</span>
+                  </div>
                 )}
-              />
-            </div>
-            {errors.defaultImageUrl && (
-              <p className="mt-1.5 text-xs text-red-500 font-medium">
-                {errors.defaultImageUrl.message}
-              </p>
-            )}
-          </div>
+                {errors.defaultImageUrl && (
+                  <p className="mt-1.5 text-xs text-red-500 font-medium">
+                    {errors.defaultImageUrl.message}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Right Column: Title, Product Code, Price, Total Quantity, Category */}
           <div className="flex-1 w-full space-y-4">
@@ -1103,7 +1136,10 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                   </div>
 
                   {/* Image Upload Box directly in variant row (Color-Synced) */}
-                  <div className="flex justify-center shrink-0">
+                  <div className={cn(
+                    'flex justify-center shrink-0 transition-all',
+                    (colorImages[vColor]?.previewUrl === DEFAULT_PRODUCT_IMAGE) && 'ring-2 ring-amber-400/60 rounded-xl bg-amber-50/30'
+                  )}>
                     <VariantImageUpload
                       file={colorImages[vColor]?.file}
                       previewUrl={colorImages[vColor]?.previewUrl}

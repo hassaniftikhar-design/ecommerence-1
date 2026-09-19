@@ -120,6 +120,20 @@ export async function getProductsServer(params: GetProductsServerParams) {
       whereClause.isActive = true;
     } else if (statusQuery === 'inactive') {
       whereClause.isActive = false;
+    } else if (statusQuery === 'errors') {
+      const unresolvedErrorItems = await prisma.importItem.findMany({
+        where: {
+          status: 'FAILED',
+          resolution_status: { not: 'RESOLVED' },
+          product_id: { not: null }
+        },
+        select: { product_id: true }
+      });
+      const errorProductIds = unresolvedErrorItems
+        .map((e) => e.product_id)
+        .filter((id): id is string => Boolean(id));
+
+      whereClause.id = { in: errorProductIds };
     }
   }
 
@@ -950,6 +964,87 @@ export async function updateProductServer(id: string, body: unknown) {
 
     if (!fullProduct) {
       return { success: false as const, status: 500, errors: [], message: 'Product updated but could not be retrieved' };
+    }
+
+    // Auto-resolve any unresolved import item errors for this product if all issues are resolved
+    try {
+      const unresolvedItems = await prisma.importItem.findMany({
+        where: {
+          product_id: id,
+          status: 'FAILED',
+          resolution_status: { not: 'RESOLVED' }
+        }
+      });
+
+      if (unresolvedItems.length > 0) {
+        const hasValidPrice = Number(fullProduct.price) >= 1.0;
+        const hasValidCategory = Boolean(fullProduct.categoryId);
+        const hasValidVariants =
+          fullProduct.variants.length > 0 &&
+          fullProduct.variants.every((v) => {
+            const hasStock = (v.stock ?? 0) >= 1;
+            const hasRealSku = Boolean(v.sku && !v.sku.toUpperCase().startsWith('SKU-TEMP-'));
+            const hasValidImage =
+              Array.isArray(v.images) &&
+              v.images.length > 0 &&
+              v.images.some((img) => Boolean(img) && img !== DEFAULT_PRODUCT_IMAGE);
+            return hasStock && hasRealSku && (hasValidImage || (imageUrl && imageUrl !== DEFAULT_PRODUCT_IMAGE));
+          });
+        const hasValidMainImage =
+          (imageUrl && imageUrl.trim() !== '' && imageUrl !== DEFAULT_PRODUCT_IMAGE) ||
+          fullProduct.variants.some((v) =>
+            Array.isArray(v.images) && v.images.some((img) => Boolean(img) && img !== DEFAULT_PRODUCT_IMAGE)
+          );
+
+        const isFullyResolved = hasValidPrice && hasValidCategory && hasValidVariants && hasValidMainImage;
+
+        if (isFullyResolved) {
+          // Auto-activate product if it was quarantined
+          if (!fullProduct.isActive) {
+            await prisma.product.update({
+              where: { id },
+              data: { isActive: true, inactiveAt: null }
+            });
+            fullProduct.isActive = true;
+            fullProduct.inactiveAt = null;
+          }
+
+          for (const it of unresolvedItems) {
+            await prisma.importItem.update({
+              where: { id: it.id },
+              data: {
+                resolution_status: 'RESOLVED',
+                resolved_at: new Date()
+              }
+            });
+
+            // Check if all items in the job are now resolved
+            const remainingUnresolved = await prisma.importItem.count({
+              where: {
+                job_id: it.job_id,
+                status: 'FAILED',
+                resolution_status: { not: 'RESOLVED' }
+              }
+            });
+
+            if (remainingUnresolved === 0) {
+              await prisma.notification.updateMany({
+                where: {
+                  type: 'IMPORT_ERRORS',
+                  orderId: it.job_id
+                },
+                data: {
+                  title: 'Import Errors Resolved',
+                  message: 'All product import errors have been resolved.',
+                  isRead: true
+                }
+              });
+            }
+          }
+        }
+      }
+    } catch (resolveErr) {
+      console.warn(`Failed to auto-resolve import error item for product ${id}:`, resolveErr);
     }
 
     return { success: true as const, status: 200, product: formatProductResponse(fullProduct) };

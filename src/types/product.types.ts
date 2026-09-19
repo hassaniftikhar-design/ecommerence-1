@@ -30,7 +30,7 @@ export interface ProductVariant {
   updatedAt: string;
 }
 
-export type ProductStatusFilter = 'all' | 'active' | 'inactive';
+export type ProductStatusFilter = 'all' | 'active' | 'inactive' | 'errors';
 
 export interface ProductImportErrorInfo {
   itemId: string;

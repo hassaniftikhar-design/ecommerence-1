@@ -2,9 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 
-import { useRouter } from 'next/navigation';
-
-import { Bell, Package, ShoppingBag, AlertTriangle, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Bell, Package, ShoppingBag, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 import {
   NOTIFICATIONS_PER_PAGE,
@@ -34,7 +32,6 @@ interface NotificationPopoverProps {
 }
 
 export function NotificationPopover({ adminOnly = false }: NotificationPopoverProps) {
-  const router = useRouter();
   const {
     unreadCount: globalUnreadCount,
     adminUnreadCount: globalAdminUnreadCount,
@@ -147,17 +144,6 @@ export function NotificationPopover({ adminOnly = false }: NotificationPopoverPr
         );
         setUnreadCount((prev) => Math.max(0, prev - 1));
       }
-    }
-
-    const resolved = isNotificationResolved(item);
-    // If notification is resolved, do not navigate anywhere
-    if (resolved) {
-      return;
-    }
-
-    if (item.type === 'IMPORT_ERRORS' && item.orderId) {
-      setIsOpen(false);
-      router.push(`/admin/products/imports/${item.orderId}/review`);
     }
   };
 
@@ -297,26 +283,12 @@ export function NotificationPopover({ adminOnly = false }: NotificationPopoverPr
                           {item.message}
                         </p>
 
-                        {isImportError && (
+                        {isImportError && isResolved && (
                           <div className="mt-2">
-                            {isResolved ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-lg shadow-2xs">
-                                <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                                <span>Resolved</span>
-                              </span>
-                            ) : item.orderId ? (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleItemClick(item);
-                                }}
-                                className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2.5 py-1 rounded-lg transition shadow-2xs cursor-pointer"
-                              >
-                                <span>Review Products</span>
-                                <ArrowRight className="h-3 w-3" />
-                              </button>
-                            ) : null}
+                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-lg shadow-2xs">
+                              <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                              <span>Resolved</span>
+                            </span>
                           </div>
                         )}
 

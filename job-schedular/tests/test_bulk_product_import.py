@@ -27,17 +27,18 @@ def test_bulk_product_import_full_success(
             price=Decimal("89.99"),
             categoryName=seed_category.name,
             stock=20,
-            imageUrl="/images/keyboard.png"
+            imageUrl="https://res.cloudinary.com/demo/image/upload/keyboard.png"
         ),
         ProductImportItemSchema(
             name="Gaming Mouse",
             description="Ultra lightweight mouse",
             price=Decimal("49.99"),
             categoryName=seed_category.name,
+            imageUrl="https://res.cloudinary.com/demo/image/upload/mouse.png",
             options=[{"name": "Color", "values": ["Black", "White"]}],
             variants=[
-                {"sku": "SKU-GM-BLK-001", "stock": 15, "attributes": {"Color": "Black"}},
-                {"sku": "SKU-GM-WHT-001", "stock": 10, "attributes": {"Color": "White"}}
+                {"sku": "SKU-GM-BLK-001", "stock": 15, "attributes": {"Color": "Black"}, "images": ["https://res.cloudinary.com/demo/image/upload/mouse_blk.png"]},
+                {"sku": "SKU-GM-WHT-001", "stock": 10, "attributes": {"Color": "White"}, "images": ["https://res.cloudinary.com/demo/image/upload/mouse_wht.png"]}
             ]
         )
     ]
@@ -78,19 +79,22 @@ def test_bulk_product_import_partial_failure(
             name="Valid Monitor",
             price=Decimal("250.00"),
             categoryName="Displays",
-            stock=10
+            stock=10,
+            imageUrl="https://res.cloudinary.com/demo/image/upload/monitor.png"
         ),
         ProductImportItemSchema(
             name="",  # Invalid: empty name
             price=Decimal("100.00"),
             categoryName="Displays",
-            stock=5
+            stock=5,
+            imageUrl="https://res.cloudinary.com/demo/image/upload/empty.png"
         ),
         ProductImportItemSchema(
             name="Valid Webcam",
             price=Decimal("75.00"),
             categoryName="Accessories",
-            stock=15
+            stock=15,
+            imageUrl="https://res.cloudinary.com/demo/image/upload/webcam.png"
         )
     ]
 
@@ -170,8 +174,8 @@ def test_import_job_progress_api_endpoint(
     db.commit()
 
     products = [
-        ProductImportItemSchema(name="Item 1", price=Decimal("10.00"), categoryName="Cat A", stock=10),
-        ProductImportItemSchema(name="", price=Decimal("10.00"), categoryName="Cat B", stock=5)
+        ProductImportItemSchema(name="Item 1", price=Decimal("10.00"), categoryName="Cat A", stock=10, imageUrl="https://res.cloudinary.com/demo/image/upload/item1.png"),
+        ProductImportItemSchema(name="", price=Decimal("10.00"), categoryName="Cat B", stock=5, imageUrl="https://res.cloudinary.com/demo/image/upload/item2.png")
     ]
 
     job = create_import_job(db=db, created_by_id=seed_admin_user.id, products_data=products)
@@ -197,9 +201,9 @@ def test_case_sensitive_product_titles_can_coexist(
 ):
     """Verify 'jacket', 'Jacket', and 'JACKET' are treated as 3 separate products and coexist in DB."""
     products = [
-        ProductImportItemSchema(name="jacket", price=Decimal("1000.00"), categoryName=seed_category.name, stock=5),
-        ProductImportItemSchema(name="Jacket", price=Decimal("1000.00"), categoryName=seed_category.name, stock=5),
-        ProductImportItemSchema(name="JACKET", price=Decimal("1000.00"), categoryName=seed_category.name, stock=5)
+        ProductImportItemSchema(name="jacket", price=Decimal("1000.00"), categoryName=seed_category.name, stock=5, imageUrl="https://res.cloudinary.com/demo/image/upload/jacket.png"),
+        ProductImportItemSchema(name="Jacket", price=Decimal("1000.00"), categoryName=seed_category.name, stock=5, imageUrl="https://res.cloudinary.com/demo/image/upload/jacket.png"),
+        ProductImportItemSchema(name="JACKET", price=Decimal("1000.00"), categoryName=seed_category.name, stock=5, imageUrl="https://res.cloudinary.com/demo/image/upload/jacket.png")
     ]
 
     job = create_import_job(db=db, created_by_id=seed_admin_user.id, products_data=products)
@@ -228,8 +232,8 @@ def test_retry_idempotency_full_success_does_not_duplicate(
 ):
     """Retrying a completed job skips already successful items and creates 0 duplicates."""
     products = [
-        ProductImportItemSchema(name="T-Shirt Alpha", price=Decimal("25.00"), categoryName=seed_category.name, stock=10),
-        ProductImportItemSchema(name="T-Shirt Beta", price=Decimal("30.00"), categoryName=seed_category.name, stock=15)
+        ProductImportItemSchema(name="T-Shirt Alpha", price=Decimal("25.00"), categoryName=seed_category.name, stock=10, imageUrl="https://res.cloudinary.com/demo/image/upload/tshirt1.png"),
+        ProductImportItemSchema(name="T-Shirt Beta", price=Decimal("30.00"), categoryName=seed_category.name, stock=15, imageUrl="https://res.cloudinary.com/demo/image/upload/tshirt2.png")
     ]
 
     job = create_import_job(db=db, created_by_id=seed_admin_user.id, products_data=products)
@@ -262,9 +266,9 @@ def test_retry_idempotency_partial_failure_processes_only_unfinished(
     db.commit()
 
     products = [
-        ProductImportItemSchema(name="Item Good 1", price=Decimal("20.00"), categoryName="Clothing", stock=10),
-        ProductImportItemSchema(name="Item Good 2", price=Decimal("25.00"), categoryName="Clothing", stock=15),
-        ProductImportItemSchema(name="Item Fail 3", price=Decimal("30.00"), categoryName="PendingCategory", stock=5)
+        ProductImportItemSchema(name="Item Good 1", price=Decimal("20.00"), categoryName="Clothing", stock=10, imageUrl="https://res.cloudinary.com/demo/image/upload/good1.png"),
+        ProductImportItemSchema(name="Item Good 2", price=Decimal("25.00"), categoryName="Clothing", stock=15, imageUrl="https://res.cloudinary.com/demo/image/upload/good2.png"),
+        ProductImportItemSchema(name="Item Fail 3", price=Decimal("30.00"), categoryName="PendingCategory", stock=5, imageUrl="https://res.cloudinary.com/demo/image/upload/fail3.png")
     ]
 
     job = create_import_job(db=db, created_by_id=seed_admin_user.id, products_data=products)
@@ -308,7 +312,7 @@ def test_process_bulk_import_celery_task_success(
     from app.tasks.import_tasks import process_bulk_import_task
 
     products = [
-        ProductImportItemSchema(name="Celery Keyboard", price=Decimal("99.99"), categoryName=seed_category.name, stock=10)
+        ProductImportItemSchema(name="Celery Keyboard", price=Decimal("99.99"), categoryName=seed_category.name, stock=10, imageUrl="https://res.cloudinary.com/demo/image/upload/celery.png")
     ]
     job = create_import_job(db=db, created_by_id=seed_admin_user.id, products_data=products)
 
@@ -341,7 +345,7 @@ def test_import_existing_product_increments_matching_variant_stock(
             ProductOptionImportSchema(name="Size", values=["M"])
         ],
         variants=[
-            ProductVariantImportSchema(attributes={"Color": "Black", "Size": "M"}, stock=10, images=["hoodie_black.jpg"])
+            ProductVariantImportSchema(attributes={"Color": "Black", "Size": "M"}, stock=10, images=["https://res.cloudinary.com/demo/image/upload/hoodie_black.jpg"])
         ]
     )
 
@@ -364,7 +368,7 @@ def test_import_existing_product_increments_matching_variant_stock(
             ProductOptionImportSchema(name="Size", values=["M"])
         ],
         variants=[
-            ProductVariantImportSchema(attributes={"Color": "Black", "Size": "M"}, stock=15, images=["hoodie_black_back.jpg"])
+            ProductVariantImportSchema(attributes={"Color": "Black", "Size": "M"}, stock=15, images=["https://res.cloudinary.com/demo/image/upload/hoodie_black_back.jpg"])
         ]
     )
 
@@ -393,12 +397,13 @@ def test_import_existing_product_appends_new_variant(
         name="Running Shorts",
         price=Decimal("29.99"),
         categoryName=seed_category.name,
+        imageUrl="https://res.cloudinary.com/demo/image/upload/shorts.png",
         options=[
             ProductOptionImportSchema(name="Color", values=["Black"]),
             ProductOptionImportSchema(name="Size", values=["M"])
         ],
         variants=[
-            ProductVariantImportSchema(attributes={"Color": "Black", "Size": "M"}, stock=20)
+            ProductVariantImportSchema(attributes={"Color": "Black", "Size": "M"}, stock=20, images=["https://res.cloudinary.com/demo/image/upload/shorts_blk.png"])
         ]
     )
     job1 = create_import_job(db=db, created_by_id=seed_admin_user.id, products_data=[item_1])
@@ -409,12 +414,13 @@ def test_import_existing_product_appends_new_variant(
         name="Running Shorts",
         price=Decimal("29.99"),
         categoryName=seed_category.name,
+        imageUrl="https://res.cloudinary.com/demo/image/upload/shorts.png",
         options=[
             ProductOptionImportSchema(name="Color", values=["Red"]),
             ProductOptionImportSchema(name="Size", values=["L"])
         ],
         variants=[
-            ProductVariantImportSchema(attributes={"Color": "Red", "Size": "L"}, stock=12)
+            ProductVariantImportSchema(attributes={"Color": "Red", "Size": "L"}, stock=12, images=["https://res.cloudinary.com/demo/image/upload/shorts_red.png"])
         ]
     )
     job2 = create_import_job(db=db, created_by_id=seed_admin_user.id, products_data=[item_2])
@@ -443,7 +449,7 @@ def test_import_standard_product_no_color_no_size_and_increments_stock(
         categoryName=seed_category.name,
         options=[],
         variants=[
-            ProductVariantImportSchema(attributes={}, stock=30, images=["mug_front.jpg"])
+            ProductVariantImportSchema(attributes={}, stock=30, images=["https://res.cloudinary.com/demo/image/upload/mug_front.jpg"])
         ]
     )
     job1 = create_import_job(db=db, created_by_id=seed_admin_user.id, products_data=[item_1])
@@ -462,7 +468,7 @@ def test_import_standard_product_no_color_no_size_and_increments_stock(
         categoryName=seed_category.name,
         options=[],
         variants=[
-            ProductVariantImportSchema(attributes={}, stock=20, images=["mug_side.jpg"])
+            ProductVariantImportSchema(attributes={}, stock=20, images=["https://res.cloudinary.com/demo/image/upload/mug_side.jpg"])
         ]
     )
     job2 = create_import_job(db=db, created_by_id=seed_admin_user.id, products_data=[item_2])
@@ -478,10 +484,18 @@ def test_file_based_bulk_product_import_from_csv(
     db: Session,
     seed_admin_user: User,
     seed_category: Category,
-    tmp_path
+    tmp_path,
+    monkeypatch
 ):
     """Test importing products directly from a CSV file via create_file_import_job and process_import_job."""
     from app.services.import_service import create_file_import_job
+
+    def mock_upload(fpath):
+        import os
+        return f"https://res.cloudinary.com/demo/image/upload/{os.path.basename(fpath)}"
+
+    monkeypatch.setattr("app.services.import_service.upload_image_to_cloudinary", mock_upload)
+
     csv_file = tmp_path / "test_products.csv"
     csv_content = (
         "title,price,category,color,size,stock,sku,imagePath,description\n"
@@ -491,11 +505,18 @@ def test_file_based_bulk_product_import_from_csv(
     )
     csv_file.write_text(csv_content, encoding="utf-8")
 
+    images_dir = tmp_path / "images"
+    images_dir.mkdir()
+    (images_dir / "headphones.jpg").write_text("fake image content")
+    (images_dir / "headphones_w.jpg").write_text("fake image content")
+    (images_dir / "watch.jpg").write_text("fake image content")
+
     job = create_file_import_job(
         db=db,
         created_by_id=seed_admin_user.id,
         filename="test_products.csv",
-        csv_path=str(csv_file)
+        csv_path=str(csv_file),
+        images_path=str(images_dir)
     )
     assert job.status == ImportJobStatus.QUEUED.value
 
@@ -517,11 +538,18 @@ def test_file_based_bulk_import_with_errors_creates_admin_notification(
     db: Session,
     seed_admin_user: User,
     seed_category: Category,
-    tmp_path
+    tmp_path,
+    monkeypatch
 ):
     """Test that failed products in a file import result in COMPLETED_WITH_ERRORS and create an admin notification."""
     from app.services.import_service import create_file_import_job
     from app.models.ecommerce import Notification
+
+    def mock_upload(fpath):
+        import os
+        return f"https://res.cloudinary.com/demo/image/upload/{os.path.basename(fpath)}"
+
+    monkeypatch.setattr("app.services.import_service.upload_image_to_cloudinary", mock_upload)
 
     csv_file = tmp_path / "flawed_products.csv"
     csv_content = (
@@ -531,11 +559,16 @@ def test_file_based_bulk_import_with_errors_creates_admin_notification(
     )
     csv_file.write_text(csv_content, encoding="utf-8")
 
+    images_dir = tmp_path / "flawed_images"
+    images_dir.mkdir()
+    (images_dir / "bag.jpg").write_text("fake image")
+
     job = create_file_import_job(
         db=db,
         created_by_id=seed_admin_user.id,
         filename="flawed_products.csv",
-        csv_path=str(csv_file)
+        csv_path=str(csv_file),
+        images_path=str(images_dir)
     )
 
     processed_job = process_import_job(db=db, job_id=job.id)
@@ -549,7 +582,7 @@ def test_file_based_bulk_import_with_errors_creates_admin_notification(
         Notification.type == "IMPORT_ERRORS"
     ).first()
     assert notif is not None
-    assert "flawed_products.csv" in notif.message
+    assert "listing errors in products" in notif.message.lower()
     assert notif.orderId == job.id
 
 
@@ -565,9 +598,9 @@ def test_case_sensitive_jacket_titles_distinct_products(
     csv_file = tmp_path / "jackets.csv"
     csv_content = (
         "title,price,category,color,size,stock,sku,imagePath,description\n"
-        f"jacket,100.00,{seed_category.name},Black,M,10,SKU-JKT-1,,Lower jacket\n"
-        f"Jacket,100.00,{seed_category.name},Black,M,10,SKU-JKT-2,,Title Jacket\n"
-        f"JACKET,100.00,{seed_category.name},Black,M,10,SKU-JKT-3,,Upper JACKET\n"
+        f"jacket,100.00,{seed_category.name},Black,M,10,SKU-JKT-1,https://res.cloudinary.com/demo/image/upload/jacket.png,Lower jacket\n"
+        f"Jacket,100.00,{seed_category.name},Black,M,10,SKU-JKT-2,https://res.cloudinary.com/demo/image/upload/jacket.png,Title Jacket\n"
+        f"JACKET,100.00,{seed_category.name},Black,M,10,SKU-JKT-3,https://res.cloudinary.com/demo/image/upload/jacket.png,Upper JACKET\n"
     )
     csv_file.write_text(csv_content, encoding="utf-8")
 
@@ -746,8 +779,8 @@ def test_import_with_zero_errors_creates_no_notification(
 
     csv_file = tmp_path / "perfect_products.csv"
     csv_content = (
-        "title,price,category,stock\n"
-        f"Perfect Leather Wallet,45.00,{seed_category.name},50\n"
+        "title,price,category,stock,imagePath\n"
+        f"Perfect Leather Wallet,45.00,{seed_category.name},50,https://res.cloudinary.com/demo/image/upload/wallet.jpg\n"
     )
     csv_file.write_text(csv_content, encoding="utf-8")
 
@@ -891,7 +924,7 @@ def test_csv_import_increments_existing_db_stock(
     csv_file_1 = tmp_path / "first_batch.csv"
     csv_file_1.write_text(
         f"title,sku,price,categoryName,colorName,sizeName,stock,imagePath\n"
-        f"Sneakers,SNK-BLK-42,120.00,{seed_category.name},Black,42,10,s1.png\n",
+        f"Sneakers,SNK-BLK-42,120.00,{seed_category.name},Black,42,10,https://res.cloudinary.com/demo/image/upload/s1.png\n",
         encoding="utf-8"
     )
 
@@ -911,7 +944,7 @@ def test_csv_import_increments_existing_db_stock(
     csv_file_2 = tmp_path / "second_batch.csv"
     csv_file_2.write_text(
         f"title,sku,price,categoryName,colorName,sizeName,stock,imagePath\n"
-        f"Sneakers,SNK-BLK-42,120.00,{seed_category.name},Black,42,15,s1.png\n",
+        f"Sneakers,SNK-BLK-42,120.00,{seed_category.name},Black,42,15,https://res.cloudinary.com/demo/image/upload/s1.png\n",
         encoding="utf-8"
     )
 
@@ -925,5 +958,83 @@ def test_csv_import_increments_existing_db_stock(
 
     db.refresh(var)
     assert var.stock == 25
+
+
+def test_bulk_product_import_missing_image_file_flags_error(
+    db: Session,
+    seed_admin_user: User,
+    seed_category: Category,
+    tmp_path
+):
+    """When a local image is referenced in CSV but missing from the images folder, flag error and set isActive=False."""
+    from app.services.import_service import create_file_import_job, process_import_job, DEFAULT_PRODUCT_IMAGE
+
+    csv_file = tmp_path / "missing_img.csv"
+    csv_file.write_text(
+        f"title,price,category,stock,imagePath\n"
+        f"Missing Image Shoe,85.00,{seed_category.name},10,nonexistent_shoe.jpg\n",
+        encoding="utf-8"
+    )
+
+    images_dir = tmp_path / "empty_images"
+    images_dir.mkdir()
+
+    job = create_file_import_job(
+        db=db,
+        created_by_id=seed_admin_user.id,
+        filename="missing_img.csv",
+        csv_path=str(csv_file),
+        images_path=str(images_dir)
+    )
+
+    processed_job = process_import_job(db=db, job_id=job.id)
+    assert processed_job.status == ImportJobStatus.COMPLETED_WITH_ERRORS.value
+    assert processed_job.failed_items == 1
+
+    item = processed_job.items[0]
+    assert "nonexistent_shoe.jpg" in item.error_message
+    assert "was not found in the uploaded images folder" in item.error_message
+
+    prod = db.query(Product).filter(Product.name == "Missing Image Shoe").first()
+    assert prod is not None
+    assert prod.isActive is False
+    assert prod.variants[0].images == [DEFAULT_PRODUCT_IMAGE]
+
+
+def test_bulk_product_import_empty_image_flags_error(
+    db: Session,
+    seed_admin_user: User,
+    seed_category: Category,
+    tmp_path
+):
+    """When image field is blank in CSV, flag 'Product image is required', assign placeholder, and set isActive=False."""
+    from app.services.import_service import create_file_import_job, process_import_job, DEFAULT_PRODUCT_IMAGE
+
+    csv_file = tmp_path / "empty_img.csv"
+    csv_file.write_text(
+        f"title,price,category,stock,imagePath\n"
+        f"No Image Item,40.00,{seed_category.name},12,\n",
+        encoding="utf-8"
+    )
+
+    job = create_file_import_job(
+        db=db,
+        created_by_id=seed_admin_user.id,
+        filename="empty_img.csv",
+        csv_path=str(csv_file)
+    )
+
+    processed_job = process_import_job(db=db, job_id=job.id)
+    assert processed_job.status == ImportJobStatus.COMPLETED_WITH_ERRORS.value
+    assert processed_job.failed_items == 1
+
+    item = processed_job.items[0]
+    assert "Product image is required" in item.error_message
+
+    prod = db.query(Product).filter(Product.name == "No Image Item").first()
+    assert prod is not None
+    assert prod.isActive is False
+    assert prod.variants[0].images == [DEFAULT_PRODUCT_IMAGE]
+
 
 

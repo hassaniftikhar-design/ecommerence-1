@@ -4,7 +4,7 @@ import React, { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-import { AlertCircle, ArrowLeft } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
 
 import { BackHeading } from '@/components/common/back-heading';
 import { ProductForm } from '@/components/forms/product-form';
@@ -44,35 +44,35 @@ export function AdminProductFormPageContent({ productId }: AdminProductFormPageP
 
       const prefilledVariants: ProductVariant[] = (raw.variants && raw.variants.length > 0)
         ? raw.variants.map((v, idx) => ({
-            id: `temp-${idx}`,
+          id: `temp-${idx}`,
+          productId: errItem.product_id || '',
+          sku: v.sku || '',
+          stock: Number(v.stock) >= 0 ? Number(v.stock) : 0,
+          images: Array.isArray(v.images) && v.images.length > 0 && v.images[0] ? v.images : [primaryImg],
+          attributes: v.attributes || {},
+          variantOptions: Object.entries(v.attributes || {}).map(([optName, val]) => ({
+            optionName: optName,
+            value: String(val)
+          })),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }))
+        : [
+          {
+            id: 'temp-0',
             productId: errItem.product_id || '',
-            sku: v.sku || '',
-            stock: Number(v.stock) > 0 ? Number(v.stock) : 1,
-            images: Array.isArray(v.images) && v.images.length > 0 && v.images[0] ? v.images : [primaryImg],
-            attributes: v.attributes || {},
-            variantOptions: Object.entries(v.attributes || {}).map(([optName, val]) => ({
-              optionName: optName,
-              value: String(val)
-            })),
+            sku: '',
+            stock: Number(raw.stock) >= 0 ? Number(raw.stock) : 0,
+            images: primaryImg ? [primaryImg] : [],
+            attributes: { Color: 'Black', Size: 'M' },
+            variantOptions: [
+              { optionName: 'Color', value: 'Black' },
+              { optionName: 'Size', value: 'M' }
+            ],
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
-          }))
-        : [
-            {
-              id: 'temp-0',
-              productId: errItem.product_id || '',
-              sku: '',
-              stock: Number(raw.stock) > 0 ? Number(raw.stock) : 1,
-              images: primaryImg ? [primaryImg] : [],
-              attributes: { Color: 'Black', Size: 'M' },
-              variantOptions: [
-                { optionName: 'Color', value: 'Black' },
-                { optionName: 'Size', value: 'M' }
-              ],
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            }
-          ];
+          }
+        ];
 
       return {
         id: errItem.product_id || '',
@@ -192,19 +192,35 @@ export function AdminProductFormPageContent({ productId }: AdminProductFormPageP
       } catch (resErr) {
         console.warn('Failed to auto-resolve import item:', resErr);
       }
-      router.push(`/admin/products/imports/${effectiveJobId}/review`);
-    } else {
-      router.push(ROUTES.adminProducts);
     }
+    router.push(ROUTES.adminProducts);
   };
 
   const isEdit = effectiveMode === 'edit';
   const pageTitle = isEdit ? 'Edit Product' : 'Add a Single Product';
-  const backHref = effectiveJobId ? `/admin/products/imports/${effectiveJobId}/review` : ROUTES.adminProducts;
+  const backHref = ROUTES.adminProducts;
 
   return (
     <div className="space-y-6 pb-12">
       <BackHeading title={pageTitle} href={backHref} />
+
+      {/* Import Error Banner */}
+      {productData?.importError && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50/90 p-4 sm:p-5 shadow-xs flex items-start gap-3.5 text-amber-900">
+          <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h4 className="text-sm font-bold text-amber-950 flex items-center gap-2">
+              <span> Listing Error Notice</span>
+
+            </h4>
+            <p className="text-xs text-amber-800 leading-relaxed font-medium">
+              {productData.importError.errorMessage ||
+                'This product was imported with errors and is currently inactive. Please review and update the details below to publish.'}
+            </p>
+
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-8 text-center shadow-xs space-y-4">

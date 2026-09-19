@@ -186,19 +186,27 @@ export function AdminProductsView() {
           </div>
 
           <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200 shrink-0 h-9">
-            {(['all', 'active', 'inactive'] as const).map((filterOpt) => (
+            {(['all', 'active', 'inactive', 'errors'] as const).map((filterOpt) => (
               <button
                 key={filterOpt}
                 type="button"
                 onClick={() => handleStatusFilterChange(filterOpt)}
                 className={cn(
-                  'px-3 h-7 flex items-center justify-center text-xs font-semibold rounded-md capitalize transition-all cursor-pointer',
+                  'px-3 h-7 flex items-center justify-center text-xs font-semibold rounded-md transition-all cursor-pointer',
                   statusFilter === filterOpt
-                    ? 'bg-white text-[#007BFF] shadow-xs'
+                    ? filterOpt === 'errors'
+                      ? 'bg-red-600 text-white shadow-xs'
+                      : 'bg-white text-[#007BFF] shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 )}
               >
-                {filterOpt === 'all' ? 'All' : filterOpt === 'active' ? 'Active' : 'Inactive'}
+                {filterOpt === 'all'
+                  ? 'All'
+                  : filterOpt === 'active'
+                    ? 'Active'
+                    : filterOpt === 'inactive'
+                      ? 'Inactive'
+                      : 'Listing Errors'}
               </button>
             ))}
           </div>
@@ -265,10 +273,13 @@ export function AdminProductsView() {
                 const displayImage = product.imageUrl || product.variants?.[0]?.images?.[0];
                 const isExpanded = expandedProductId === product.id;
                 const hasImportError = Boolean(product.importError);
+                const importErrorMessage = product.importError?.errorMessage || '';
+                const isImageError = hasImportError && (
+                  importErrorMessage.toLowerCase().includes('image') ||
+                  displayImage === '/placeholder-product.png'
+                );
                 const editHref = ROUTES.adminEditProduct(product.id);
-                const fixErrorHref = product.importError?.jobId
-                  ? `/admin/products/imports/${product.importError.jobId}/review`
-                  : editHref;
+                const fixErrorHref = editHref;
 
                 return (
                   <React.Fragment key={product.id}>
@@ -285,23 +296,33 @@ export function AdminProductsView() {
                     >
                       <TableCell className="py-3">
                         <div className="flex items-start gap-3">
-                          <Image
-                            src={getValidImageUrl(displayImage)}
-                            alt={product.name}
-                            title="Click to view full image"
-                            width={40}
-                            height={40}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setPreviewImage({ url: getValidImageUrl(displayImage), title: product.name });
-                            }}
-                            className={cn(
-                              'h-10 w-10 shrink-0 rounded object-cover border cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-2xs',
-                              hasImportError ? 'border-red-400 ring-2 ring-red-600/70' : 'border-slate-200'
+                          <div className="relative shrink-0">
+                            <Image
+                              src={getValidImageUrl(displayImage)}
+                              alt={product.name}
+                              title={hasImportError ? `Import Error: ${importErrorMessage}` : 'Click to view full image'}
+                              width={40}
+                              height={40}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPreviewImage({ url: getValidImageUrl(displayImage), title: product.name });
+                              }}
+                              className={cn(
+                                'h-10 w-10 shrink-0 rounded object-cover border cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-2xs',
+                                hasImportError ? 'border-red-400 ring-2 ring-red-600/70' : 'border-slate-200'
+                              )}
+                            />
+                            {hasImportError && isImageError && (
+                              <span
+                                className="absolute -top-1.5 -right-1.5 bg-red-600 text-white p-0.5 rounded-full shadow-xs ring-1 ring-white"
+                                title={importErrorMessage || 'Missing or failed image upload'}
+                              >
+                                <AlertTriangle className="h-2.5 w-2.5" />
+                              </span>
                             )}
-                          />
+                          </div>
                           <div className="min-w-0 space-y-0.5">
-                            <Tooltip content={product.name} side="top">
+                            <Tooltip content={hasImportError ? `[Listing Error] ${product.name} - ${importErrorMessage}` : product.name} side="top">
                               <p className={cn(
                                 'text-xs sm:text-sm font-medium line-clamp-2 cursor-pointer transition-colors',
                                 hasImportError ? 'text-red-950 font-bold hover:text-red-800' : 'text-slate-700 hover:text-[#007BFF]'
@@ -351,7 +372,7 @@ export function AdminProductsView() {
                             title={product.importError?.errorMessage || 'Quarantined due to import error'}
                           >
                             <AlertTriangle className="h-3.5 w-3.5 text-red-700 shrink-0" />
-                            Import Error
+                            Listing Error
                           </span>
                         ) : product.isActive ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
@@ -430,21 +451,36 @@ export function AdminProductsView() {
                                       className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200/80"
                                     >
                                       <div className="flex items-center gap-2.5">
-                                        <Image
-                                          src={getValidImageUrl(variant.images?.[0] || displayImage)}
-                                          alt={`${product.name} variant`}
-                                          title="Click to view full image"
-                                          width={36}
-                                          height={36}
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setPreviewImage({
-                                              url: getValidImageUrl(variant.images?.[0] || displayImage),
-                                              title: `${product.name} - ${color} ${size}`
-                                            });
-                                          }}
-                                          className="h-9 w-9 shrink-0 rounded object-cover border border-slate-200 cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-2xs"
-                                        />
+                                        <div className="relative shrink-0">
+                                          <Image
+                                            src={getValidImageUrl(variant.images?.[0] || displayImage)}
+                                            alt={`${product.name} variant`}
+                                            title="Click to view full image"
+                                            width={36}
+                                            height={36}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setPreviewImage({
+                                                url: getValidImageUrl(variant.images?.[0] || displayImage),
+                                                title: `${product.name} - ${color} ${size}`
+                                              });
+                                            }}
+                                            className={cn(
+                                              'h-9 w-9 shrink-0 rounded object-cover border cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-2xs',
+                                              (variant.images?.[0] === '/placeholder-product.png' || (hasImportError && !variant.images?.[0]))
+                                                ? 'border-amber-400 ring-1 ring-amber-500'
+                                                : 'border-slate-200'
+                                            )}
+                                          />
+                                          {(variant.images?.[0] === '/placeholder-product.png' || (hasImportError && !variant.images?.[0])) && (
+                                            <span
+                                              className="absolute -top-1 -right-1 bg-amber-600 text-white p-0.5 rounded-full shadow-xs ring-1 ring-white"
+                                              title="Using placeholder image"
+                                            >
+                                              <AlertTriangle className="h-2 w-2" />
+                                            </span>
+                                          )}
+                                        </div>
                                         <div className="space-y-0.5">
                                           <div className="flex items-center gap-1.5">
                                             <VariantBadge

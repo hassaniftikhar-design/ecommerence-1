@@ -174,10 +174,14 @@ export const productFormSchema = z
     variants: z.array(productVariantItemSchema)
   })
   .superRefine((data, ctx) => {
-    if (!data.defaultImageFile && (!data.defaultImageUrl || !data.defaultImageUrl.trim())) {
+    const imgUrl = (data.defaultImageUrl || '').trim();
+    const isPlaceholder = imgUrl === '/placeholder-product.png' || imgUrl.includes('placeholder-product.png');
+    if (!data.defaultImageFile && (!imgUrl || isPlaceholder)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Default Product Image is required',
+        message: isPlaceholder
+          ? 'A valid product image is required. Please upload an image to replace the placeholder.'
+          : 'Default Product Image is required',
         path: ['defaultImageUrl']
       });
     }
