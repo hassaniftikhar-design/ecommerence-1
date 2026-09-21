@@ -26,7 +26,11 @@ interface CheckoutStripeFormProps {
   hasValidAddress?: boolean;
   onAddressMissing?: () => void;
   onOrderPlaced?: (orderId: string) => void;
-  onPriceChanged?: (newTotal: number, changedItems?: { name: string; oldPrice?: number; newPrice?: number; price?: number }[]) => void;
+  onPriceChanged?: (
+    newTotal: number,
+    changedItems?: { name: string; oldPrice?: number; newPrice?: number; price?: number }[],
+    oldTotal?: number
+  ) => void;
   onOutOfStock?: (message: string) => void;
   onPaymentFailed?: (orderId: string, errorMessage: string, orderNumber?: string) => void;
   onBackToInfo?: () => void;
@@ -114,7 +118,8 @@ export function CheckoutStripeForm({
         // Re-use existing order to avoid creating duplicate orders in database
         const orderIntent = await getOrderPaymentIntent(
           existingOrderId,
-          selectedCardId !== 'new' ? selectedCardId : undefined
+          selectedCardId !== 'new' ? selectedCardId : undefined,
+          true
         );
         clientSecret = orderIntent.clientSecret;
         orderId = orderIntent.orderId;
@@ -183,9 +188,22 @@ export function CheckoutStripeForm({
         }
       }
     } catch (err: unknown) {
-      const errorObj = err as { errors?: string[]; data?: { newTotal?: number; changedProducts?: { name: string; price?: number }[] }; message?: string };
+      const errorObj = err as {
+        errors?: string[];
+        data?: {
+          newTotal?: number;
+          oldTotal?: number;
+          changedProducts?: { name: string; price?: number }[];
+          changedItems?: { name: string; oldPrice?: number; newPrice?: number; price?: number }[];
+        };
+        message?: string;
+      };
       if (errorObj?.errors?.includes?.('PRICE_CHANGED') && errorObj?.data?.newTotal) {
-        onPriceChanged?.(errorObj.data.newTotal, errorObj.data.changedProducts);
+        onPriceChanged?.(
+          errorObj.data.newTotal,
+          errorObj.data.changedItems || errorObj.data.changedProducts,
+          errorObj.data.oldTotal
+        );
         return;
       }
       if (

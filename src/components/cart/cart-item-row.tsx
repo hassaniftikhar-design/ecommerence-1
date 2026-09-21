@@ -31,7 +31,6 @@ export function CartItemRow({
 
   return (
     <TableRow className="hover:bg-slate-50/50 border-b border-slate-100">
-      {/* 1. Product (Checkbox + Image + Name) */}
       <TableCell className="py-4">
         <div className="flex items-center gap-3">
           <Checkbox
@@ -55,7 +54,6 @@ export function CartItemRow({
         </div>
       </TableCell>
 
-      {/* 2. Color (Dot + Label) */}
       <TableCell className="text-xs sm:text-sm text-slate-700">
         <div className="flex items-center gap-2">
           <span
@@ -70,14 +68,12 @@ export function CartItemRow({
         </div>
       </TableCell>
 
-      {/* 3. Size */}
       <TableCell className="text-xs sm:text-sm text-slate-700">
         <span className="inline-block px-2.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-[11px] font-medium text-slate-700">
           {item.size || 'Fixed'}
         </span>
       </TableCell>
 
-      {/* 4. Quantity */}
       <TableCell>
         <QuantitySelector
           initialValue={item.quantity}
@@ -86,17 +82,14 @@ export function CartItemRow({
         />
       </TableCell>
 
-      {/* 5. Unit Price / Rate */}
       <TableCell className="text-xs sm:text-sm font-medium text-slate-700">
         ${item.price.toFixed(2)}
       </TableCell>
 
-      {/* 6. Total Price */}
       <TableCell className="text-xs sm:text-sm font-bold text-slate-900">
         ${itemTotalPrice.toFixed(2)}
       </TableCell>
 
-      {/* 7. Actions */}
       <TableCell className="text-right pr-4">
         <ConfirmDialog
           trigger={

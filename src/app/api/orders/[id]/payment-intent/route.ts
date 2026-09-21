@@ -21,7 +21,7 @@ export async function POST(
       return apiError('Order ID is required', [], 400);
     }
 
-    let body: { savedPaymentMethodId?: string } = {};
+    let body: { savedPaymentMethodId?: string; acceptPriceUpdate?: boolean } = {};
     try {
       body = await request.json();
     } catch {
@@ -31,7 +31,8 @@ export async function POST(
     const result = await getOrRefreshOrderPaymentIntentServer({
       orderId,
       userId,
-      savedPaymentMethodId: body.savedPaymentMethodId
+      savedPaymentMethodId: body.savedPaymentMethodId,
+      acceptPriceUpdate: Boolean(body.acceptPriceUpdate)
     });
 
     if (!result.success) {

@@ -7,33 +7,53 @@ import {
 } from '@/server/middlewares';
 
 export async function getOrCreateCartServer(userId: string) {
-  let cart = await prisma.cart.findUnique({
-    where: { userId }
+  const existingCart = await prisma.cart.findUnique({
+    where: { userId },
+    select: { id: true }
   });
-
-  if (!cart) {
-    cart = await prisma.cart.create({
-      data: { userId }
-    });
+  if (existingCart?.id) {
+    return existingCart.id;
   }
-  return cart.id;
+  const cart = await prisma.cart.upsert({
+    where: { userId },
+    create: { userId },
+    update: {},
+    select: { id: true }
+  });
+  return cart?.id || '';
 }
 
 export async function formatCartResponseServer(cartId: string) {
   const cart = await prisma.cart.findUnique({
     where: { id: cartId },
-    include: {
+    select: {
+      id: true,
       items: {
-        include: {
+        orderBy: { createdAt: 'asc' },
+        select: {
+          id: true,
+          productId: true,
+          variantId: true,
+          quantity: true,
           product: {
-            include: {
-              variants: {
-                include: {
-                  variantOptions: {
-                    include: {
-                      optionValue: {
-                        include: {
-                          option: true
+            select: {
+              name: true,
+              price: true,
+              isActive: true
+            }
+          },
+          variant: {
+            select: {
+              stock: true,
+              images: true,
+              variantOptions: {
+                select: {
+                  optionValue: {
+                    select: {
+                      value: true,
+                      option: {
+                        select: {
+                          name: true
                         }
                       }
                     }
@@ -41,22 +61,8 @@ export async function formatCartResponseServer(cartId: string) {
                 }
               }
             }
-          },
-          variant: {
-            include: {
-              variantOptions: {
-                include: {
-                  optionValue: {
-                    include: {
-                      option: true
-                    }
-                  }
-                }
-              }
-            }
           }
-        },
-        orderBy: { createdAt: 'asc' }
+        }
       }
     }
   });

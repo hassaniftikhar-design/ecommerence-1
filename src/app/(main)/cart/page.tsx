@@ -102,7 +102,6 @@ export default function CartPage() {
       const freshCart = await getCart();
       const freshSelectedItems = freshCart.items.filter((item) => selectedItemIds.includes(item.id));
 
-      // CHECK 1: Out of Stock
       const outOfStockItem = freshSelectedItems.find((item) => {
         const available = item.stock ?? 0;
         return available === 0 || item.quantity > available;
@@ -125,7 +124,6 @@ export default function CartPage() {
         return;
       }
 
-      // CHECK 2: Active or Inactive Status
       const inactiveItem = freshSelectedItems.find((item) => item.isActive === false);
 
       if (inactiveItem) {
@@ -140,7 +138,6 @@ export default function CartPage() {
         return;
       }
 
-      // CHECK 3: Variant Deleted Check
       const deletedVariantItem = freshSelectedItems.find((item) => item.isVariantDeleted === true);
 
       if (deletedVariantItem) {
@@ -155,7 +152,6 @@ export default function CartPage() {
         return;
       }
 
-      // CHECK 4: Price Change
       const previousSelectedItems = items.filter((item) => selectedItemIds.includes(item.id));
 
       const changedItems: { name: string; oldPrice: number; newPrice: number }[] = [];
@@ -190,7 +186,6 @@ export default function CartPage() {
         return;
       }
 
-      // All 3 checks passed: proceed to checkout
       setItems(freshCart.items);
       setTotals(computeTotals(freshCart.items, selectedItemIds));
       const itemsQuery = selectedItemIds.length > 0 ? `?items=${encodeURIComponent(selectedItemIds.join(','))}` : '';
@@ -228,13 +223,10 @@ export default function CartPage() {
       );
       setItems(updatedItems);
       setTotals(computeTotals(updatedItems, selectedItemIds));
-
-      // Call API
       const response = await updateCartItemQuantity(itemId, newQuantity);
       setItems(response.items);
       setTotals(computeTotals(response.items, selectedItemIds));
     } catch {
-      // Fallback on error
       fetchCartData();
     }
   };

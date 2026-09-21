@@ -1,7 +1,3 @@
-/**
- * Scheduler Client for communicating with the FastAPI + Celery Background Service.
- * Token is kept strictly server-side.
- */
 
 import type {
   ImportJobStatus,
@@ -55,9 +51,7 @@ async function schedulerRequest<T>(
 }
 
 export const schedulerClient = {
-  /**
-   * Enqueue password reset email task in background worker.
-   */
+
   async enqueueForgotPasswordEmail(params: {
     userId?: string;
     email?: string;
@@ -80,9 +74,6 @@ export const schedulerClient = {
     return { success: true, taskId: result.data?.task_id };
   },
 
-  /**
-   * Enqueue Facebook OAuth verification OTP email task in high-priority worker.
-   */
   async enqueueFacebookOtpEmail(params: {
     email: string;
     otp: string;
@@ -101,9 +92,6 @@ export const schedulerClient = {
     return { success: true, taskId: result.data?.task_id };
   },
 
-  /**
-   * Enqueue order placed confirmation email task.
-   */
   async enqueueOrderPlacedEmail(orderId: string): Promise<{ success: boolean; taskId?: string; error?: string }> {
     const result = await schedulerRequest<SchedulerEnqueueResponse>('/jobs/order-placed', {
       method: 'POST',
@@ -116,9 +104,6 @@ export const schedulerClient = {
     return { success: true, taskId: result.data?.task_id };
   },
 
-  /**
-   * Enqueue order status update email task.
-   */
   async enqueueOrderStatusEmail(
     orderId: string,
     previousStatus?: string,
@@ -139,9 +124,6 @@ export const schedulerClient = {
     return { success: true, taskId: result.data?.task_id };
   },
 
-  /**
-   * Enqueue bulk product import job from durable file paths.
-   */
   async enqueueBulkProductImportFile(params: {
     jobId?: string;
     createdById: string;
@@ -166,9 +148,6 @@ export const schedulerClient = {
     return { success: true, taskId: result.data?.task_id };
   },
 
-  /**
-   * Enqueue bulk product import job from in-memory products array (backward-compatibility).
-   */
   async enqueueBulkProductImport(
     products: unknown[],
     createdById: string
@@ -187,9 +166,6 @@ export const schedulerClient = {
     return { success: true, taskId: result.data?.task_id };
   },
 
-  /**
-   * Retrieve bulk product import progress and row errors.
-   */
   async getImportJobStatus(
     jobId: string
   ): Promise<{ success: boolean; data?: ImportJobStatus; error?: string }> {
@@ -198,9 +174,6 @@ export const schedulerClient = {
     });
   },
 
-  /**
-   * Mark an import error item as resolved after successful product edit/creation.
-   */
   async resolveImportItem(
     jobId: string,
     itemId: string,

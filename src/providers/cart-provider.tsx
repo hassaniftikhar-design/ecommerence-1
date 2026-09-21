@@ -64,7 +64,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const freshItems = data.items || [];
       setItems(freshItems);
 
-      // Persist to user-scoped localStorage for 0ms instant load on refresh
       try {
         localStorage.setItem(
           `shop_cart_cache_${userId}`,
@@ -87,14 +86,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
       return;
     }
-
-    // 1. Instant Cache Hydration: Load cached items immediately to eliminate stock decrement delay
     const cached = getCachedCart(userId);
     if (cached.length > 0) {
       setItems(cached);
     }
 
-    // 2. SWR Background Revalidation: Fetch latest cart data from server
     refreshCart();
 
     const handleCartUpdate = () => {
@@ -107,15 +103,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     };
   }, [isAuthenticated, userId, status, isExpired, refreshCart]);
 
-  // Highly optimized O(1) quantity lookup map constructed once whenever cart items change
   const quantityMap = useMemo(() => {
     const map = new Map<string, number>();
     for (const item of items) {
-      // Variant-specific key
       const vKey = `${item.productId}:${item.variantId || 'default'}`;
       map.set(vKey, (map.get(vKey) || 0) + item.quantity);
 
-      // Product-level key (sum of all variants for this product)
       const pKey = `prod:${item.productId}`;
       map.set(pKey, (map.get(pKey) || 0) + item.quantity);
     }

@@ -17,6 +17,7 @@ import { getOrderPaymentIntent } from '@/services/payment.service';
 import { PriceChangedModal } from '@/components/checkout/price-changed-modal';
 import { OutOfStockModal } from '@/components/cart/out-of-stock-modal';
 import { ROUTES } from '@/constants/routes';
+import { formatPaymentErrorMessage } from '@/lib/stripe/errors';
 import type { OrderDetail } from '@/types/order.types';
 import { cn } from '@/lib/utils';
 
@@ -31,7 +32,12 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [priceChangedNewTotal, setPriceChangedNewTotal] = useState<number | null>(null);
+  const [priceChangedAlert, setPriceChangedAlert] = useState<{
+    isOpen: boolean;
+    oldTotal?: number;
+    newTotal: number;
+    changedItems?: { name: string; oldPrice?: number; newPrice?: number; price?: number }[];
+  } | null>(null);
   const [outOfStockMessage, setOutOfStockMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -80,17 +86,45 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
         return;
       }
 
-      await retryOrderPayment(order);
       router.push(`${ROUTES.checkout}?orderId=${order.id}`);
     } catch (err: unknown) {
-      const errorObj = err as { errors?: string[]; data?: { newTotal?: number; currentPrice?: number }; message?: string };
-
-      // Return items to cart so user can review them
-      await retryOrderPayment(order).catch(() => {});
+      const errorObj = err as {
+        errors?: string[];
+        data?: {
+          newTotal?: number;
+          oldTotal?: number;
+          currentPrice?: number;
+          oldPrice?: number;
+          productId?: string;
+          changedItems?: { name: string; oldPrice?: number; newPrice?: number; price?: number }[];
+        };
+        message?: string;
+      };
 
       if (errorObj?.errors?.includes?.('PRICE_CHANGED')) {
         const newTotal = errorObj.data?.newTotal || errorObj.data?.currentPrice || Number(order.totalAmount);
-        setPriceChangedNewTotal(newTotal);
+        const oldTotal = errorObj.data?.oldTotal || Number(order.totalAmount);
+        let changedItems = errorObj.data?.changedItems;
+
+        if (!changedItems || changedItems.length === 0) {
+          if (errorObj.data?.oldPrice && errorObj.data?.currentPrice) {
+            const matchingProduct = order.products.find(
+              (p) => p.productId === errorObj.data?.productId || p.id === errorObj.data?.productId
+            );
+            changedItems = [{
+              name: matchingProduct?.title || 'Product in your order',
+              oldPrice: errorObj.data.oldPrice,
+              newPrice: errorObj.data.currentPrice
+            }];
+          }
+        }
+
+        setPriceChangedAlert({
+          isOpen: true,
+          oldTotal,
+          newTotal,
+          changedItems
+        });
         return;
       }
 
@@ -102,7 +136,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
         errorObj?.message?.toLowerCase()?.includes('does not exist') ||
         errorObj?.message?.toLowerCase()?.includes('inactive')
       ) {
-        setOutOfStockMessage(errorObj.message || 'An item in this order is no longer available. Please update your cart.');
+        setOutOfStockMessage(errorObj.message || 'An item in this order is no longer available. Please check product availability.');
         return;
       }
 
@@ -178,8 +212,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                 )}
               >
                 {isPaymentFailed
-                  ? (order.payment?.errorMessage ||
-                    'We were unable to complete your payment for this order. Please retry checkout to complete your purchase.')
+                  ? formatPaymentErrorMessage(order.payment?.errorMessage)
                   : 'Payment has not been completed for this card order. Please pay now to finalize your purchase.'}
               </p>
             </div>
@@ -194,8 +227,8 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
             {retrying
               ? 'Loading Checkout...'
               : isPaymentFailed
-              ? 'Retry Payment'
-              : 'Pay Now'}
+                ? 'Retry Payment'
+                : 'Pay Now'}
           </Button>
         </div>
       )}
@@ -258,9 +291,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
         <div className="space-y-6">
           {/* Upper Detail Box */}
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs space-y-5">
-            {/* Top Row: 6 Metadata Columns */}
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 gap-y-4 sm:gap-y-0">
-              {/* 1. DATE */}
               <div className="px-2 sm:px-4 first:pl-0 space-y-1">
                 <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">DATE</p>
                 <p className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">
@@ -268,7 +299,6 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                 </p>
               </div>
 
-              {/* 2. ORDER # */}
               <div className="px-2 sm:px-4 space-y-1 pt-3 sm:pt-0">
                 <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">ORDER #</p>
                 <p className="text-xs sm:text-sm font-bold text-slate-900 leading-snug truncate">
@@ -276,7 +306,6 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                 </p>
               </div>
 
-              {/* 3. STATUS */}
               <div className="px-2 sm:px-4 space-y-1 pt-3 sm:pt-0">
                 <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">STATUS</p>
                 <div className="pt-0.5">
@@ -284,7 +313,6 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                 </div>
               </div>
 
-              {/* 4. SUBTOTAL */}
               <div className="px-2 sm:px-4 space-y-1 pt-3 sm:pt-0">
                 <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">SUBTOTAL</p>
                 <p className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">
@@ -292,7 +320,6 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                 </p>
               </div>
 
-              {/* 5. TAX */}
               <div className="px-2 sm:px-4 space-y-1 pt-3 sm:pt-0">
                 <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">TAX</p>
                 <p className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">
@@ -300,7 +327,6 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                 </p>
               </div>
 
-              {/* 6. TOTAL */}
               <div className="px-2 sm:px-4 last:pr-0 space-y-1 pt-3 sm:pt-0">
                 <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">TOTAL</p>
                 <p className="text-xs sm:text-sm font-bold text-[#007BFF] leading-snug">
@@ -309,9 +335,7 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
               </div>
             </div>
 
-            {/* Bottom Sub-row: Delivery Address, Payment Method, Payment Status */}
             <div className="border-t border-slate-100 pt-4 flex flex-wrap items-center justify-between gap-4 text-xs">
-              {/* Left: Delivery Address */}
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                   DELIVERY ADDRESS
@@ -321,7 +345,6 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                 </span>
               </div>
 
-              {/* Right: Payment Method & Payment Status */}
               <div className="flex flex-wrap items-center gap-6">
                 <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
                   <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
@@ -347,7 +370,6 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
             </div>
           </div>
 
-          {/* Lower Product Information Table */}
           <div className="space-y-4">
             <h2 className="text-lg font-bold text-[#0B192C]">Product Information</h2>
             <OrderProductsTable products={order.products} role="USER" />
@@ -356,17 +378,28 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
       ) : null}
 
       {/* Price Changed Modal */}
-      {priceChangedNewTotal !== null && (
+      {priceChangedAlert?.isOpen && (
         <PriceChangedModal
           isOpen={true}
-          newTotal={priceChangedNewTotal}
-          onAccept={() => {
-            setPriceChangedNewTotal(null);
-            router.push(ROUTES.checkout);
+          oldTotal={priceChangedAlert.oldTotal}
+          newTotal={priceChangedAlert.newTotal}
+          changedItems={priceChangedAlert.changedItems}
+          cancelText="Cancel"
+          acceptText="Accept and Proceed"
+          onAccept={async () => {
+            const targetId = order?.id || orderId;
+            setPriceChangedAlert(null);
+            if (targetId) {
+              try {
+                await getOrderPaymentIntent(targetId, undefined, true);
+              } catch (err) {
+                console.warn('Failed to update order price before checkout:', err);
+              }
+            }
+            router.push(`${ROUTES.checkout}?orderId=${targetId}`);
           }}
           onCancel={() => {
-            setPriceChangedNewTotal(null);
-            router.push(ROUTES.cart);
+            setPriceChangedAlert(null);
           }}
         />
       )}
@@ -378,7 +411,6 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
           message={outOfStockMessage}
           onClose={() => {
             setOutOfStockMessage(null);
-            router.push(ROUTES.cart);
           }}
         />
       )}

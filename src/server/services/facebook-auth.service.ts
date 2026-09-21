@@ -9,10 +9,6 @@ import {
   validateVerifyFacebookOtpInput
 } from '@/server/middlewares';
 
-/**
- * Creates a temporary pending verification token in VerificationToken table
- * when Facebook OAuth completes without an email address.
- */
 export async function createFacebookPendingTokenServer(
   providerAccountId: string,
   name?: string | null
@@ -20,9 +16,8 @@ export async function createFacebookPendingTokenServer(
   const pendingToken = randomBytes(32).toString('hex');
   const encodedName = encodeURIComponent(name || 'Facebook User');
   const identifier = `fb_pending:${providerAccountId}:${encodedName}`;
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
-  // Clean up any stale pending tokens for this providerAccountId
   await prisma.verificationToken.deleteMany({
     where: {
       identifier: {
@@ -42,9 +37,6 @@ export async function createFacebookPendingTokenServer(
   return pendingToken;
 }
 
-/**
- * Validates the pending Facebook session, generates a 6-digit OTP, and sends it to the supplied email.
- */
 export async function sendFacebookEmailOtpServer(body: unknown) {
   const validation = validateSendFacebookOtpInput(body);
   if (!validation.success) {

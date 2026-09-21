@@ -30,7 +30,6 @@ export async function createCheckoutPaymentIntentServer(
 ) {
   const { userId, itemIds, expectedTotal, savedPaymentMethodId, saveCardForFuture, idempotencyKey } = params;
 
-  // 0. Check Checkout Idempotency
   if (idempotencyKey) {
     const existingPayment = await prisma.payment.findUnique({
       where: { idempotencyKey },
@@ -185,7 +184,7 @@ export async function createCheckoutPaymentIntentServer(
   let createdOrder: { id: string; orderNumber: string };
   let createdPayment: { id: string; attemptCount: number };
 
-  // 1. PURE DB TRANSACTION (Create Order, OrderItems, reserve stock, Payment PENDING)
+  //  DB TRANSACTION (Create Order, OrderItems, reserve stock, Payment PENDING)
   try {
     const dbResult = await prisma.$transaction(async (tx) => {
       // Validate inventory and active status
@@ -218,7 +217,7 @@ export async function createCheckoutPaymentIntentServer(
         }
       });
 
-      // Atomically reserve stock and create order items
+      //  reserve stock and create order items
       for (const line of cartLines) {
         let targetVariantId = line.variantId;
         if (!targetVariantId) {
@@ -241,7 +240,6 @@ export async function createCheckoutPaymentIntentServer(
             currentStock = variant.stock;
           }
 
-          // Atomic conditional update prevents concurrency race conditions
           const updateResult = await tx.productVariant.updateMany({
             where: {
               id: targetVariantId,
@@ -271,7 +269,6 @@ export async function createCheckoutPaymentIntentServer(
         });
       }
 
-      // Create Payment record with status PENDING, stripePaymentIntentId: null
       const newPayment = await tx.payment.create({
         data: {
           orderId: newOrder.id,
@@ -286,7 +283,6 @@ export async function createCheckoutPaymentIntentServer(
         }
       });
 
-      // Clear ordered items from cart immediately upon placing order
       if (cart) {
         await tx.cartItem.deleteMany({
           where: {
@@ -302,7 +298,6 @@ export async function createCheckoutPaymentIntentServer(
     createdOrder = dbResult.newOrder;
     createdPayment = dbResult.newPayment;
 
-    // Enqueue order confirmation email in background scheduler
     schedulerClient.enqueueOrderPlacedEmail(createdOrder.id).catch((err) => {
       console.warn('[PaymentService] Failed to enqueue order placed email:', err);
     });
@@ -352,7 +347,7 @@ export async function createCheckoutPaymentIntentServer(
       };
     }
 
-    // Check for unique constraint violation on idempotencyKey
+    //  constraint violation on idempotencyKey
     if ((error as { code?: string }).code === 'P2002' && idempotencyKey) {
       const existingPayment = await prisma.payment.findUnique({
         where: { idempotencyKey },
@@ -384,7 +379,6 @@ export async function createCheckoutPaymentIntentServer(
     };
   }
 
-  // 2. CREATE STRIPE PAYMENTINTENT OUTSIDE TRANSACTION
   try {
     const stripeIdempotencyKey = `pi_attempt_${createdPayment.id}_${createdPayment.attemptCount}`;
     const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
@@ -417,7 +411,6 @@ export async function createCheckoutPaymentIntentServer(
       throw new Error('Failed to obtain client secret from Stripe');
     }
 
-    // Save Stripe PaymentIntent ID to Payment
     await prisma.payment.update({
       where: { id: createdPayment.id },
       data: { stripePaymentIntentId: paymentIntent.id }
@@ -459,12 +452,13 @@ export interface GetOrRefreshOrderPaymentIntentParams {
   orderId: string;
   userId: string;
   savedPaymentMethodId?: string;
+  acceptPriceUpdate?: boolean;
 }
 
 export async function getOrRefreshOrderPaymentIntentServer(
   params: GetOrRefreshOrderPaymentIntentParams
 ) {
-  const { orderId, userId, savedPaymentMethodId } = params;
+  const { orderId, userId, savedPaymentMethodId, acceptPriceUpdate } = params;
 
   // 1. Fetch Order and Payment
   const order = await prisma.order.findUnique({
@@ -579,10 +573,12 @@ export async function getOrRefreshOrderPaymentIntentServer(
     }
   }
 
-  // 3. PRICE & ACTIVE VALIDATION (Short DB Transaction)
+  let finalTotalAmount = Number(order.totalAmount);
+
   try {
     await prisma.$transaction(async (tx) => {
-      // Validate product prices & active status
+      let hasPriceMismatch = false;
+      let firstMismatch: { productId: string; oldPrice: number; currentPrice: number } | null = null;
       for (const item of order.items) {
         if (!item.product || !item.product.isActive) {
           throw new Error(`INACTIVE_PRODUCT:${item.title}`);
@@ -591,12 +587,70 @@ export async function getOrRefreshOrderPaymentIntentServer(
         const currentPrice = Number(item.product.price);
         const orderPrice = Number(item.price);
         if (Math.abs(currentPrice - orderPrice) > 0.01) {
-          throw new Error(`PRICE_CHANGED:${item.productId}:${orderPrice}:${currentPrice}`);
+          hasPriceMismatch = true;
+          if (!firstMismatch) {
+            firstMismatch = { productId: item.productId, oldPrice: orderPrice, currentPrice };
+          }
         }
       }
 
-      // Update payment method on payment record if provided
-      if (selectedStripePaymentMethodId && selectedStripePaymentMethodId !== payment.stripePaymentMethodId) {
+      if (hasPriceMismatch) {
+        let calculatedNewSubTotal = 0;
+        const changedItems: { name: string; oldPrice: number; newPrice: number }[] = [];
+
+        for (const item of order.items) {
+          const pPrice = Number(item.product?.price ?? item.price);
+          const oPrice = Number(item.price);
+          calculatedNewSubTotal += pPrice * item.quantity;
+          if (Math.abs(pPrice - oPrice) > 0.01) {
+            changedItems.push({
+              name: item.title,
+              oldPrice: oPrice,
+              newPrice: pPrice
+            });
+          }
+        }
+        const calculatedNewTax = Math.round(calculatedNewSubTotal * TAX_RATE * 100) / 100;
+        const calculatedNewTotal = Math.round((calculatedNewSubTotal + calculatedNewTax) * 100) / 100;
+
+        if (!acceptPriceUpdate) {
+          const firstMismatchItem = changedItems[0] || { oldPrice: 0, newPrice: 0 };
+          const encodedChanged = encodeURIComponent(JSON.stringify(changedItems));
+          throw new Error(`PRICE_CHANGED:${firstMismatch?.productId || ''}:${firstMismatchItem.oldPrice}:${firstMismatchItem.newPrice}:${calculatedNewTotal}:${encodedChanged}`);
+        } else {
+          // User accepted price update: update order items, subTotal, tax, totalAmount and payment amount
+          let newSubTotal = 0;
+          for (const item of order.items) {
+            const currentPrice = Number(item.product.price);
+            newSubTotal += currentPrice * item.quantity;
+            await tx.orderItem.update({
+              where: { id: item.id },
+              data: { price: currentPrice }
+            });
+          }
+          const newTax = Math.round(newSubTotal * TAX_RATE * 100) / 100;
+          const newTotal = Math.round((newSubTotal + newTax) * 100) / 100;
+
+          await tx.order.update({
+            where: { id: order.id },
+            data: {
+              subTotal: newSubTotal,
+              tax: newTax,
+              totalAmount: newTotal
+            }
+          });
+
+          await tx.payment.update({
+            where: { id: payment.id },
+            data: {
+              amount: newTotal,
+              ...(selectedStripePaymentMethodId ? { stripePaymentMethodId: selectedStripePaymentMethodId } : {})
+            }
+          });
+
+          finalTotalAmount = newTotal;
+        }
+      } else if (selectedStripePaymentMethodId && selectedStripePaymentMethodId !== payment.stripePaymentMethodId) {
         await tx.payment.update({
           where: { id: payment.id },
           data: { stripePaymentMethodId: selectedStripePaymentMethodId }
@@ -606,13 +660,36 @@ export async function getOrRefreshOrderPaymentIntentServer(
   } catch (err) {
     const errorMsg = (err as Error).message || '';
     if (errorMsg.startsWith('PRICE_CHANGED')) {
-      const [, productId, oldPrice, currentPrice] = errorMsg.split(':');
+      const [, productId, oldPrice, currentPrice, calculatedNewTotal, encodedChanged] = errorMsg.split(':');
+      let changedItems: { name: string; oldPrice: number; newPrice: number }[] = [];
+      if (encodedChanged) {
+        try {
+          changedItems = JSON.parse(decodeURIComponent(encodedChanged));
+        } catch {
+          changedItems = [];
+        }
+      }
+      if (changedItems.length === 0 && productId) {
+        changedItems = [{
+          name: 'Updated Item',
+          oldPrice: Number(oldPrice),
+          newPrice: Number(currentPrice)
+        }];
+      }
+
       return {
         success: false as const,
         status: 409,
         errors: ['PRICE_CHANGED'],
-        message: 'Product prices have changed since this order was placed. Please review your cart.',
-        data: { productId, oldPrice: Number(oldPrice), currentPrice: Number(currentPrice) }
+        message: 'Product prices have changed since this order was placed. Please review your order.',
+        data: {
+          productId,
+          oldPrice: Number(oldPrice),
+          currentPrice: Number(currentPrice),
+          oldTotal: Number(order.totalAmount),
+          newTotal: calculatedNewTotal ? Number(calculatedNewTotal) : Number(currentPrice),
+          changedItems
+        }
       };
     }
     if (errorMsg.startsWith('OUT_OF_STOCK')) {
@@ -637,15 +714,20 @@ export async function getOrRefreshOrderPaymentIntentServer(
     throw err;
   }
 
-  // 4. STRIPE INTENT REUSE OR ATOMIC CREATION
   if (existingIntent && (existingIntent.status === 'requires_payment_method' || existingIntent.status === 'requires_action')) {
+    const updateParams: Stripe.PaymentIntentUpdateParams = {};
     if (selectedStripePaymentMethodId) {
+      updateParams.payment_method = selectedStripePaymentMethodId;
+    }
+    if (Math.round(finalTotalAmount * 100) !== existingIntent.amount) {
+      updateParams.amount = Math.round(finalTotalAmount * 100);
+    }
+
+    if (Object.keys(updateParams).length > 0) {
       try {
-        await stripe.paymentIntents.update(existingIntent.id, {
-          payment_method: selectedStripePaymentMethodId
-        });
+        await stripe.paymentIntents.update(existingIntent.id, updateParams);
       } catch (updateErr) {
-        logStripeError('getOrRefreshOrderPaymentIntentServer:updatePaymentMethod', updateErr, {
+        logStripeError('getOrRefreshOrderPaymentIntentServer:updatePaymentIntent', updateErr, {
           paymentIntentId: existingIntent.id,
           selectedStripePaymentMethodId
         });
@@ -658,7 +740,7 @@ export async function getOrRefreshOrderPaymentIntentServer(
       clientSecret: existingIntent.client_secret,
       orderId: order.id,
       orderNumber: order.orderNumber,
-      amount: Number(order.totalAmount)
+      amount: finalTotalAmount
     };
   }
 
@@ -688,7 +770,7 @@ export async function getOrRefreshOrderPaymentIntentServer(
 
   const stripeIdempotencyKey = `pi_attempt_${payment.id}_${targetAttemptCount}`;
   const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
-    amount: Math.round(Number(order.totalAmount) * 100),
+    amount: Math.round(finalTotalAmount * 100),
     currency: 'usd',
     customer: stripeCustomerId || undefined,
     payment_method_types: ['card'],
@@ -723,7 +805,7 @@ export async function getOrRefreshOrderPaymentIntentServer(
       clientSecret: newPaymentIntent.client_secret,
       orderId: order.id,
       orderNumber: order.orderNumber,
-      amount: Number(order.totalAmount)
+      amount: finalTotalAmount
     };
   } catch (stripeErr) {
     logStripeError('getOrRefreshOrderPaymentIntentServer:stripeCreate', stripeErr, {
@@ -1023,9 +1105,7 @@ export async function deletePaymentMethodServer(userId: string, paymentMethodRec
   }
 }
 
-/**
- * Updates a saved card as the default payment method.
- */
+
 export async function setDefaultPaymentMethodServer(userId: string, paymentMethodRecordId: unknown) {
   const validation = validatePaymentMethodIdInput(paymentMethodRecordId);
   if (!validation.success) {

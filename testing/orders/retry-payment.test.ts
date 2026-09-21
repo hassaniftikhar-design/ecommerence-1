@@ -323,11 +323,22 @@ describe('Pay Again & Payment Retry Suite', () => {
       expect(result.success).toBe(false);
       expect(result.status).toBe(409);
       expect(result.errors).toContain('PRICE_CHANGED');
-      expect(result.data).toEqual({
-        productId: mockTestProduct1.id,
-        oldPrice: 100.0,
-        currentPrice: 120.0
-      });
+      expect(result.data).toEqual(
+        expect.objectContaining({
+          productId: mockTestProduct1.id,
+          oldPrice: 100.0,
+          currentPrice: 120.0,
+          oldTotal: 220,
+          newTotal: 264,
+          changedItems: [
+            {
+              name: 'Premium Headphones',
+              oldPrice: 100.0,
+              newPrice: 120.0
+            }
+          ]
+        })
+      );
 
       // Stripe MUST NOT be charged stale price
       expect(stripe.paymentIntents.create).not.toHaveBeenCalled();

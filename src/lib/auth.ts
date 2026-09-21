@@ -331,7 +331,6 @@ export const authOptions: NextAuthOptions = {
         }
 
         // First-time Facebook login with missing email:
-        // Create secure temporary session token and redirect to email verification
         const pendingToken = await createFacebookPendingTokenServer(
           account.providerAccountId,
           user.name
@@ -344,10 +343,7 @@ export const authOptions: NextAuthOptions = {
     },
 
     async jwt({ token, user, account }) {
-      /*
-       * This block runs when the JWT is initially created
-       * after a successful login.
-       */
+
       if (user) {
         const isRememberMe =
           (user as { rememberMe?: boolean }).rememberMe === true;
@@ -360,18 +356,12 @@ export const authOptions: NextAuthOptions = {
 
         token.sessionExpiresAt = Date.now() + sessionDuration;
 
-        /*
-         * Credentials login.
-         */
         if (account?.provider !== 'google' && account?.provider !== 'facebook') {
           token.id = user.id;
           token.role = user.role;
           token.email = user.email;
         }
 
-        /*
-         * Google login.
-         */
         if (account?.provider === 'google' && user.email) {
           const dbUser = await prisma.user.findUnique({
             where: {
@@ -386,9 +376,6 @@ export const authOptions: NextAuthOptions = {
           }
         }
 
-        /*
-         * Facebook login.
-         */
         if (account?.provider === 'facebook') {
           if (user.email) {
             const dbUser = await prisma.user.findUnique({
@@ -421,26 +408,9 @@ export const authOptions: NextAuthOptions = {
           }
         }
       }
-
-      /*
-       * Do NOT invalidate the token here.
-       *
-       * Expiration is enforced by middleware and server-side
-       * authorization using token.sessionExpiresAt.
-       */
       return token;
     },
 
-    // async session({ session, token }) {
-    //   if (session.user && token.id) {
-    //     session.user.id = token.id;
-    //     session.user.role = token.role!;
-    //     session.user.rememberMe = token.rememberMe;
-    //     session.user.sessionExpiresAt = token.sessionExpiresAt;
-    //   }
-
-    //   return session;
-    // },
     async session({ session, token }) {
       if (session.user && token.id) {
         session.user.id = token.id;

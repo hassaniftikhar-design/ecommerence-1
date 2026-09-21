@@ -4,6 +4,8 @@
  */
 export const STRIPE_DECLINE_CODE_MAP: Record<string, string> = {
   insufficient_funds: 'Your card has insufficient funds. Please try another payment method or contact your bank.',
+  authentication_required: 'The provided payment method has failed. Please try again or provide a new payment method to place your order successfully.',
+  payment_intent_authentication_failure: 'The provided payment method has failed. Please try again or provide a new payment method to place your order successfully.',
   card_declined: 'Your card was declined by your bank. Please use a different card or contact your bank for details.',
   expired_card: 'Your card has expired. Please check the expiration date or use another card.',
   incorrect_cvc: 'The security code (CVC) you entered is incorrect. Please check the code on the back of your card and try again.',
@@ -41,6 +43,25 @@ export const GENERIC_PAYMENT_ERROR_MESSAGE =
   'Your payment could not be completed. Please check your payment details or try another card.';
 
 /**
+ * Sanitizes and formats payment error messages for customer display.
+ */
+export function formatPaymentErrorMessage(msg?: string | null): string {
+  if (!msg) {
+    return 'We were unable to complete your payment for this order. Please retry checkout to complete your purchase.';
+  }
+  const lower = msg.toLowerCase();
+  if (
+    lower.includes('failed authentication') ||
+    lower.includes('payment_method_data') ||
+    lower.includes('paymentintent') ||
+    lower.includes('failed_authentication')
+  ) {
+    return 'The provided payment method has failed. Please try again or provide a new payment method to place your order successfully.';
+  }
+  return msg;
+}
+
+/**
  * Resolves a friendly, non-technical error message from any Stripe error or decline code.
  */
 export function getFriendlyPaymentErrorMessage(
@@ -60,7 +81,7 @@ export function getFriendlyPaymentErrorMessage(
 
   if (typeof errorOrCode === 'string') {
     const normalizedCode = errorOrCode.toLowerCase().trim();
-    const friendlyMessage = STRIPE_DECLINE_CODE_MAP[normalizedCode] || errorOrCode;
+    const friendlyMessage = STRIPE_DECLINE_CODE_MAP[normalizedCode] || formatPaymentErrorMessage(errorOrCode);
     return {
       friendlyMessage,
       rawErrorCode: normalizedCode,
@@ -71,11 +92,15 @@ export function getFriendlyPaymentErrorMessage(
   const errObj = errorOrCode as { code?: string; decline_code?: string; message?: string };
   const rawErrorCode = (errObj.decline_code || errObj.code || 'unknown').toLowerCase().trim();
   const rawErrorMessage = errObj.message || rawErrorCode;
-  const friendlyMessage =
-    STRIPE_DECLINE_CODE_MAP[rawErrorCode] ||
-    (errObj.message && !errObj.message.toLowerCase().includes('failed to fetch')
-      ? errObj.message
-      : GENERIC_PAYMENT_ERROR_MESSAGE);
+  
+  let friendlyMessage = STRIPE_DECLINE_CODE_MAP[rawErrorCode];
+  if (!friendlyMessage && errObj.message) {
+    friendlyMessage = formatPaymentErrorMessage(errObj.message);
+  }
+
+  if (!friendlyMessage || friendlyMessage.toLowerCase().includes('failed to fetch')) {
+    friendlyMessage = GENERIC_PAYMENT_ERROR_MESSAGE;
+  }
 
   return {
     friendlyMessage,

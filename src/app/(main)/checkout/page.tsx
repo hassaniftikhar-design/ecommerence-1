@@ -24,7 +24,7 @@ import {
 
 import { getStripe } from '@/lib/stripe/stripe-client';
 import { getCart, placeOrder, PriceChangedError } from '@/services/cart.service';
-import { getSavedPaymentMethods } from '@/services/payment.service';
+import { getSavedPaymentMethods, getOrderPaymentIntent } from '@/services/payment.service';
 import { getOrderById, convertOrderToCod } from '@/services/order.service';
 import { getUserAddress, updateUserAddress } from '@/services/user.service';
 import { ROUTES } from '@/constants/routes';
@@ -55,13 +55,10 @@ export default function CheckoutPage() {
 
   const isAuthenticated = status === 'authenticated';
 
-  // Step state: "info" (Step 1) -> "payment" (Step 2)
   const [step, setStep] = useState<'info' | 'payment'>('info');
 
-  // Payment type state: "cod" | "card"
   const [paymentType, setPaymentType] = useState<'cod' | 'card'>('cod');
 
-  // Form data for Step 1
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -90,6 +87,7 @@ export default function CheckoutPage() {
   const [outOfStockAlert, setOutOfStockAlert] = useState<string | null>(null);
   const [priceChangedAlert, setPriceChangedAlert] = useState<{
     isOpen: boolean;
+    oldTotal?: number;
     newTotal: number;
     changedItems?: { name: string; oldPrice?: number; newPrice?: number; price?: number }[];
   }>({ isOpen: false, newTotal: 0 });
@@ -117,6 +115,13 @@ export default function CheckoutPage() {
       setError(null);
 
       if (retryOrderId) {
+        // Ensure latest prices are synced to existing order before fetching
+        try {
+          await getOrderPaymentIntent(retryOrderId, undefined, true);
+        } catch {
+          // Non-blocking sync fallback
+        }
+
         // Load existing order details for repayment (no duplicate orders)
         const [orderData, cardsData, addressData] = await Promise.all([
           getOrderById(retryOrderId),
@@ -245,7 +250,6 @@ export default function CheckoutPage() {
     }
   };
 
-  // Step 1 -> Step 2 validation and address saving
   const handleContinueToPayment = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -330,7 +334,6 @@ export default function CheckoutPage() {
 
       const activeOrderId = retryOrderId || paymentFailedAlert.orderId;
       if (activeOrderId) {
-        // Re-use existing unpaid order (no duplicate orders)
         res = await convertOrderToCod(activeOrderId);
       } else {
         const selectedItemIds = items.map((i) => i.id);
@@ -388,7 +391,6 @@ export default function CheckoutPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-8 pb-20 space-y-8">
-      {/* Top Header & Stepper */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -400,7 +402,6 @@ export default function CheckoutPage() {
           </p>
         </div>
 
-        {/* Stepper */}
         <div className="flex items-center gap-3 self-start sm:self-center">
           {/* Step 1: Your Info */}
           <div
@@ -431,7 +432,6 @@ export default function CheckoutPage() {
             </span>
           </div>
 
-          {/* Stepper Connector Bar */}
           <div
             className={cn(
               'h-0.5 w-16 sm:w-20 transition-all rounded-full mb-4',
@@ -470,9 +470,7 @@ export default function CheckoutPage() {
         </div>
       )}
 
-      {/* Main Content Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Form Content */}
         <div className="lg:col-span-7 space-y-6">
 
           {step === 'info' && (
@@ -494,13 +492,11 @@ export default function CheckoutPage() {
               )}
 
               <form onSubmit={handleContinueToPayment} className="space-y-5">
-                {/* CONTACT SECTION */}
                 <div className="space-y-4">
                   <div className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">
                     Contact
                   </div>
 
-                  {/* Full Name */}
                   <FormField
                     label="Full Name"
                     name="fullName"
@@ -512,7 +508,6 @@ export default function CheckoutPage() {
                     className="mb-0"
                   />
 
-                  {/* Email & Phone (2-Columns) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <FormField
                       label="Email Address"
@@ -539,13 +534,11 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                {/* SHIPPING ADDRESS SECTION */}
                 <div className="space-y-4 pt-2">
                   <div className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">
                     Shipping Address
                   </div>
 
-                  {/* Street Address */}
                   <FormField
                     label="Street Address"
                     name="addressLine"
@@ -557,7 +550,6 @@ export default function CheckoutPage() {
                     className="mb-0"
                   />
 
-                  {/* City & Postal Code (2-Columns) */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     <FormField
                       label="City"
@@ -582,7 +574,6 @@ export default function CheckoutPage() {
                     />
                   </div>
 
-                  {/* Country */}
                   <FormField
                     label="Country"
                     name="country"
@@ -595,7 +586,6 @@ export default function CheckoutPage() {
                   />
                 </div>
 
-                {/* Continue to Payment Button */}
                 <div className="pt-4 space-y-3">
                   <Button
                     type="submit"
@@ -628,9 +618,6 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {/* ======================================================== */}
-          {/* STEP 2: PAYMENT DETAILS & METHOD SELECTION */}
-          {/* ======================================================== */}
           {step === 'payment' && (
             <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs space-y-6">
               <div>
@@ -642,7 +629,6 @@ export default function CheckoutPage() {
                 </p>
               </div>
 
-              {/* DELIVER TO Summary Box */}
               <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 p-4 flex items-start justify-between gap-3">
                 <div className="flex items-start gap-3 min-w-0">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-[#007BFF] shrink-0 mt-0.5">
@@ -724,7 +710,6 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
-                  {/* Option 2: Credit / Debit Card */}
                   <div
                     onClick={() => setPaymentType('card')}
                     className={cn(
@@ -770,9 +755,7 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* PAYMENT SUBMISSION CONTENT */}
               {paymentType === 'cod' ? (
-                /* Cash on Delivery submission button */
                 <div className="pt-2 space-y-3">
                   <Button
                     type="button"
@@ -803,7 +786,6 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               ) : (
-                /* Credit/Debit card form via Stripe Elements */
                 <div className="pt-2">
                   <Elements
                     stripe={stripePromise}
@@ -838,8 +820,13 @@ export default function CheckoutPage() {
                           errorMessage: msg
                         });
                       }}
-                      onPriceChanged={(newTotal, changedItems) => {
-                        setPriceChangedAlert({ isOpen: true, newTotal, changedItems });
+                      onPriceChanged={(newTotal, changedItems, oldTotal) => {
+                        setPriceChangedAlert({
+                          isOpen: true,
+                          newTotal,
+                          oldTotal: oldTotal ?? totals.total,
+                          changedItems
+                        });
                       }}
                       onOutOfStock={(msg) => {
                         setOutOfStockAlert(msg);
@@ -855,7 +842,6 @@ export default function CheckoutPage() {
         {/* Right Column: Order Summary Card (Matching Mockup) */}
         <div className="lg:col-span-5 space-y-4">
           <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-            {/* Top Blue Header Banner */}
             <div className="bg-[#007BFF] p-5 sm:p-6 text-white space-y-1">
               <span className="text-[11px] font-bold tracking-widest text-blue-100 uppercase">
                 Total to Pay
@@ -868,9 +854,7 @@ export default function CheckoutPage() {
               </p>
             </div>
 
-            {/* Content Body */}
             <div className="bg-white p-5 space-y-4">
-              {/* Cart Items Preview List */}
               <div className="max-h-60 overflow-y-auto space-y-3.5 pr-1 divide-y divide-slate-100">
                 {items.map((item) => {
                   const colorName =
@@ -880,7 +864,6 @@ export default function CheckoutPage() {
 
                   return (
                     <div key={item.id} className="flex items-center gap-3 pt-3.5 first:pt-0">
-                      {/* Product Thumbnail with badge */}
                       <div className="relative h-14 w-14 shrink-0 rounded-xl overflow-hidden bg-slate-100 border border-slate-200">
                         <Image
                           src={getValidImageUrl(item.imageUrl)}
@@ -894,7 +877,6 @@ export default function CheckoutPage() {
                         </span>
                       </div>
 
-                      {/* Product details */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">
@@ -917,7 +899,6 @@ export default function CheckoutPage() {
                 })}
               </div>
 
-              {/* Price Breakdown */}
               <div className="border-t border-slate-100 pt-3 space-y-2 text-xs">
                 <div className="flex justify-between text-slate-600">
                   <span>Subtotal</span>
@@ -933,7 +914,6 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Security footer badges */}
               <div className="flex items-center justify-center gap-4 text-[11px] text-slate-500 pt-3 border-t border-slate-100">
                 <span className="flex items-center gap-1">
                   <Lock className="h-3 w-3 text-slate-400" /> SSL Secure
@@ -947,7 +927,6 @@ export default function CheckoutPage() {
         </div>
       </div>
 
-      {/* Payment Failed Conflict / Retry Modal */}
       <PaymentFailedModal
         isOpen={paymentFailedAlert.isOpen}
         orderId={paymentFailedAlert.orderId}
@@ -973,28 +952,44 @@ export default function CheckoutPage() {
         }}
       />
 
-      {/* Price Changed Conflict Modal */}
       <PriceChangedModal
         isOpen={priceChangedAlert.isOpen}
+        oldTotal={priceChangedAlert.oldTotal}
         newTotal={priceChangedAlert.newTotal}
         changedItems={priceChangedAlert.changedItems}
-        onAccept={() => {
+        cancelText={retryOrderId ? 'Back to Order' : 'Return to Cart'}
+        acceptText="Accept and Proceed"
+        onAccept={async () => {
           setPriceChangedAlert({ isOpen: false, newTotal: 0 });
+          if (retryOrderId) {
+            try {
+              await getOrderPaymentIntent(retryOrderId, undefined, true);
+            } catch (syncErr) {
+              console.warn('Failed to sync price on accept:', syncErr);
+            }
+          }
           loadCheckoutData();
         }}
         onCancel={() => {
           setPriceChangedAlert({ isOpen: false, newTotal: 0 });
-          router.push(ROUTES.cart);
+          if (retryOrderId) {
+            router.push(ROUTES.orderDetail(retryOrderId));
+          } else {
+            router.push(ROUTES.cart);
+          }
         }}
       />
 
-      {/* Out of Stock Alert Modal */}
       <OutOfStockModal
         isOpen={Boolean(outOfStockAlert)}
         message={outOfStockAlert || ''}
         onClose={() => {
           setOutOfStockAlert(null);
-          router.push(ROUTES.cart);
+          if (retryOrderId) {
+            router.push(ROUTES.orderDetail(retryOrderId));
+          } else {
+            router.push(ROUTES.cart);
+          }
         }}
       />
     </div>

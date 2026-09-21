@@ -37,12 +37,13 @@ export async function createCheckoutIntent(
 
 export async function getOrderPaymentIntent(
   orderId: string,
-  savedPaymentMethodId?: string
+  savedPaymentMethodId?: string,
+  acceptPriceUpdate?: boolean
 ): Promise<CreatePaymentIntentResponse> {
   const response = await fetch(`/api/orders/${orderId}/payment-intent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ savedPaymentMethodId })
+    body: JSON.stringify({ savedPaymentMethodId, acceptPriceUpdate })
   });
 
   const json: ApiResponse<CreatePaymentIntentResponse> = await response.json();
