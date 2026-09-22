@@ -3,6 +3,7 @@ import { getColorHex, COLOR_OPTIONS, SIZE_OPTIONS } from '@/constants/generalcon
 export interface RawCsvRow {
   originalRowIndex: number; // 1-indexed row number in the CSV file
   title: string;
+  description: string;
   price: number | string;
   categoryName: string;
   colorName: string;
@@ -31,6 +32,7 @@ export interface ParsedVariant {
 export interface GroupedProduct {
   id: string;
   title: string;
+  description: string;
   price: number;
   categoryName: string;
   defaultImage: {
@@ -179,6 +181,9 @@ export function parseCsvText(csvText: string): RawCsvRow[] {
   const titleIdx = headers.findIndex(
     (h) => h === 'title' || h === 'product' || h === 'name' || h.includes('title') || h.includes('name')
   );
+  const descriptionIdx = headers.findIndex(
+    (h) => h === 'description' || h === 'desc' || h.includes('description') || h.includes('desc')
+  );
   const priceIdx = headers.findIndex(
     (h) => h === 'price' || h.includes('price') || h.includes('cost') || h.includes('amount')
   );
@@ -208,6 +213,7 @@ export function parseCsvText(csvText: string): RawCsvRow[] {
     const fields = splitCsvLine(line);
 
     const title = titleIdx !== -1 && fields[titleIdx] !== undefined ? fields[titleIdx]! : '';
+    const description = descriptionIdx !== -1 && fields[descriptionIdx] !== undefined ? fields[descriptionIdx]! : '';
     const price = priceIdx !== -1 && fields[priceIdx] !== undefined ? fields[priceIdx]! : 0;
     const categoryName = categoryIdx !== -1 && fields[categoryIdx] !== undefined ? fields[categoryIdx]! : '';
     const colorName = colorIdx !== -1 && fields[colorIdx] !== undefined ? fields[colorIdx]! : '';
@@ -219,6 +225,7 @@ export function parseCsvText(csvText: string): RawCsvRow[] {
     rows.push({
       originalRowIndex: i + 1, // 1-indexed (row 1 was header)
       title: title.trim(),
+      description: description.trim(),
       price: typeof price === 'string' ? parseFloat(price.replace(/[^0-9.]/g, '')) || 0 : Number(price) || 0,
       categoryName: categoryName.trim(),
       colorName: colorName.trim(),
@@ -332,6 +339,7 @@ export function groupCsvRows(
       const newProduct: GroupedProduct = {
         id: `prod-${Date.now()}-${row.originalRowIndex}-${Math.random().toString(36).substring(2, 6)}`,
         title: row.title || `Untitled Product ${row.originalRowIndex}`,
+        description: row.description || '',
         price: numPrice,
         categoryName: row.categoryName || 'General',
         defaultImage: {
@@ -369,6 +377,9 @@ export function groupCsvRows(
     } else {
       // Subsequent row in existing product group -> Additional variant
       const existingProduct = productGroupMap.get(groupKey)!;
+      if (!existingProduct.description && row.description) {
+        existingProduct.description = row.description;
+      }
       existingProduct.variants.push(variant);
     }
 
@@ -403,17 +414,12 @@ export function groupCsvRows(
     }
   });
 
-  // Second pass: Populate split-product warnings
-  titleToGroupKeys.forEach((keys, normTitle) => {
-    if (keys.size > 1 && normTitle) {
-      keys.forEach((key) => {
-        const product = productGroupMap.get(key);
-        if (product) {
-          product.warnings.push(
-            `Another row has the same title '${product.title}' but different price or category — treated as a separate product.`
-          );
-        }
-      });
+  // Description validation pass
+  productGroupMap.forEach((product) => {
+    if (!product.description || !product.description.trim()) {
+      product.errors.push(`Product '${product.title}': Description is required.`);
+    } else if (product.description.trim().length > 500) {
+      product.errors.push(`Product '${product.title}': Description cannot exceed 500 characters.`);
     }
   });
 
@@ -474,6 +480,7 @@ export function formatProductsForApiPayload(products: GroupedProduct[]) {
 
     return {
       name: prod.title.trim(),
+      description: prod.description.trim(),
       price: Number(prod.price),
       categoryName: prod.categoryName.trim(),
       imageUrl: defaultImgUrl,

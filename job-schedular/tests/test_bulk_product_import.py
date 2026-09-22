@@ -77,6 +77,7 @@ def test_bulk_product_import_partial_failure(
     products = [
         ProductImportItemSchema(
             name="Valid Monitor",
+            description="4K Ultra HD IPS Monitor with thin bezels",
             price=Decimal("250.00"),
             categoryName="Displays",
             stock=10,
@@ -84,6 +85,7 @@ def test_bulk_product_import_partial_failure(
         ),
         ProductImportItemSchema(
             name="",  # Invalid: empty name
+            description="Empty name item",
             price=Decimal("100.00"),
             categoryName="Displays",
             stock=5,
@@ -91,6 +93,7 @@ def test_bulk_product_import_partial_failure(
         ),
         ProductImportItemSchema(
             name="Valid Webcam",
+            description="1080p 60fps streaming webcam with privacy shutter",
             price=Decimal("75.00"),
             categoryName="Accessories",
             stock=15,
@@ -119,6 +122,7 @@ def test_bulk_product_import_non_existent_category_fails(
     products = [
         ProductImportItemSchema(
             name="Mystery Item",
+            description="Item with missing category",
             price=Decimal("50.00"),
             categoryName="UnlistedCategory"
         )
@@ -132,10 +136,10 @@ def test_bulk_product_import_non_existent_category_fails(
     assert "does not exist" in processed_job.items[0].error_message
 
 
-def test_bulk_product_import_duplicate_sku_protection(
+def test_bulk_product_import_duplicate_sku_fails(
     db: Session,
     seed_admin_user: User,
-    seed_product_with_variant
+    seed_product_with_variant: Product
 ):
     """Duplicate SKU in import payload should fail that specific product row."""
     existing_sku = seed_product_with_variant.variants[0].sku
@@ -147,6 +151,7 @@ def test_bulk_product_import_duplicate_sku_protection(
     products = [
         ProductImportItemSchema(
             name="Duplicate Product",
+            description="Product with duplicated SKU",
             price=Decimal("30.00"),
             categoryName="General",
             variants=[{"sku": existing_sku, "stock": 5}]
@@ -174,8 +179,8 @@ def test_import_job_progress_api_endpoint(
     db.commit()
 
     products = [
-        ProductImportItemSchema(name="Item 1", price=Decimal("10.00"), categoryName="Cat A", stock=10, imageUrl="https://res.cloudinary.com/demo/image/upload/item1.png"),
-        ProductImportItemSchema(name="", price=Decimal("10.00"), categoryName="Cat B", stock=5, imageUrl="https://res.cloudinary.com/demo/image/upload/item2.png")
+        ProductImportItemSchema(name="Item 1", description="Description for item 1", price=Decimal("10.00"), categoryName="Cat A", stock=10, imageUrl="https://res.cloudinary.com/demo/image/upload/item1.png"),
+        ProductImportItemSchema(name="", description="Description for invalid item", price=Decimal("10.00"), categoryName="Cat B", stock=5, imageUrl="https://res.cloudinary.com/demo/image/upload/item2.png")
     ]
 
     job = create_import_job(db=db, created_by_id=seed_admin_user.id, products_data=products)
@@ -201,9 +206,9 @@ def test_case_sensitive_product_titles_can_coexist(
 ):
     """Verify 'jacket', 'Jacket', and 'JACKET' are treated as 3 separate products and coexist in DB."""
     products = [
-        ProductImportItemSchema(name="jacket", price=Decimal("1000.00"), categoryName=seed_category.name, stock=5, imageUrl="https://res.cloudinary.com/demo/image/upload/jacket.png"),
-        ProductImportItemSchema(name="Jacket", price=Decimal("1000.00"), categoryName=seed_category.name, stock=5, imageUrl="https://res.cloudinary.com/demo/image/upload/jacket.png"),
-        ProductImportItemSchema(name="JACKET", price=Decimal("1000.00"), categoryName=seed_category.name, stock=5, imageUrl="https://res.cloudinary.com/demo/image/upload/jacket.png")
+        ProductImportItemSchema(name="jacket", description="Lowercase jacket description", price=Decimal("1000.00"), categoryName=seed_category.name, stock=5, imageUrl="https://res.cloudinary.com/demo/image/upload/jacket.png"),
+        ProductImportItemSchema(name="Jacket", description="Titlecase Jacket description", price=Decimal("1000.00"), categoryName=seed_category.name, stock=5, imageUrl="https://res.cloudinary.com/demo/image/upload/jacket.png"),
+        ProductImportItemSchema(name="JACKET", description="Uppercase JACKET description", price=Decimal("1000.00"), categoryName=seed_category.name, stock=5, imageUrl="https://res.cloudinary.com/demo/image/upload/jacket.png")
     ]
 
     job = create_import_job(db=db, created_by_id=seed_admin_user.id, products_data=products)
@@ -232,8 +237,8 @@ def test_retry_idempotency_full_success_does_not_duplicate(
 ):
     """Retrying a completed job skips already successful items and creates 0 duplicates."""
     products = [
-        ProductImportItemSchema(name="T-Shirt Alpha", price=Decimal("25.00"), categoryName=seed_category.name, stock=10, imageUrl="https://res.cloudinary.com/demo/image/upload/tshirt1.png"),
-        ProductImportItemSchema(name="T-Shirt Beta", price=Decimal("30.00"), categoryName=seed_category.name, stock=15, imageUrl="https://res.cloudinary.com/demo/image/upload/tshirt2.png")
+        ProductImportItemSchema(name="T-Shirt Alpha", description="Alpha tee description", price=Decimal("25.00"), categoryName=seed_category.name, stock=10, imageUrl="https://res.cloudinary.com/demo/image/upload/tshirt1.png"),
+        ProductImportItemSchema(name="T-Shirt Beta", description="Beta tee description", price=Decimal("30.00"), categoryName=seed_category.name, stock=15, imageUrl="https://res.cloudinary.com/demo/image/upload/tshirt2.png")
     ]
 
     job = create_import_job(db=db, created_by_id=seed_admin_user.id, products_data=products)
@@ -266,9 +271,9 @@ def test_retry_idempotency_partial_failure_processes_only_unfinished(
     db.commit()
 
     products = [
-        ProductImportItemSchema(name="Item Good 1", price=Decimal("20.00"), categoryName="Clothing", stock=10, imageUrl="https://res.cloudinary.com/demo/image/upload/good1.png"),
-        ProductImportItemSchema(name="Item Good 2", price=Decimal("25.00"), categoryName="Clothing", stock=15, imageUrl="https://res.cloudinary.com/demo/image/upload/good2.png"),
-        ProductImportItemSchema(name="Item Fail 3", price=Decimal("30.00"), categoryName="PendingCategory", stock=5, imageUrl="https://res.cloudinary.com/demo/image/upload/fail3.png")
+        ProductImportItemSchema(name="Item Good 1", description="Description for Good 1", price=Decimal("20.00"), categoryName="Clothing", stock=10, imageUrl="https://res.cloudinary.com/demo/image/upload/good1.png"),
+        ProductImportItemSchema(name="Item Good 2", description="Description for Good 2", price=Decimal("25.00"), categoryName="Clothing", stock=15, imageUrl="https://res.cloudinary.com/demo/image/upload/good2.png"),
+        ProductImportItemSchema(name="Item Fail 3", description="Description for Fail 3", price=Decimal("30.00"), categoryName="PendingCategory", stock=5, imageUrl="https://res.cloudinary.com/demo/image/upload/fail3.png")
     ]
 
     job = create_import_job(db=db, created_by_id=seed_admin_user.id, products_data=products)
@@ -312,7 +317,7 @@ def test_process_bulk_import_celery_task_success(
     from app.tasks.import_tasks import process_bulk_import_task
 
     products = [
-        ProductImportItemSchema(name="Celery Keyboard", price=Decimal("99.99"), categoryName=seed_category.name, stock=10, imageUrl="https://res.cloudinary.com/demo/image/upload/celery.png")
+        ProductImportItemSchema(name="Celery Keyboard", description="Celery keyboard description", price=Decimal("99.99"), categoryName=seed_category.name, stock=10, imageUrl="https://res.cloudinary.com/demo/image/upload/celery.png")
     ]
     job = create_import_job(db=db, created_by_id=seed_admin_user.id, products_data=products)
 
@@ -338,6 +343,7 @@ def test_import_existing_product_increments_matching_variant_stock(
     # 1. First import: Product with Black/M (stock 10)
     item_1 = ProductImportItemSchema(
         name="Signature Hoodie",
+        description="Cozy fleece pullover hoodie",
         price=Decimal("59.99"),
         categoryName=seed_category.name,
         options=[
@@ -361,6 +367,7 @@ def test_import_existing_product_increments_matching_variant_stock(
     # 2. Second import: Same Product with Black/M (stock 15) and new image
     item_2 = ProductImportItemSchema(
         name="Signature Hoodie",
+        description="Cozy fleece pullover hoodie",
         price=Decimal("59.99"),
         categoryName=seed_category.name,
         options=[
@@ -395,6 +402,7 @@ def test_import_existing_product_appends_new_variant(
     # Initial import: Black/M
     item_1 = ProductImportItemSchema(
         name="Running Shorts",
+        description="Lightweight breathable athletic running shorts",
         price=Decimal("29.99"),
         categoryName=seed_category.name,
         imageUrl="https://res.cloudinary.com/demo/image/upload/shorts.png",
@@ -412,6 +420,7 @@ def test_import_existing_product_appends_new_variant(
     # Second import: Red/L for same product
     item_2 = ProductImportItemSchema(
         name="Running Shorts",
+        description="Lightweight breathable athletic running shorts",
         price=Decimal("29.99"),
         categoryName=seed_category.name,
         imageUrl="https://res.cloudinary.com/demo/image/upload/shorts.png",
@@ -445,6 +454,7 @@ def test_import_standard_product_no_color_no_size_and_increments_stock(
 
     item_1 = ProductImportItemSchema(
         name="Ceramic Coffee Mug",
+        description="Modern minimal ceramic coffee mug",
         price=Decimal("14.50"),
         categoryName=seed_category.name,
         options=[],
@@ -464,6 +474,7 @@ def test_import_standard_product_no_color_no_size_and_increments_stock(
     # Second import with 20 additional stock
     item_2 = ProductImportItemSchema(
         name="Ceramic Coffee Mug",
+        description="Modern minimal ceramic coffee mug",
         price=Decimal("14.50"),
         categoryName=seed_category.name,
         options=[],
@@ -735,9 +746,9 @@ def test_file_based_bulk_import_with_image_upload_to_cloudinary(
     (images_dir / "myfolder_blue_sneakers.jpg").write_text("fake_image_data_2")
 
     csv_content = (
-        "title,price,categoryName,colorName,sizeName,stock,imagePath\n"
-        f"Pro Running Shoes,89.99,{seed_category.name},Red,10,20,red_sneakers.jpg\n"
-        f"Pro Running Shoes,89.99,{seed_category.name},Blue,11,15,blue_sneakers.jpg\n"
+        "title,description,price,categoryName,colorName,sizeName,stock,imagePath\n"
+        f"Pro Running Shoes,Engineered marathon running shoes,89.99,{seed_category.name},Red,10,20,red_sneakers.jpg\n"
+        f"Pro Running Shoes,Engineered marathon running shoes,89.99,{seed_category.name},Blue,11,15,blue_sneakers.jpg\n"
     )
     csv_file.write_text(csv_content)
 
@@ -779,8 +790,8 @@ def test_import_with_zero_errors_creates_no_notification(
 
     csv_file = tmp_path / "perfect_products.csv"
     csv_content = (
-        "title,price,category,stock,imagePath\n"
-        f"Perfect Leather Wallet,45.00,{seed_category.name},50,https://res.cloudinary.com/demo/image/upload/wallet.jpg\n"
+        "title,description,price,category,stock,imagePath\n"
+        f"Perfect Leather Wallet,Handcrafted bifold leather wallet,45.00,{seed_category.name},50,https://res.cloudinary.com/demo/image/upload/wallet.jpg\n"
     )
     csv_file.write_text(csv_content, encoding="utf-8")
 
@@ -816,8 +827,8 @@ def test_import_retry_does_not_create_duplicate_notifications(
 
     csv_file = tmp_path / "retry_test.csv"
     csv_content = (
-        "title,price,category,stock\n"
-        "Failed Item 1,0.00,InvalidCat,10\n"
+        "title,description,price,category,stock\n"
+        "Failed Item 1,Failed item description,0.00,InvalidCat,10\n"
     )
     csv_file.write_text(csv_content, encoding="utf-8")
 
@@ -856,7 +867,7 @@ def test_resolve_import_item_preserves_historical_job_status_and_error(
     from app.services.import_service import create_import_job, process_import_job, resolve_import_item
 
     products = [
-        ProductImportItemSchema(name="Flawed Watch", price=Decimal("0.00"), categoryName=seed_category.name, stock=10)
+        ProductImportItemSchema(name="Flawed Watch", description="Flawed watch description", price=Decimal("0.00"), categoryName=seed_category.name, stock=10)
     ]
     job = create_import_job(db=db, created_by_id=seed_admin_user.id, products_data=products)
     process_import_job(db=db, job_id=job.id)
@@ -885,11 +896,11 @@ def test_parse_csv_ignores_duplicate_skus_across_rows(tmp_path):
 
     csv_file = tmp_path / "products.csv"
     csv_content = (
-        "title,sku,price,categoryName,colorName,sizeName,stock,imagePath\n"
-        "Product A,SKU-A-001,25.00,Apparel,Black,M,10,img1.png\n"
-        "Product A,SKU-A-001,25.00,Apparel,Black,M,20,img1_dup.png\n"
-        "Product B,SKU-A-001,30.00,Apparel,Red,L,15,img2.png\n"
-        "Product B,SKU-B-002,30.00,Apparel,Blue,XL,5,img3.png\n"
+        "title,description,sku,price,categoryName,colorName,sizeName,stock,imagePath\n"
+        "Product A,Description A,SKU-A-001,25.00,Apparel,Black,M,10,img1.png\n"
+        "Product A,Description A,SKU-A-001,25.00,Apparel,Black,M,20,img1_dup.png\n"
+        "Product B,Description B,SKU-A-001,30.00,Apparel,Red,L,15,img2.png\n"
+        "Product B,Description B,SKU-B-002,30.00,Apparel,Blue,XL,5,img3.png\n"
     )
     csv_file.write_text(csv_content, encoding="utf-8")
 
@@ -923,8 +934,8 @@ def test_csv_import_increments_existing_db_stock(
     # First CSV creates Product and Variant with stock 10
     csv_file_1 = tmp_path / "first_batch.csv"
     csv_file_1.write_text(
-        f"title,sku,price,categoryName,colorName,sizeName,stock,imagePath\n"
-        f"Sneakers,SNK-BLK-42,120.00,{seed_category.name},Black,42,10,https://res.cloudinary.com/demo/image/upload/s1.png\n",
+        f"title,description,sku,price,categoryName,colorName,sizeName,stock,imagePath\n"
+        f"Sneakers,Sport sneakers,SNK-BLK-42,120.00,{seed_category.name},Black,42,10,https://res.cloudinary.com/demo/image/upload/s1.png\n",
         encoding="utf-8"
     )
 
@@ -943,8 +954,8 @@ def test_csv_import_increments_existing_db_stock(
     # Second CSV with same SKU and stock 15 -> should increment DB stock to 25
     csv_file_2 = tmp_path / "second_batch.csv"
     csv_file_2.write_text(
-        f"title,sku,price,categoryName,colorName,sizeName,stock,imagePath\n"
-        f"Sneakers,SNK-BLK-42,120.00,{seed_category.name},Black,42,15,https://res.cloudinary.com/demo/image/upload/s1.png\n",
+        f"title,description,sku,price,categoryName,colorName,sizeName,stock,imagePath\n"
+        f"Sneakers,Sport sneakers,SNK-BLK-42,120.00,{seed_category.name},Black,42,15,https://res.cloudinary.com/demo/image/upload/s1.png\n",
         encoding="utf-8"
     )
 
@@ -971,8 +982,8 @@ def test_bulk_product_import_missing_image_file_flags_error(
 
     csv_file = tmp_path / "missing_img.csv"
     csv_file.write_text(
-        f"title,price,category,stock,imagePath\n"
-        f"Missing Image Shoe,85.00,{seed_category.name},10,nonexistent_shoe.jpg\n",
+        f"title,description,price,category,stock,imagePath\n"
+        f"Missing Image Shoe,Comfortable trail running shoes,85.00,{seed_category.name},10,nonexistent_shoe.jpg\n",
         encoding="utf-8"
     )
 
@@ -1012,8 +1023,8 @@ def test_bulk_product_import_empty_image_flags_error(
 
     csv_file = tmp_path / "empty_img.csv"
     csv_file.write_text(
-        f"title,price,category,stock,imagePath\n"
-        f"No Image Item,40.00,{seed_category.name},12,\n",
+        f"title,description,price,category,stock,imagePath\n"
+        f"No Image Item,Sample item description,40.00,{seed_category.name},12,\n",
         encoding="utf-8"
     )
 
@@ -1035,6 +1046,91 @@ def test_bulk_product_import_empty_image_flags_error(
     assert prod is not None
     assert prod.isActive is False
     assert prod.variants[0].images == [DEFAULT_PRODUCT_IMAGE]
+
+
+def test_bulk_product_import_missing_description_fails(
+    db: Session,
+    seed_admin_user: User,
+    seed_category: Category
+):
+    """When description is omitted or empty, product creation fails with validation error."""
+    products = [
+        ProductImportItemSchema(
+            name="No Desc Product",
+            description="",  # Missing description
+            price=Decimal("49.99"),
+            categoryName=seed_category.name,
+            stock=10,
+            imageUrl="https://res.cloudinary.com/demo/image/upload/sample.png"
+        )
+    ]
+    job = create_import_job(db=db, created_by_id=seed_admin_user.id, products_data=products)
+    processed_job = process_import_job(db=db, job_id=job.id)
+
+    assert processed_job.status == ImportJobStatus.COMPLETED_WITH_ERRORS.value
+    assert processed_job.failed_items == 1
+    assert "description is required" in processed_job.items[0].error_message.lower()
+
+
+def test_bulk_product_import_description_exceeding_500_chars_fails(
+    db: Session,
+    seed_admin_user: User,
+    seed_category: Category
+):
+    """When description exceeds 500 characters, product creation fails with validation error."""
+    long_desc = "A" * 501
+    products = [
+        ProductImportItemSchema(
+            name="Long Desc Product",
+            description=long_desc,
+            price=Decimal("49.99"),
+            categoryName=seed_category.name,
+            stock=10,
+            imageUrl="https://res.cloudinary.com/demo/image/upload/sample.png"
+        )
+    ]
+    job = create_import_job(db=db, created_by_id=seed_admin_user.id, products_data=products)
+    processed_job = process_import_job(db=db, job_id=job.id)
+
+    assert processed_job.status == ImportJobStatus.COMPLETED_WITH_ERRORS.value
+    assert processed_job.failed_items == 1
+    assert "cannot exceed 500 characters" in processed_job.items[0].error_message
+
+
+def test_csv_multi_variant_inherits_description_from_base_row(
+    db: Session,
+    seed_admin_user: User,
+    seed_category: Category,
+    tmp_path
+):
+    """When variant rows omit description, they inherit from the base product row."""
+    from app.services.import_service import create_file_import_job, process_import_job
+
+    csv_file = tmp_path / "multi_variant_desc.csv"
+    csv_content = (
+        "title,description,price,categoryName,colorName,sizeName,stock,sku,imagePath\n"
+        f"Inherited Hoodie,Inherited cozy hoodie description,65.00,{seed_category.name},Black,M,10,SKU-HD-BLK-M,https://res.cloudinary.com/demo/image/upload/h1.png\n"
+        f"Inherited Hoodie,,65.00,{seed_category.name},White,L,15,SKU-HD-WHT-L,https://res.cloudinary.com/demo/image/upload/h2.png\n"
+    )
+    csv_file.write_text(csv_content, encoding="utf-8")
+
+    job = create_file_import_job(
+        db=db,
+        created_by_id=seed_admin_user.id,
+        filename="multi_variant_desc.csv",
+        csv_path=str(csv_file)
+    )
+
+    processed_job = process_import_job(db=db, job_id=job.id)
+    assert processed_job.status == ImportJobStatus.COMPLETED.value
+    assert processed_job.successful_items == 1
+    assert processed_job.failed_items == 0
+
+    prod = db.query(Product).filter(Product.name == "Inherited Hoodie").first()
+    assert prod is not None
+    assert prod.description == "Inherited cozy hoodie description"
+    assert len(prod.variants) == 2
+
 
 
 

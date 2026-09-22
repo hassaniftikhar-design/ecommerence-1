@@ -443,7 +443,13 @@ def process_single_product_import(
         else:
             return None, "AUTHENTICATION_ERROR", f"User with ID {created_by_id} does not exist"
 
-    description = raw_data.get("description")
+    raw_desc = raw_data.get("description")
+    description = str(raw_desc).strip() if raw_desc else None
+    if not description:
+        errors.append("Product description is required.")
+    elif len(description) > 500:
+        errors.append("Product description cannot exceed 500 characters.")
+
     raw_image_url = (raw_data.get("imageUrl") or "").strip()
     if not raw_image_url and raw_data.get("variants"):
         first_v = raw_data["variants"][0]

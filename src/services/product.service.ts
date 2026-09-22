@@ -1,5 +1,5 @@
 import type { Product, ImportJobStatus } from '@/types/product.types';
-import { DEFAULT_PRODUCT_IMAGE, PRODUCT_FETCH_BATCH_SIZE } from '@/constants/generalconstants';
+import { PRODUCT_FETCH_BATCH_SIZE } from '@/constants/generalconstants';
 import type { ApiResponse } from '@/lib/api-response';
 
 async function parseApiResponse<T>(response: Response): Promise<T> {
@@ -100,140 +100,6 @@ export async function getProducts(
     category = categoryArg || '';
     sort = sortArg || '';
     status = statusArg || '';
-  }
-
-  if (typeof window === 'undefined') {
-    const { prisma } = await import('@/lib/prisma');
-
-    const whereClause: Record<string, unknown> = {};
-    if (status === 'active') {
-      whereClause.isActive = true;
-    } else if (status === 'inactive') {
-      whereClause.isActive = false;
-    } else if (status !== 'all') {
-      whereClause.isActive = true;
-    }
-
-    if (q && q.trim()) {
-      whereClause.OR = [
-        { name: { contains: q.trim(), mode: 'insensitive' } },
-        { category: { name: { contains: q.trim(), mode: 'insensitive' } } }
-      ];
-    }
-    if (category && category.trim()) {
-      whereClause.category = { name: { equals: category.trim(), mode: 'insensitive' } };
-    }
-
-    let orderByClause: Record<string, unknown> = { createdAt: 'desc' };
-    if (sort === 'price-asc') {
-      orderByClause = { price: 'asc' };
-    } else if (sort === 'price-desc') {
-      orderByClause = { price: 'desc' };
-    } else if (sort === 'name-asc') {
-      orderByClause = { name: 'asc' };
-    } else if (sort === 'name-desc') {
-      orderByClause = { name: 'desc' };
-    } else if (sort === 'newest') {
-      orderByClause = { createdAt: 'desc' };
-    }
-
-    const total = await prisma.product.count({ where: whereClause });
-    const skip = (page - 1) * limit;
-
-    const products = await prisma.product.findMany({
-      where: whereClause,
-      include: {
-        category: { select: { id: true, name: true } },
-        createdBy: { select: { id: true, name: true } },
-        options: {
-          include: { values: true }
-        },
-        variants: {
-          include: {
-            variantOptions: {
-              include: {
-                optionValue: {
-                  include: {
-                    option: true
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      orderBy: orderByClause,
-      skip,
-      take: limit
-    });
-
-    const formatted = products.map((product) => {
-      const variantsFormatted = product.variants.map((v) => {
-        const attributes: Record<string, string> = {};
-        const variantOptionsInfo = v.variantOptions.map((vo) => {
-          const optionName = vo.optionValue.option.name;
-          const value = vo.optionValue.value;
-          attributes[optionName] = value;
-          return { optionName, value };
-        });
-
-        return {
-          id: v.id,
-          productId: v.productId,
-          sku: v.sku,
-          stock: v.stock,
-          images: v.images,
-          attributes,
-          variantOptions: variantOptionsInfo,
-          createdAt: v.createdAt.toISOString(),
-          updatedAt: v.updatedAt.toISOString()
-        };
-      });
-
-      const productPrice = Number(product.price);
-      const totalStock = variantsFormatted.reduce((acc, v) => acc + v.stock, 0);
-      const primaryImage =
-        variantsFormatted.find((v) => v.images && v.images.length > 0)?.images[0] ||
-        DEFAULT_PRODUCT_IMAGE;
-
-      return {
-        id: product.id,
-        name: product.name,
-        isActive: product.isActive,
-        inactiveAt: product.inactiveAt ? product.inactiveAt.toISOString() : null,
-        category: product.category,
-        createdBy: product.createdBy,
-        options: product.options.map((opt) => ({
-          id: opt.id,
-          productId: opt.productId,
-          name: opt.name,
-          values: opt.values.map((val) => ({
-            id: val.id,
-            optionId: val.optionId,
-            value: val.value
-          }))
-        })),
-        variants: variantsFormatted,
-        price: productPrice,
-        stock: totalStock,
-        imageUrl: primaryImage,
-        lowestPrice: productPrice,
-        totalStock,
-        variantCount: variantsFormatted.length,
-        createdAt: product.createdAt.toISOString(),
-        updatedAt: product.updatedAt.toISOString()
-      };
-    });
-
-    const hasMore = page * limit < total;
-
-    return {
-      products: formatted,
-      page,
-      limit,
-      total,
-      hasMore
-    };
   }
 
   const queryParams = new URLSearchParams();
@@ -345,13 +211,6 @@ export function clearCategoriesCache() {
 }
 
 export async function getCategories(): Promise<{ id: string; name: string }[]> {
-  if (typeof window === 'undefined') {
-    const { prisma } = await import('@/lib/prisma');
-    return prisma.category.findMany({
-      orderBy: { name: 'asc' }
-    });
-  }
-
   if (categoriesCache) {
     return categoriesCache;
   }
@@ -383,93 +242,6 @@ export async function getCategories(): Promise<{ id: string; name: string }[]> {
 }
 
 export async function getProductById(id: string): Promise<Product> {
-  if (typeof window === 'undefined') {
-    const { prisma } = await import('@/lib/prisma');
-    const product = await prisma.product.findUnique({
-      where: { id },
-      include: {
-        category: { select: { id: true, name: true } },
-        createdBy: { select: { id: true, name: true } },
-        options: {
-          include: { values: true }
-        },
-        variants: {
-          include: {
-            variantOptions: {
-              include: {
-                optionValue: {
-                  include: {
-                    option: true
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    });
-
-    if (!product) {
-      throw new Error('Product not found');
-    }
-
-    const variantsFormatted = product.variants.map((v) => {
-      const attributes: Record<string, string> = {};
-      const variantOptionsInfo = v.variantOptions.map((vo) => {
-        const optionName = vo.optionValue.option.name;
-        const value = vo.optionValue.value;
-        attributes[optionName] = value;
-        return { optionName, value };
-      });
-
-      return {
-        id: v.id,
-        productId: v.productId,
-        sku: v.sku,
-        stock: v.stock,
-        images: v.images,
-        attributes,
-        variantOptions: variantOptionsInfo,
-        createdAt: v.createdAt.toISOString(),
-        updatedAt: v.updatedAt.toISOString()
-      };
-    });
-
-    const productPrice = Number(product.price);
-    const totalStock = variantsFormatted.reduce((acc, v) => acc + v.stock, 0);
-    const primaryImage =
-      variantsFormatted.find((v) => v.images && v.images.length > 0)?.images[0] ||
-      DEFAULT_PRODUCT_IMAGE;
-
-    return {
-      id: product.id,
-      name: product.name,
-      isActive: product.isActive,
-      inactiveAt: product.inactiveAt ? product.inactiveAt.toISOString() : null,
-      category: product.category,
-      createdBy: product.createdBy,
-      options: product.options.map((opt) => ({
-        id: opt.id,
-        productId: opt.productId,
-        name: opt.name,
-        values: opt.values.map((val) => ({
-          id: val.id,
-          optionId: val.optionId,
-          value: val.value
-        }))
-      })),
-      variants: variantsFormatted,
-      price: productPrice,
-      stock: totalStock,
-      imageUrl: primaryImage,
-      lowestPrice: productPrice,
-      totalStock,
-      variantCount: variantsFormatted.length,
-      createdAt: product.createdAt.toISOString(),
-      updatedAt: product.updatedAt.toISOString()
-    };
-  }
-
   const response = await fetch(`/api/products/${id}`, {
     cache: 'no-store'
   });
@@ -493,6 +265,8 @@ export interface CreateProductVariantInput {
 
 export interface CreateProductInput {
   name: string;
+  description?: string;
+  productCode?: string;
   categoryId?: string;
   categoryName?: string;
   options?: CreateProductOptionInput[];

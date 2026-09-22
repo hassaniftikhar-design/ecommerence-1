@@ -43,6 +43,7 @@ export interface Product {
   id: string;
   productCode?: string | null;
   name: string;
+  description?: string | null;
   price: number;
   stock: number;
   imageUrl: string;
@@ -78,6 +79,7 @@ export interface ProductVariantItem {
 
 export interface ProductFormValues {
   name: string;
+  description?: string;
   categoryName: string;
   price: number;
   imageUrl?: string;
@@ -169,6 +171,7 @@ export interface RawProduct {
   id: string;
   productCode?: string | null;
   name: string;
+  description?: string | null;
   price: Prisma.Decimal | number;
   isActive: boolean;
   inactiveAt?: Date | string | null;

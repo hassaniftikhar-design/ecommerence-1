@@ -105,6 +105,7 @@ export const productVariantSchema = z.object({
 export const createProductSchema = z
   .object({
     name: z.string().trim().min(1, 'Product Title is required').max(500, 'Product Title cannot exceed 500 characters'),
+    description: z.string().trim().min(1, 'Product description is required').max(500, 'Product description cannot exceed 500 characters'),
     productCode: z.string().trim().optional(),
     categoryId: z.string().optional(),
     categoryName: z.string().optional(),
@@ -138,6 +139,7 @@ export const createProductSchema = z
 export const updateProductSchema = z
   .object({
     name: z.string().trim().min(1).max(500).optional(),
+    description: z.string().trim().min(1, 'Product description is required').max(500, 'Product description cannot exceed 500 characters').optional(),
     productCode: z.string().trim().optional(),
     categoryId: z.string().optional(),
     categoryName: z.string().optional(),
@@ -164,6 +166,7 @@ export const productVariantItemSchema = z.object({
 export const productFormSchema = z
   .object({
     name: z.string().trim().min(1, 'Product Title is required').max(500, 'Product Title cannot exceed 500 characters'),
+    description: z.string().trim().min(1, 'Product description is required').max(500, 'Product description cannot exceed 500 characters'),
     productCode: z.string().trim().optional(),
     categoryName: z.string().trim().min(1, 'Category is required'),
     price: z

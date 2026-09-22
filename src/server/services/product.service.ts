@@ -18,7 +18,8 @@ import type {
   RawImportProductData,
   RawImportVariant,
   GetProductsServerParams,
-  NormalizedUpdateVariant
+  NormalizedUpdateVariant,
+  Product
 } from '@/types/product.types';
 
 export type {
@@ -30,7 +31,7 @@ export type {
   GetProductsServerParams
 } from '@/types/product.types';
 
-export function formatProductResponse(product: RawProduct) {
+export function formatProductResponse(product: RawProduct): Product {
   let primaryImage = DEFAULT_PRODUCT_IMAGE;
   const variantWithDefault = (product.variants || []).find((v) => v.images && v.images.length > 1);
   if (variantWithDefault && variantWithDefault.images[1]) {
@@ -73,10 +74,11 @@ export function formatProductResponse(product: RawProduct) {
     id: product.id,
     productCode: product.productCode || null,
     name: product.name,
+    description: product.description || null,
     isActive: product.isActive,
     inactiveAt: product.inactiveAt ? (product.inactiveAt instanceof Date ? product.inactiveAt.toISOString() : product.inactiveAt) : null,
-    category: product.category,
-    createdBy: product.createdBy,
+    category: product.category || { id: '', name: 'General' },
+    createdBy: product.createdBy || null,
     options: (product.options || []).map((opt) => ({
       id: opt.id,
       productId: opt.productId,
@@ -423,6 +425,7 @@ export async function createProductServer(body: unknown, adminUserId: string) {
 
   const {
     name,
+    description,
     productCode: inputProductCode,
     categoryId,
     categoryName,
@@ -452,7 +455,6 @@ export async function createProductServer(body: unknown, adminUserId: string) {
   if (!finalProductCode) {
     finalProductCode = await getNextAvailableProductCodeServer(name, category.name);
   } else {
-    // Check if manually provided product code already exists in DB
     const existingCodeProduct = await prisma.product.findFirst({
       where: { productCode: { equals: finalProductCode, mode: 'insensitive' } }
     });
@@ -524,6 +526,7 @@ export async function createProductServer(body: unknown, adminUserId: string) {
         data: {
           productCode: uniqueProductCode,
           name: name.trim(),
+          description: description ? description.trim() : null,
           price: targetPrice,
           categoryId: category.id,
           createdById: adminUserId
@@ -656,6 +659,7 @@ export async function createProductServer(body: unknown, adminUserId: string) {
     };
   }
 }
+
 export async function updateProductServer(id: string, body: unknown) {
   if (body && typeof body === 'object' && 'createdById' in body) {
     delete (body as Record<string, unknown>).createdById;
@@ -687,6 +691,7 @@ export async function updateProductServer(id: string, body: unknown) {
 
   const {
     name,
+    description,
     productCode: inputProductCode,
     categoryId,
     categoryName,
@@ -803,6 +808,7 @@ export async function updateProductServer(id: string, body: unknown) {
         where: { id },
         data: {
           ...(name !== undefined ? { name: targetName } : {}),
+          ...(description !== undefined ? { description: description.trim() } : {}),
           ...(finalProductCode ? { productCode: finalProductCode } : {}),
           ...(targetCategoryId ? { categoryId: targetCategoryId } : {}),
           ...(price !== undefined ? { price } : {})

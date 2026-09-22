@@ -10,6 +10,7 @@ import { Plus, Trash2, AlertCircle, AlertTriangle, ArrowLeft } from 'lucide-reac
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { FormField } from '@/components/forms/form-field';
@@ -182,6 +183,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
       return {
         name: initialData.name || '',
+        description: initialData.description || '',
         productCode: prodCode,
         categoryName: initialData.category?.name || 'General',
         price: initialData.lowestPrice ?? initialData.price ?? ('' as unknown as number),
@@ -192,6 +194,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
     return {
       name: '',
+      description: '',
       productCode: '',
       categoryName: 'General',
       price: '' as unknown as number,
@@ -238,6 +241,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
   // Auto-generate productCode dynamically as user types title (in create mode or if not manually overridden)
   const watchedProductCode = watch('productCode') || '';
   const watchedName = watch('name') || '';
+  const watchedDescription = watch('description') || '';
   const watchedCategory = watch('categoryName') || '';
 
   const updateAllVariantSkusWithNewProductCode = React.useCallback(
@@ -522,6 +526,7 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
 
       const payload = {
         name: data.name.trim(),
+        description: data.description.trim(),
         productCode: data.productCode?.trim().toUpperCase() || undefined,
         categoryName: data.categoryName.trim(),
         price: data.price,
@@ -725,6 +730,45 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
                   </p>
                 )}
               </div>
+            </div>
+
+            {/* Description Multiline Field */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <Label htmlFor="description" className="text-sm font-semibold text-slate-700">
+                  Description <span className="text-danger font-semibold">*</span>
+                </Label>
+                <span
+                  className={cn(
+                    'text-xs font-mono font-medium',
+                    (watchedDescription?.length || 0) > 500
+                      ? 'text-danger font-bold'
+                      : (watchedDescription?.length || 0) > 450
+                        ? 'text-amber-600'
+                        : 'text-slate-400'
+                  )}
+                >
+                  {watchedDescription?.length || 0} / 500
+                </span>
+              </div>
+              <Textarea
+                id="description"
+                placeholder="Enter detailed product description..."
+                rows={3}
+                maxLength={500}
+                aria-invalid={!!errors.description}
+                aria-describedby={errors.description ? 'description-error' : undefined}
+                className={cn(
+                  'resize-y min-h-[90px]',
+                  errors.description && 'border-danger focus-visible:ring-danger'
+                )}
+                {...register('description')}
+              />
+              {errors.description && (
+                <p id="description-error" role="alert" className="mt-1.5 text-xs text-danger font-medium">
+                  {errors.description.message}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

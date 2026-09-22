@@ -43,6 +43,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
 
   templateSheet.columns = [
     { header: 'title', key: 'title', width: 28 },
+    { header: 'description', key: 'description', width: 36 },
     { header: 'sku', key: 'sku', width: 22 },
     { header: 'price', key: 'price', width: 14 },
     { header: 'categoryName', key: 'categoryName', width: 22 },
@@ -74,6 +75,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
   const sampleRows = [
     {
       title: 'Classic Heavyweight Tee',
+      description: 'Premium heavyweight cotton classic fit everyday t-shirt.',
       sku: 'BRAC-001-BLK-M',
       price: 34.99,
       categoryName: categoryNames[0] || 'Apparel',
@@ -84,6 +86,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
     },
     {
       title: 'Classic Heavyweight Tee',
+      description: 'Premium heavyweight cotton classic fit everyday t-shirt.',
       sku: 'BRAC-001-BLK-L',
       price: 34.99,
       categoryName: categoryNames[0] || 'Apparel',
@@ -94,6 +97,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
     },
     {
       title: 'Classic Heavyweight Tee',
+      description: 'Premium heavyweight cotton classic fit everyday t-shirt.',
       sku: 'BRAC-001-WHT-M',
       price: 34.99,
       categoryName: categoryNames[0] || 'Apparel',
@@ -104,6 +108,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
     },
     {
       title: 'Wireless Ergonomic Keyboard',
+      description: 'Ultra-low latency wireless mechanical keyboard with ergonomic layout.',
       sku: 'KEYB-001-GRY-L',
       price: 129.5,
       categoryName:
@@ -119,6 +124,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
     },
     {
       title: 'Minimalist Ceramic Mug',
+      description: 'Handcrafted ceramic coffee mug with heat-resistant matte finish.',
       sku: 'MUG-001-DEF',
       price: 18.0,
       categoryName:
@@ -143,7 +149,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
   const sizeList = `"${SIZE_OPTIONS.join(',')}"`;
 
   for (let row = 2; row <= 1000; row++) {
-    templateSheet.getCell(`D${row}`).dataValidation = {
+    templateSheet.getCell(`E${row}`).dataValidation = {
       type: 'list',
       allowBlank: false,
       formulae: [categoryList],
@@ -153,7 +159,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
       error: 'Please select a category from the dropdown.'
     };
 
-    templateSheet.getCell(`E${row}`).dataValidation = {
+    templateSheet.getCell(`F${row}`).dataValidation = {
       type: 'list',
       allowBlank: true,
       formulae: [colorList],
@@ -163,7 +169,7 @@ export async function generateBulkProductImportTemplateServer(): Promise<Buffer>
       error: 'Please select a valid color from the dropdown or leave blank for standard.'
     };
 
-    templateSheet.getCell(`F${row}`).dataValidation = {
+    templateSheet.getCell(`G${row}`).dataValidation = {
       type: 'list',
       allowBlank: true,
       formulae: [sizeList],
@@ -190,10 +196,10 @@ export async function generateBulkProductImportCsvTemplateServer(): Promise<stri
   const categoryName = dbCategories[0]?.name ?? 'Apparel';
 
   const rows = [
-    ['title', 'sku', 'price', 'categoryName', 'colorName', 'sizeName', 'stock', 'imagePath'],
-    ['Classic Heavyweight Tee', 'BRAC-001-BLK-M', '34.99', categoryName, 'Black', 'M', '50', 'tee_black.jpg'],
-    ['Classic Heavyweight Tee', 'BRAC-001-BLK-L', '34.99', categoryName, 'Black', 'L', '40', 'tee_black.jpg'],
-    ['Classic Heavyweight Tee', 'BRAC-001-WHT-M', '34.99', categoryName, 'White', 'M', '25', 'tee_white.jpg']
+    ['title', 'description', 'sku', 'price', 'categoryName', 'colorName', 'sizeName', 'stock', 'imagePath'],
+    ['Classic Heavyweight Tee', 'Premium heavyweight cotton classic fit everyday t-shirt.', 'BRAC-001-BLK-M', '34.99', categoryName, 'Black', 'M', '50', 'tee_black.jpg'],
+    ['Classic Heavyweight Tee', 'Premium heavyweight cotton classic fit everyday t-shirt.', 'BRAC-001-BLK-L', '34.99', categoryName, 'Black', 'L', '40', 'tee_black.jpg'],
+    ['Classic Heavyweight Tee', 'Premium heavyweight cotton classic fit everyday t-shirt.', 'BRAC-001-WHT-M', '34.99', categoryName, 'White', 'M', '25', 'tee_white.jpg']
   ];
 
   return rows.map((r) => r.map((cell) => `"${cell.replace(/"/g, '""')}"`).join(',')).join('\n');

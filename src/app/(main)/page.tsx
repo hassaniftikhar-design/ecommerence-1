@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 
 import { HomeCatalogSection } from '@/components/home/home-catalog-section';
 import { WelcomeToast } from '@/components/common/welcome-toast';
-import { getProducts, getCategories } from '@/services/product.service';
+import { getProductsServer } from '@/server/services/product.service';
+import { getCategoriesServer } from '@/server/services/category.service';
 import { PRODUCT_FETCH_BATCH_SIZE } from '@/constants/generalconstants';
 
 export const metadata: Metadata = {
@@ -13,14 +14,15 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const [initialProducts, categories] = await Promise.all([
-    getProducts({
-      page: 1,
-      limit: PRODUCT_FETCH_BATCH_SIZE,
-      q: '',
-      category: '',
-      sort: ''
+    getProductsServer({
+      pageNumber: 1,
+      limitNumber: PRODUCT_FETCH_BATCH_SIZE,
+      searchQuery: '',
+      categoryQuery: '',
+      sortQuery: 'newest',
+      userIsAdmin: false
     }),
-    getCategories()
+    getCategoriesServer()
   ]);
 
   return (

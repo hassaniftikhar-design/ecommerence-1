@@ -159,10 +159,8 @@ export function ProductGrid({ initialData, q = '', category = '', sort = '' }: P
 
   return (
     <div ref={outerWrapperRef} className="space-y-6 my-6">
-      {/* Top Sentinel for upward boundary detection */}
       <div ref={topSentinelRef} className="h-1 w-full pointer-events-none" aria-hidden="true" />
 
-      {/* Top Dynamic Spacer for unmounted rows */}
       {topSpacerHeight > 0 && (
         <div
           style={{ height: `${topSpacerHeight}px` }}
@@ -171,27 +169,20 @@ export function ProductGrid({ initialData, q = '', category = '', sort = '' }: P
         />
       )}
 
-      {/* Virtualized Product Grid Container */}
       <div className="grid grid-cols-2 gap-4 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-6">
-        {/* Skeletons when fetching previous page (prepended inside grid) */}
         {isFetchingPreviousPage &&
           Array.from({ length: 4 }).map((_, idx) => (
             <ProductCardSkeleton key={`skeleton-prev-${idx}`} />
           ))}
-
-        {/* Bounded Window of Rendered ProductCards */}
         {visibleProducts.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
-
-        {/* Skeletons when fetching next page (appended directly after products to fill remaining slots in the row) */}
         {isFetchingNextPage &&
           Array.from({ length: 4 }).map((_, idx) => (
             <ProductCardSkeleton key={`skeleton-next-${idx}`} />
           ))}
       </div>
 
-      {/* Bottom Dynamic Spacer for unmounted rows */}
       {bottomSpacerHeight > 0 && (
         <div
           style={{ height: `${bottomSpacerHeight}px` }}
@@ -200,10 +191,8 @@ export function ProductGrid({ initialData, q = '', category = '', sort = '' }: P
         />
       )}
 
-      {/* Bottom Sentinel for downward boundary detection & prefetching */}
       <div ref={bottomSentinelRef} className="h-1 w-full pointer-events-none" aria-hidden="true" />
 
-      {/* Retry Footer Button if background fetch failed */}
       {status === 'error' && products.length > 0 && (
         <div className="flex flex-col items-center justify-center pt-3 pb-4 space-y-2">
           <p className="text-xs text-red-500 font-medium">Failed to load more products.</p>
@@ -218,7 +207,6 @@ export function ProductGrid({ initialData, q = '', category = '', sort = '' }: P
         </div>
       )}
 
-      {/* Reached End Indicator (Clean, compact bottom) */}
       {!hasNextPage && products.length > 0 && !isFetchingNextPage && (
         <div className="pt-3 pb-2 text-center">
           <p className="text-xs font-medium text-slate-400">

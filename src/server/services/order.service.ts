@@ -244,7 +244,7 @@ export async function createOrderServer(
       });
 
       for (const line of cartLines) {
-        let currentStock = 50;
+        let currentStock = 0;
 
         if (line.variantId) {
           const variant = await tx.productVariant.findUnique({
