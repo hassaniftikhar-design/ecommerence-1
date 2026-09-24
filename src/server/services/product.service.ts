@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 
 import { prisma } from '@/lib/prisma';
+import { syncProductEmbeddingServer } from '@/server/ai/embeddings/product';
 import { DEFAULT_PRODUCT_IMAGE, PRODUCT_FETCH_BATCH_SIZE } from '@/constants/generalconstants';
 import {
   generateProductCode,
@@ -21,6 +22,15 @@ import type {
   NormalizedUpdateVariant,
   Product
 } from '@/types/product.types';
+
+async function refreshProductEmbedding(productId: string) {
+  try {
+    await syncProductEmbeddingServer(productId);
+  } catch (error) {
+    // Product writes must remain available during an embedding/model outage.
+    console.error(`[ShopFast Assistant] Failed to update product embedding ${productId}`, error);
+  }
+}
 
 export type {
   RawProduct,
@@ -413,6 +423,32 @@ export async function getProductByIdServer(id: string, userIsAdmin: boolean) {
   return formatted;
 }
 
+export async function getProductsByIdsServer(ids: string[], userIsAdmin = false) {
+  const uniqueIds = [...new Set(ids)].slice(0, 250);
+  if (uniqueIds.length === 0) return [];
+
+  const products = await prisma.product.findMany({
+    where: {
+      id: { in: uniqueIds },
+      ...(!userIsAdmin ? { isActive: true } : {})
+    },
+    include: {
+      category: { select: { id: true, name: true } },
+      createdBy: { select: { id: true, name: true } },
+      options: { include: { values: true } },
+      variants: {
+        include: {
+          variantOptions: {
+            include: { optionValue: { include: { option: true } } }
+          }
+        }
+      }
+    }
+  });
+
+  return products.map(formatProductResponse);
+}
+
 export async function createProductServer(body: unknown, adminUserId: string) {
   if (body && typeof body === 'object' && 'createdById' in body) {
     delete (body as Record<string, unknown>).createdById;
@@ -629,6 +665,7 @@ export async function createProductServer(body: unknown, adminUserId: string) {
       return { success: false as const, status: 500, errors: [], message: 'Product created but could not be re-fetched' };
     }
 
+    await refreshProductEmbedding(fullProduct.id);
     return { success: true as const, status: 201, product: formatProductResponse(fullProduct) };
   } catch (error: unknown) {
     if (
@@ -1053,6 +1090,7 @@ export async function updateProductServer(id: string, body: unknown) {
       console.warn(`Failed to auto-resolve import error item for product ${id}:`, resolveErr);
     }
 
+    await refreshProductEmbedding(fullProduct.id);
     return { success: true as const, status: 200, product: formatProductResponse(fullProduct) };
   } catch (error: unknown) {
     if (
@@ -1190,6 +1228,8 @@ export async function updateProductStatusServer(id: string, isActive: boolean) {
     }
   });
 
+  await refreshProductEmbedding(updatedProduct.id);
+
   return {
     success: true as const,
     status: 200,
@@ -1216,6 +1256,8 @@ export async function deactivateProductServer(id: string) {
       inactiveAt: new Date()
     }
   });
+
+  await refreshProductEmbedding(id);
 
   return { success: true as const, status: 200, message: 'Product inactivated successfully' };
 }

@@ -1,6 +1,7 @@
 import { OrderStatus } from '@prisma/client';
 
 import { prisma } from '@/lib/prisma';
+import { refreshOrderEmbeddingSafely } from '@/server/ai/embeddings/order';
 import { TAX_RATE, DEFAULT_PRODUCT_IMAGE } from '@/constants/generalconstants';
 import { schedulerClient } from '@/services/scheduler/scheduler.client';
 import { stripe } from '@/lib/stripe/stripe-server';
@@ -112,6 +113,122 @@ export async function listOrdersServer(params: ListOrdersServerParams) {
     page,
     pageSize: limit
   };
+}
+
+export type ChatOrderSummary = {
+  id: string;
+  orderNumber: string;
+  status: string;
+  createdAt: Date;
+  totalAmount: number;
+  items: Array<{ title: string; quantity: number }>;
+};
+
+function toChatOrderSummary(order: {
+  id: string;
+  orderNumber: string;
+  status: string;
+  createdAt: Date;
+  totalAmount: unknown;
+  items: Array<{ title: string; quantity: number }>;
+}): ChatOrderSummary {
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    status: order.status,
+    createdAt: order.createdAt,
+    totalAmount: Number(order.totalAmount),
+    items: order.items.map(({ title, quantity }) => ({ title, quantity }))
+  };
+}
+
+export async function getMyOrdersForChatServer(userId: string, limit = 10): Promise<ChatOrderSummary[]> {
+  const orders = await prisma.order.findMany({
+    where: { userId },
+    orderBy: { createdAt: 'desc' },
+    take: Math.max(1, Math.min(20, limit)),
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      createdAt: true,
+      totalAmount: true,
+      items: { select: { title: true, quantity: true } }
+    }
+  });
+  return orders.map(toChatOrderSummary);
+}
+
+export async function searchMyOrdersForChatServer(userId: string, query: string): Promise<ChatOrderSummary[]> {
+  const normalized = query.trim().slice(0, 200);
+  const exact = await prisma.order.findMany({
+    where: { userId, orderNumber: normalized },
+    take: 1,
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      createdAt: true,
+      totalAmount: true,
+      items: { select: { title: true, quantity: true } }
+    }
+  });
+  if (exact.length) return exact.map(toChatOrderSummary);
+  if (/^\d{4,}$/.test(normalized)) return [];
+
+  const lower = normalized.toLocaleLowerCase();
+  const status = lower.includes('delivered')
+    ? OrderStatus.DELIVERED
+    : lower.includes('dispatched') || lower.includes('shipped')
+      ? OrderStatus.DISPATCHED
+      : lower.includes('rejected') || lower.includes('cancelled') || lower.includes('canceled')
+        ? OrderStatus.REJECTED
+        : lower.includes('processing') || lower.includes('in progress')
+          ? OrderStatus.IN_PROGRESS
+          : undefined;
+
+  const lexical = await prisma.order.findMany({
+    where: {
+      userId,
+      OR: [
+        { orderNumber: { contains: normalized, mode: 'insensitive' } },
+        { items: { some: { title: { contains: normalized, mode: 'insensitive' } } } },
+        ...(status ? [{ status }] : [])
+      ]
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 5,
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      createdAt: true,
+      totalAmount: true,
+      items: { select: { title: true, quantity: true } }
+    }
+  });
+  return lexical.map(toChatOrderSummary);
+}
+
+export async function getMyOrdersByIdsForChatServer(userId: string, ids: string[]): Promise<ChatOrderSummary[]> {
+  const uniqueIds = [...new Set(ids)].slice(0, 20);
+  if (uniqueIds.length === 0) return [];
+  const orders = await prisma.order.findMany({
+    where: { userId, id: { in: uniqueIds } },
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      createdAt: true,
+      totalAmount: true,
+      items: { select: { title: true, quantity: true } }
+    }
+  });
+  const byId = new Map(orders.map((order) => [order.id, order]));
+  return uniqueIds.flatMap((id) => {
+    const order = byId.get(id);
+    return order ? [toChatOrderSummary(order)] : [];
+  });
 }
 
 export async function createOrderServer(
@@ -292,6 +409,8 @@ export async function createOrderServer(
 
       return newOrder;
     });
+
+    await refreshOrderEmbeddingSafely(createdOrder.id);
 
     await createAndEmitNotificationServer({
       recipientId: userId,
@@ -644,6 +763,8 @@ export async function updateOrderStatusServer(id: string, status: unknown) {
 
   const readableStatus = statusLabels[validStatus] || validStatus.toLowerCase();
 
+  await refreshOrderEmbeddingSafely(updatedOrder.id);
+
   await createAndEmitNotificationServer({
     recipientId: existingOrder.userId,
     title: 'Order Status Updated',
@@ -763,4 +884,3 @@ export async function convertOrderToCodServer(orderId: string, userId: string) {
     data: undefined as unknown
   };
 }
-

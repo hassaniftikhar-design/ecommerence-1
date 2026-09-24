@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { SiteHeader } from '@/components/home/site-header';
+import { ChatbotWidget } from '@/components/chatbot/chatbot-widget';
 
 // Every "logged-in area" page (Home, Cart, Orders, Order Detail) shares
 // the exact same header + content container in the Figma. Before this
@@ -15,6 +16,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
       <main className="w-full py-4 sm:py-6">
         {children}
       </main>
+      <ChatbotWidget />
     </>
   );
 }

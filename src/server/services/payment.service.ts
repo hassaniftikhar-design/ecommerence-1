@@ -1,6 +1,7 @@
 import type Stripe from 'stripe';
 
 import { prisma } from '@/lib/prisma';
+import { refreshOrderEmbeddingSafely } from '@/server/ai/embeddings/order';
 import { stripe, createOrGetStripeCustomer } from '@/lib/stripe/stripe-server';
 import { logStripeError } from '@/lib/stripe/errors';
 import { TAX_RATE, DEFAULT_PRODUCT_IMAGE } from '@/constants/generalconstants';
@@ -297,6 +298,8 @@ export async function createCheckoutPaymentIntentServer(
 
     createdOrder = dbResult.newOrder;
     createdPayment = dbResult.newPayment;
+
+    await refreshOrderEmbeddingSafely(createdOrder.id);
 
     schedulerClient.enqueueOrderPlacedEmail(createdOrder.id).catch((err) => {
       console.warn('[PaymentService] Failed to enqueue order placed email:', err);
@@ -1105,7 +1108,6 @@ export async function deletePaymentMethodServer(userId: string, paymentMethodRec
   }
 }
 
-
 export async function setDefaultPaymentMethodServer(userId: string, paymentMethodRecordId: unknown) {
   const validation = validatePaymentMethodIdInput(paymentMethodRecordId);
   if (!validation.success) {
@@ -1252,4 +1254,3 @@ export async function createSetupIntentServer(userId: string) {
     };
   }
 }
-

@@ -8,6 +8,7 @@ import {
 } from '@/constants/generalconstants';
 import { cleanupImportStorage, saveUploadedImportFiles } from '@/lib/import-storage';
 import { prisma } from '@/lib/prisma';
+import { syncProductEmbeddingServer } from '@/server/ai/embeddings/product';
 import { emitToUser } from '@/lib/socket/server';
 import { schedulerClient } from '@/services/scheduler/scheduler.client';
 
@@ -321,6 +322,21 @@ export async function getImportJobStatusServer(jobId: string) {
       message: res.error || `Import job '${jobId}' not found`,
       errors: [res.error || `Import job '${jobId}' not found`]
     };
+  }
+
+  if (res.data.status === 'COMPLETED' || res.data.status === 'COMPLETED_WITH_ERRORS') {
+    const importedItems = await prisma.importItem.findMany({
+      where: { job_id: jobId, status: 'SUCCESS', product_id: { not: null } },
+      select: { product_id: true }
+    });
+    for (const { product_id: productId } of importedItems) {
+      if (!productId) continue;
+      try {
+        await syncProductEmbeddingServer(productId);
+      } catch (error) {
+        console.error(`[ShopFast Assistant] Failed to index imported product ${productId}`, error);
+      }
+    }
   }
 
   return {

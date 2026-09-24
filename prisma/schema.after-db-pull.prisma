@@ -8,31 +8,29 @@ datasource db {
 }
 
 model User {
-  id                 String              @id @default(cuid())
-  name               String
-  email              String              @unique
-  phone              String?
-  password           String?
-  role               Role                @default(USER)
-  emailVerified      DateTime?
-  isActive           Boolean             @default(true)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  resetToken         String?
-  resetTokenExpires  DateTime?
-  addressLine        String?             @default("")
-  city               String?             @default("")
-  country            String?             @default("")
-  postalCode         String?             @default("")
-  stripeCustomerId   String?             @unique
-  accounts           Account[]
-  cart               Cart?
-  notifications      Notification[]
-  orders             Order[]
-  paymentMethods     PaymentMethod[]
-  products           Product[]
-  chatSessions       ChatSession[]
-  embeddingDocuments EmbeddingDocument[]
+  id                String          @id @default(cuid())
+  name              String
+  email             String          @unique
+  phone             String?
+  password          String?
+  role              Role            @default(USER)
+  emailVerified     DateTime?
+  isActive          Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  resetToken        String?
+  resetTokenExpires DateTime?
+  addressLine       String?         @default("")
+  city              String?         @default("")
+  country           String?         @default("")
+  postalCode        String?         @default("")
+  stripeCustomerId  String?         @unique
+  accounts          Account[]
+  cart              Cart?
+  notifications     Notification[]
+  orders            Order[]
+  paymentMethods    PaymentMethod[]
+  products          Product[]
 }
 
 model Notification {
@@ -258,50 +256,6 @@ model EmailEvent {
   @@unique([order_id, event_type], name: "uq_email_events_order_event")
   @@index([order_id, event_type])
   @@map("email_events")
-}
-
-model ChatSession {
-  id        String        @id @default(cuid())
-  userId    String
-  title     String        @default("New Chat")
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages  ChatMessage[]
-
-  @@index([userId, updatedAt])
-}
-
-model ChatMessage {
-  id        String      @id @default(cuid())
-  sessionId String
-  role      String
-  content   String      @db.Text
-  metadata  Json?
-  createdAt DateTime    @default(now())
-  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId, createdAt])
-}
-
-model EmbeddingDocument {
-  id             String                     @id @default(cuid())
-  entityType     String
-  entityId       String
-  userId         String?
-  content        String                     @db.Text
-  embedding      Unsupported("vector(384)")
-  contentHash    String
-  embeddingModel String
-  status         String                     @default("ACTIVE")
-  createdAt      DateTime                   @default(now())
-  updatedAt      DateTime                   @updatedAt
-  user           User?                      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([entityType, entityId])
-  @@index([entityType, status])
-  @@index([userId, entityType, status])
-  @@index([entityId])
 }
 
 model ImportJob {

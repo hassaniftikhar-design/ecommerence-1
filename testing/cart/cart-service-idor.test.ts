@@ -1,11 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-require-imports */
 import {
+  addToCartServer,
   updateCartItemQuantityServer,
   removeCartItemServer
 } from '@/server/services/cart.service';
 import { mockPrisma, resetPrismaMock } from '../mocks/prisma.mock';
 import { mockCartItem, MOCK_CART_ITEM_ID } from '../mocks/cart.mock';
+import { mockTestProduct1, mockTestVariantOutOfStock } from '../fixtures/product.fixtures';
 
 jest.mock('@/lib/prisma', () => ({
   prisma: require('../mocks/prisma.mock').mockPrisma
@@ -79,6 +81,36 @@ describe('Cart Service - IDOR Prevention & Scoped Ownership', () => {
         where: { id: MOCK_CART_ITEM_ID },
         data: { quantity: 5 }
       });
+    });
+  });
+
+  describe('addToCartServer', () => {
+    it('rejects an out-of-stock variant on the server before creating a cart item', async () => {
+      mockPrisma.cart.findUnique.mockResolvedValueOnce({ id: CART_A_ID } as any);
+      mockPrisma.product.findUnique.mockResolvedValueOnce({
+        ...mockTestProduct1,
+        variants: [mockTestVariantOutOfStock]
+      } as any);
+
+      const result = await addToCartServer(USER_A_ID, mockTestProduct1.id, mockTestVariantOutOfStock.id, 1);
+
+      if (result.success) throw new Error('Out-of-stock item should not be added');
+      expect(result.success).toBe(false);
+      expect(result.errors).toContain('OUT_OF_STOCK');
+      expect(mockPrisma.cartItem.findFirst).not.toHaveBeenCalled();
+      expect(mockPrisma.cartItem.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a variant id belonging to a different product instead of falling back to another variant', async () => {
+      mockPrisma.cart.findUnique.mockResolvedValueOnce({ id: CART_A_ID } as any);
+      mockPrisma.product.findUnique.mockResolvedValueOnce(mockTestProduct1 as any);
+
+      const result = await addToCartServer(USER_A_ID, mockTestProduct1.id, 'variant-from-another-product', 1);
+
+      if (result.success) throw new Error('Invalid variant should not be added');
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('variant is unavailable');
+      expect(mockPrisma.cartItem.create).not.toHaveBeenCalled();
     });
   });
 

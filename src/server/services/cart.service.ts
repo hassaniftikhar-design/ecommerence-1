@@ -168,13 +168,31 @@ export async function addToCartServer(
     };
   }
 
-  let targetVariantId = validVariantId;
-  if (!targetVariantId && product.variants.length > 0) {
-    targetVariantId = product.variants[0]?.id;
+  if (validVariantId && !product.variants.some((variant) => variant.id === validVariantId)) {
+    return {
+      success: false as const,
+      status: 400,
+      errors: [],
+      message: 'The selected product variant is unavailable.'
+    };
   }
 
-  const targetVariant = product.variants.find((v) => v.id === targetVariantId) || product.variants[0];
+  let targetVariantId = validVariantId;
+  if (!targetVariantId && product.variants.length > 0) {
+    targetVariantId = product.variants.find((variant) => variant.stock > 0)?.id || product.variants[0]?.id;
+  }
+
+  const targetVariant = product.variants.find((v) => v.id === targetVariantId);
   const availableStock = targetVariant ? targetVariant.stock : 0;
+
+  if (!targetVariant || availableStock < 1) {
+    return {
+      success: false as const,
+      status: 400,
+      errors: ['OUT_OF_STOCK'],
+      message: 'This product variant is currently out of stock.'
+    };
+  }
 
   const existingItem = await prisma.cartItem.findFirst({
     where: {
