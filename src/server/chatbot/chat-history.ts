@@ -27,6 +27,19 @@ export function createChatSessionServer(userId: string) {
   });
 }
 
+export async function deleteChatSessionServer(userId: string, sessionId: string): Promise<boolean> {
+  const session = await prisma.chatSession.findFirst({
+    where: { id: sessionId, userId },
+    select: { id: true }
+  });
+  if (!session) return false;
+
+  await prisma.chatSession.delete({
+    where: { id: sessionId }
+  });
+  return true;
+}
+
 export async function getChatSessionServer(userId: string, sessionId: string, beforeId?: string) {
   const session = await prisma.chatSession.findFirst({
     where: { id: sessionId, userId },

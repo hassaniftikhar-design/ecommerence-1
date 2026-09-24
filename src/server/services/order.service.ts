@@ -115,14 +115,55 @@ export async function listOrdersServer(params: ListOrdersServerParams) {
   };
 }
 
+export type ChatOrderItem = {
+  title: string;
+  quantity: number;
+  price: number;
+  imageUrl?: string;
+  sku?: string | null;
+  attributes?: Record<string, string> | null;
+  category?: string | null;
+  description?: string | null;
+};
+
 export type ChatOrderSummary = {
   id: string;
   orderNumber: string;
   status: string;
   createdAt: Date;
   totalAmount: number;
-  items: Array<{ title: string; quantity: number }>;
+  items: ChatOrderItem[];
 };
+
+const chatOrderSelect = {
+  id: true,
+  orderNumber: true,
+  status: true,
+  createdAt: true,
+  totalAmount: true,
+  items: {
+    select: {
+      title: true,
+      quantity: true,
+      price: true,
+      imageUrl: true,
+      variant: {
+        select: {
+          sku: true,
+          attributes: true
+        }
+      },
+      product: {
+        select: {
+          description: true,
+          category: {
+            select: { name: true }
+          }
+        }
+      }
+    }
+  }
+} as const;
 
 function toChatOrderSummary(order: {
   id: string;
@@ -130,7 +171,14 @@ function toChatOrderSummary(order: {
   status: string;
   createdAt: Date;
   totalAmount: unknown;
-  items: Array<{ title: string; quantity: number }>;
+  items: Array<{
+    title: string;
+    quantity: number;
+    price: unknown;
+    imageUrl?: string;
+    variant?: { sku: string; attributes: unknown } | null;
+    product?: { description: string | null; category?: { name: string } | null } | null;
+  }>;
 }): ChatOrderSummary {
   return {
     id: order.id,
@@ -138,7 +186,16 @@ function toChatOrderSummary(order: {
     status: order.status,
     createdAt: order.createdAt,
     totalAmount: Number(order.totalAmount),
-    items: order.items.map(({ title, quantity }) => ({ title, quantity }))
+    items: order.items.map((it) => ({
+      title: it.title,
+      quantity: it.quantity,
+      price: Number(it.price || 0),
+      imageUrl: it.imageUrl,
+      sku: it.variant?.sku || null,
+      attributes: (it.variant?.attributes as Record<string, string>) || null,
+      category: it.product?.category?.name || null,
+      description: it.product?.description || null
+    }))
   };
 }
 
@@ -147,14 +204,7 @@ export async function getMyOrdersForChatServer(userId: string, limit = 10): Prom
     where: { userId },
     orderBy: { createdAt: 'desc' },
     take: Math.max(1, Math.min(20, limit)),
-    select: {
-      id: true,
-      orderNumber: true,
-      status: true,
-      createdAt: true,
-      totalAmount: true,
-      items: { select: { title: true, quantity: true } }
-    }
+    select: chatOrderSelect
   });
   return orders.map(toChatOrderSummary);
 }
@@ -164,14 +214,7 @@ export async function searchMyOrdersForChatServer(userId: string, query: string)
   const exact = await prisma.order.findMany({
     where: { userId, orderNumber: normalized },
     take: 1,
-    select: {
-      id: true,
-      orderNumber: true,
-      status: true,
-      createdAt: true,
-      totalAmount: true,
-      items: { select: { title: true, quantity: true } }
-    }
+    select: chatOrderSelect
   });
   if (exact.length) return exact.map(toChatOrderSummary);
   if (/^\d{4,}$/.test(normalized)) return [];
@@ -198,14 +241,7 @@ export async function searchMyOrdersForChatServer(userId: string, query: string)
     },
     orderBy: { createdAt: 'desc' },
     take: 5,
-    select: {
-      id: true,
-      orderNumber: true,
-      status: true,
-      createdAt: true,
-      totalAmount: true,
-      items: { select: { title: true, quantity: true } }
-    }
+    select: chatOrderSelect
   });
   return lexical.map(toChatOrderSummary);
 }
@@ -215,14 +251,7 @@ export async function getMyOrdersByIdsForChatServer(userId: string, ids: string[
   if (uniqueIds.length === 0) return [];
   const orders = await prisma.order.findMany({
     where: { userId, id: { in: uniqueIds } },
-    select: {
-      id: true,
-      orderNumber: true,
-      status: true,
-      createdAt: true,
-      totalAmount: true,
-      items: { select: { title: true, quantity: true } }
-    }
+    select: chatOrderSelect
   });
   const byId = new Map(orders.map((order) => [order.id, order]));
   return uniqueIds.flatMap((id) => {

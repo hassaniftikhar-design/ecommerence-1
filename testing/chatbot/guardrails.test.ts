@@ -62,6 +62,31 @@ describe('ShopFast intent routing', () => {
     expect(detectChatIntent('where is order 886783', customer)).toBe('ORDER_STATUS');
     expect(detectChatIntent('my orders', customer)).toBe('ORDER_HISTORY');
     expect(detectChatIntent('track my latest order', customer)).toBe('ORDER_STATUS');
+
+    // Contextual order item specifications follow-up
+    const orderContext = [
+      { role: 'USER' as const, content: 'show me dertails of this order 886783' },
+      { role: 'ASSISTANT' as const, content: 'Here are the details for your order #886783: Status DISPATCHED...' }
+    ];
+    expect(detectChatIntent('cna you also show me the spec of these items', customer, orderContext)).toBe('ORDER_STATUS');
+    expect(detectChatIntent('what size did I order?', customer, orderContext)).toBe('ORDER_STATUS');
+  });
+
+  it('routes chitchat and emotions to text-only CHITCHAT/CLOSING intents', () => {
+    const customer = { userId: 'customer-a', role: 'USER' as const };
+    expect(detectChatIntent('im feeling sad today', customer)).toBe('CHITCHAT');
+    expect(detectChatIntent('how are you today', customer)).toBe('CHITCHAT');
+    expect(detectChatIntent('who are you', customer)).toBe('CHITCHAT');
+    expect(detectChatIntent('thanks a lot', customer)).toBe('CLOSING');
+    expect(detectChatIntent('ok perfect', customer)).toBe('CLOSING');
+  });
+
+  it('routes price-constrained queries to PRODUCT_SEARCH', () => {
+    const customer = { userId: 'customer-a', role: 'USER' as const };
+    expect(detectChatIntent('give me under 30 product', customer)).toBe('PRODUCT_SEARCH');
+    expect(detectChatIntent('products under $50', customer)).toBe('PRODUCT_SEARCH');
+    expect(detectChatIntent('items below 20', customer)).toBe('PRODUCT_SEARCH');
+    expect(detectChatIntent('watches between 30 and 100', customer)).toBe('PRODUCT_SEARCH');
   });
 
   it('keeps admin analytics out of customer tool scope', () => {

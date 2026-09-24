@@ -1,6 +1,6 @@
 import { apiError, apiSuccess } from '@/lib/api-response';
 import { getChatActor } from '@/server/chatbot/auth';
-import { getChatSessionServer } from '@/server/chatbot/chat-history';
+import { deleteChatSessionServer, getChatSessionServer } from '@/server/chatbot/chat-history';
 
 export async function GET(
   request: Request,
@@ -18,5 +18,23 @@ export async function GET(
     return apiSuccess('Chat session retrieved', result);
   } catch {
     return apiError('Unable to retrieve this chat session', [], 500);
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ sessionId: string }> }
+) {
+  const actor = await getChatActor(request);
+  if (!actor) return apiError('Unauthorized', [], 401);
+
+  const { sessionId } = await params;
+
+  try {
+    const deleted = await deleteChatSessionServer(actor.userId, sessionId);
+    if (!deleted) return apiError('Chat session not found', [], 404);
+    return apiSuccess('Chat session deleted', { id: sessionId });
+  } catch {
+    return apiError('Unable to delete this chat session', [], 500);
   }
 }

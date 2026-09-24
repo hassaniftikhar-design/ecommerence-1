@@ -4,7 +4,7 @@ ShopFast Assistant runs inside the existing Next.js server. It uses the existing
 
 ## Embedding model
 
-The selected local model is `Xenova/multilingual-e5-small`, run by `@huggingface/transformers` and ONNX Runtime in Node.js. It returns 384-dimensional vectors. Query and document inputs use the model's `query:` and `passage:` prefixes.
+The selected local model is `Xenova/multilingual-e5-base`, run by `@huggingface/transformers` and ONNX Runtime in Node.js. It returns 768-dimensional vectors. Query and document inputs use the model's `query:` and `passage:` prefixes.
 
 Local benchmark on the development Mac (Node 24, quantized `q8` model):
 
@@ -12,7 +12,7 @@ Local benchmark on the development Mac (Node 24, quantized `q8` model):
 | --- | ---: |
 | First model load | 14.5 seconds |
 | Warm embedding latency | 6–20 ms per query |
-| Vector dimension | 384 |
+| Vector dimension | 768 |
 | Peak process RSS | 571 MB |
 
 The benchmark included the eight requested English and Roman Urdu queries. A small synthetic retrieval set ranked the intended running shoe, winter jacket, and black jacket highest; an unrelated refrigerator query scored 0.799, so the initial semantic acceptance threshold is 0.81. Recalibrate it with real catalog queries before relying on production conversion metrics.

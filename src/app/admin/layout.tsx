@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Logo } from '@/components/common/logo';
 import { NotificationPopover } from '@/components/notifications/notification-popover';
+import { ChatbotWidget } from '@/components/chatbot/chatbot-widget';
 import { ROUTES } from '@/constants/routes';
 import { logout } from '@/services/auth.service';
 
@@ -144,6 +145,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
           {children}
         </main>
+        <ChatbotWidget />
       </div>
     </div>
   );

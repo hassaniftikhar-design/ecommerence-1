@@ -290,7 +290,7 @@ model EmbeddingDocument {
   entityId       String
   userId         String?
   content        String                     @db.Text
-  embedding      Unsupported("vector(384)")
+  embedding      Unsupported("vector(768)")
   contentHash    String
   embeddingModel String
   status         String                     @default("ACTIVE")
