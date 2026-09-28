@@ -11,5 +11,7 @@ export const CHATBOT_EMBEDDING = {
 } as const;
 
 export const CHATBOT_RAG_TOP_K = 6;
-export const CHATBOT_SIMILARITY_THRESHOLD = 0.85;
+export const CHATBOT_SIMILARITY_THRESHOLD = 0.45;
+export const CHATBOT_STRONG_MATCH_THRESHOLD = 0.70;
+export const CHATBOT_RELATED_MATCH_THRESHOLD = 0.45;
 export const CHATBOT_RATE_LIMIT = { requests: 20, windowSeconds: 60 } as const;

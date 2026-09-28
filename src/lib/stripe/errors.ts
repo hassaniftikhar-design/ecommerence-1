@@ -92,7 +92,7 @@ export function getFriendlyPaymentErrorMessage(
   const errObj = errorOrCode as { code?: string; decline_code?: string; message?: string };
   const rawErrorCode = (errObj.decline_code || errObj.code || 'unknown').toLowerCase().trim();
   const rawErrorMessage = errObj.message || rawErrorCode;
-  
+
   let friendlyMessage = STRIPE_DECLINE_CODE_MAP[rawErrorCode];
   if (!friendlyMessage && errObj.message) {
     friendlyMessage = formatPaymentErrorMessage(errObj.message);

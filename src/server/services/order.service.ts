@@ -150,7 +150,18 @@ const chatOrderSelect = {
       variant: {
         select: {
           sku: true,
-          attributes: true
+          variantOptions: {
+            select: {
+              optionValue: {
+                select: {
+                  value: true,
+                  option: {
+                    select: { name: true }
+                  }
+                }
+              }
+            }
+          }
         }
       },
       product: {
@@ -176,7 +187,15 @@ function toChatOrderSummary(order: {
     quantity: number;
     price: unknown;
     imageUrl?: string;
-    variant?: { sku: string; attributes: unknown } | null;
+    variant?: {
+      sku: string;
+      variantOptions?: Array<{
+        optionValue: {
+          value: string;
+          option: { name: string };
+        };
+      }>;
+    } | null;
     product?: { description: string | null; category?: { name: string } | null } | null;
   }>;
 }): ChatOrderSummary {
@@ -186,16 +205,24 @@ function toChatOrderSummary(order: {
     status: order.status,
     createdAt: order.createdAt,
     totalAmount: Number(order.totalAmount),
-    items: order.items.map((it) => ({
-      title: it.title,
-      quantity: it.quantity,
-      price: Number(it.price || 0),
-      imageUrl: it.imageUrl,
-      sku: it.variant?.sku || null,
-      attributes: (it.variant?.attributes as Record<string, string>) || null,
-      category: it.product?.category?.name || null,
-      description: it.product?.description || null
-    }))
+    items: order.items.map((it) => {
+      const attributes: Record<string, string> = {};
+      if (it.variant?.variantOptions) {
+        for (const vo of it.variant.variantOptions) {
+          attributes[vo.optionValue.option.name] = vo.optionValue.value;
+        }
+      }
+      return {
+        title: it.title,
+        quantity: it.quantity,
+        price: Number(it.price || 0),
+        imageUrl: it.imageUrl,
+        sku: it.variant?.sku || null,
+        attributes: Object.keys(attributes).length > 0 ? attributes : null,
+        category: it.product?.category?.name || null,
+        description: it.product?.description || null
+      };
+    })
   };
 }
 

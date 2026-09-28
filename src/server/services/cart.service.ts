@@ -136,6 +136,8 @@ export async function getCartServer(userId: string) {
   return formatCartResponseServer(cartId);
 }
 
+export type CartResponse = Awaited<ReturnType<typeof getCartServer>>;
+
 export async function addToCartServer(
   userId: string,
   productId: string,

@@ -423,6 +423,20 @@ export function groupCsvRows(
     }
   });
 
+  // Post-pass: add warnings for split products (same title, different price or category)
+  titleToGroupKeys.forEach((keys) => {
+    if (keys.size > 1) {
+      keys.forEach((key) => {
+        const prod = productGroupMap.get(key);
+        if (prod) {
+          prod.warnings.push(
+            `Rows with title '${prod.title}' had different prices or categories and were treated as a separate product.`
+          );
+        }
+      });
+    }
+  });
+
   return Array.from(productGroupMap.values());
 }
 

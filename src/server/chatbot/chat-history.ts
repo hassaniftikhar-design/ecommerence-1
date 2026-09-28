@@ -117,12 +117,16 @@ export async function getRecentChatContextServer(userId: string, sessionId: stri
     },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: CHATBOT_CONTEXT_MESSAGES,
-    select: { role: true, content: true }
+    select: { role: true, content: true, metadata: true }
   });
   return messages
     .reverse()
     .filter((message) => message.role === 'USER' || message.role === 'ASSISTANT')
-    .map((message) => ({ role: message.role as 'USER' | 'ASSISTANT', content: message.content }));
+    .map((message) => ({
+      role: message.role as 'USER' | 'ASSISTANT',
+      content: message.content,
+      metadata: message.metadata
+    }));
 }
 
 export async function appendUserChatMessageServer(userId: string, sessionId: string, content: string) {

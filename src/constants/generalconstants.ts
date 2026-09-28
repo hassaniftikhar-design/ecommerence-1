@@ -24,7 +24,7 @@ export const PRODUCTS_PER_PAGE = PRODUCT_FETCH_BATCH_SIZE;
 //export const LAZY_LOAD_DELAY_MS = 0;
 
 export const NOTIFICATIONS_PER_PAGE = 10;
-export const NOTIFICATIONS_LAZY_LOAD_DELAY_MS = 2000;
+export const NOTIFICATIONS_LAZY_LOAD_DELAY_MS = 1000;
 
 // Backward compatibility constants
 export const MAX_VISIBLE_SIZES = MAX_VISIBLE_SIZES_DESKTOP;
