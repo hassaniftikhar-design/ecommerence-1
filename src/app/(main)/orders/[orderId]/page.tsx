@@ -12,7 +12,7 @@ import { OrderProductsTable } from '@/components/orders/order-products-table';
 import { renderStatusBadge, renderPaymentStatusBadge } from '@/components/orders/orders-table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { getOrderById, retryOrderPayment } from '@/services/order.service';
+import { getOrderById } from '@/services/order.service';
 import { getOrderPaymentIntent } from '@/services/payment.service';
 import { PriceChangedModal } from '@/components/checkout/price-changed-modal';
 import { OutOfStockModal } from '@/components/cart/out-of-stock-modal';
@@ -48,8 +48,8 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
         setError(null);
         let data = await getOrderById(orderId);
 
-        // If payment is PENDING on card order, check Stripe status once to reconcile any webhook lag
-        if (data?.payment?.status === 'PENDING') {
+        // If payment is PENDING on card order and order is not rejected, check Stripe status once to reconcile any webhook lag
+        if (data?.payment?.status === 'PENDING' && data?.status !== 'REJECTED') {
           try {
             const intentRes = await getOrderPaymentIntent(orderId);
             if (intentRes.isPaid) {
@@ -152,7 +152,12 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
     order?.paymentMethod === 'COD' ||
     !order?.payment;
   const isCardOrder = !isCodOrder && Boolean(order?.payment);
-  const isPaymentFailed = Boolean(isCardOrder && order?.payment?.status === 'FAILED');
+  const isOrderRejected = order?.status === 'REJECTED';
+  const isPaymentFailed = Boolean(
+    isCardOrder &&
+    order?.payment?.status === 'FAILED' &&
+    !isOrderRejected
+  );
   const isPaymentPendingCard = Boolean(
     isCardOrder &&
     order?.payment?.status === 'PENDING' &&

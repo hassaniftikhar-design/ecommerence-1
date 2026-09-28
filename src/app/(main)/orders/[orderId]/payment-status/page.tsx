@@ -265,26 +265,28 @@ export default function PaymentStatusPage({
         )}
 
         <div className="flex flex-col sm:flex-row gap-3 pt-4 justify-center">
-          <Button
-            onClick={async () => {
-              try {
-                setRetrying(true);
-                if (order) {
-                  await retryOrderPayment(order);
+          {order?.status !== 'REJECTED' && (
+            <Button
+              onClick={async () => {
+                try {
+                  setRetrying(true);
+                  if (order) {
+                    await retryOrderPayment(order);
+                  }
+                  router.push(`${ROUTES.checkout}?orderId=${orderId}`);
+                } catch {
+                  router.push(`${ROUTES.checkout}?orderId=${orderId}`);
+                } finally {
+                  setRetrying(false);
                 }
-                router.push(`${ROUTES.checkout}?orderId=${orderId}`);
-              } catch {
-                router.push(`${ROUTES.checkout}?orderId=${orderId}`);
-              } finally {
-                setRetrying(false);
-              }
-            }}
-            disabled={retrying}
-            className="bg-[#007BFF] hover:bg-blue-600 text-white font-semibold h-11 px-6 rounded-xl shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <RotateCcw className={cn('h-4 w-4', retrying && 'animate-spin')} />
-            {retrying ? 'Loading Checkout...' : 'Try Payment Again'}
-          </Button>
+              }}
+              disabled={retrying}
+              className="bg-[#007BFF] hover:bg-blue-600 text-white font-semibold h-11 px-6 rounded-xl shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <RotateCcw className={cn('h-4 w-4', retrying && 'animate-spin')} />
+              {retrying ? 'Loading Checkout...' : 'Try Payment Again'}
+            </Button>
+          )}
 
           <Button
             variant="outline"

@@ -10,6 +10,15 @@ export async function GET(
   if (!actor) return apiError('Unauthorized', [], 401);
 
   const { sessionId } = await params;
+  if (actor.role === 'GUEST') {
+    const now = new Date().toISOString();
+    return apiSuccess('Chat session retrieved', {
+      session: { id: sessionId, title: 'Chat', createdAt: now, updatedAt: now },
+      messages: [],
+      hasMore: false
+    });
+  }
+
   const beforeId = new URL(request.url).searchParams.get('before') || undefined;
 
   try {
@@ -29,6 +38,9 @@ export async function DELETE(
   if (!actor) return apiError('Unauthorized', [], 401);
 
   const { sessionId } = await params;
+  if (actor.role === 'GUEST') {
+    return apiSuccess('Chat session deleted', { id: sessionId });
+  }
 
   try {
     const deleted = await deleteChatSessionServer(actor.userId, sessionId);
@@ -38,3 +50,4 @@ export async function DELETE(
     return apiError('Unable to delete this chat session', [], 500);
   }
 }
+

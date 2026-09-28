@@ -6,6 +6,9 @@ import { ChatRateLimitError, enforceChatRateLimit } from '@/server/chatbot/rate-
 export async function GET(request: Request) {
   const actor = await getChatActor(request);
   if (!actor) return apiError('Unauthorized', [], 401);
+  if (actor.role === 'GUEST') {
+    return apiSuccess('Chat sessions retrieved', { sessions: [] });
+  }
 
   try {
     const sessions = await listChatSessionsServer(actor.userId);
@@ -26,6 +29,18 @@ export async function POST(request: Request) {
     return apiError('Unable to process this request', [], 503);
   }
 
+  if (actor.role === 'GUEST') {
+    const now = new Date().toISOString();
+    return apiSuccess('Chat session created', {
+      session: {
+        id: `guest_${Date.now()}`,
+        title: 'New Chat',
+        createdAt: now,
+        updatedAt: now
+      }
+    }, 201);
+  }
+
   try {
     const session = await createChatSessionServer(actor.userId);
     return apiSuccess('Chat session created', { session }, 201);
@@ -33,3 +48,4 @@ export async function POST(request: Request) {
     return apiError('Unable to create a chat session', [], 500);
   }
 }
+
