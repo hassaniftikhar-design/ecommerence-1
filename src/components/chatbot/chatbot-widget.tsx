@@ -13,6 +13,7 @@ import { useToast } from '@/components/ui/toast';
 import { CHATBOT_NAME } from '@/constants/chatbot';
 import { addToCart } from '@/services/cart.service';
 import { isSessionExpired } from '@/constants/auth';
+import { FormattedChatMessage } from '@/components/chatbot/formatted-chat-message';
 
 type ChatMessage = { id: string; role: 'USER' | 'ASSISTANT'; content: string; metadata?: AssistantContent | null; createdAt: string };
 type ChatSession = { id: string; title: string; createdAt: string; updatedAt: string; _count?: { messages: number } };
@@ -48,7 +49,15 @@ async function fetchSession(sessionId: string, beforeId?: string): Promise<Sessi
   return readApiData<SessionPage>(response);
 }
 
-function ChatProductCard({ product }: { product: ProductCard }) {
+function ChatProductCard({
+  product,
+  isAuthenticated,
+  isAdmin
+}: {
+  product: ProductCard;
+  isAuthenticated: boolean;
+  isAdmin?: boolean;
+}) {
   const { showSuccess, showError } = useToast();
   const availableVariants = product.variants.filter((variant) => variant.stock > 0);
   const [variantId, setVariantId] = useState(availableVariants[0]?.id || '');
@@ -59,6 +68,10 @@ function ChatProductCard({ product }: { product: ProductCard }) {
   };
 
   const handleAdd = async () => {
+    if (!isAuthenticated) {
+      showError('Please login first as adding items to your cart requires you to login first.');
+      return;
+    }
     try {
       await addToCart(product.id, selectedVariant?.id || null, 1);
       showSuccess(`${product.name} added to your cart.`);
@@ -105,9 +118,15 @@ function ChatProductCard({ product }: { product: ProductCard }) {
       )}
       <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/50 px-3 py-2">
         <span className="text-xs text-slate-500 font-medium">{selectedVariant?.stock ?? product.stock} in stock</span>
-        <Button size="sm" className="h-7 text-xs px-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm" disabled={product.stock < 1 || Boolean(product.variants.length && !selectedVariant?.stock)} onClick={handleAdd}>
-          Add to cart
-        </Button>
+        {!isAdmin ? (
+          <Button size="sm" className="h-7 text-xs px-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm" disabled={product.stock < 1 || Boolean(product.variants.length && !selectedVariant?.stock)} onClick={handleAdd}>
+            Add to cart
+          </Button>
+        ) : (
+          <span className="text-[11px] font-mono text-slate-500 bg-slate-200/80 px-2 py-0.5 rounded font-medium">
+            {selectedVariant?.sku || product.variants[0]?.sku || 'SKU'}
+          </span>
+        )}
       </div>
     </article>
   );
@@ -128,6 +147,8 @@ export function ChatbotWidget() {
   const [activeSessionId, setActiveSessionId] = useState<string>();
   const [draft, setDraft] = useState('');
   const [pendingMessage, setPendingMessage] = useState<ChatMessage | null>(null);
+  const [guestSessionId, setGuestSessionId] = useState<string>('guest_session');
+  const [guestMessages, setGuestMessages] = useState<ChatMessage[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -184,7 +205,7 @@ export function ChatbotWidget() {
   });
 
   const sendMutation = useMutation({
-    mutationFn: async (input: { message: string; sessionId?: string }) => {
+    mutationFn: async (input: { message: string; sessionId?: string; context?: ChatMessage[] }) => {
       const response = await fetch('/api/chatbot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -198,15 +219,32 @@ export function ChatbotWidget() {
       }>(response);
     },
     onSuccess: (result) => {
-      setActiveSessionId(result.sessionId);
-      const key = ['chatbot', 'session', result.sessionId];
-      queryClient.setQueryData<SessionPage>(key, (current) => ({
-        session: current?.session || { id: result.sessionId, title: 'New Chat', createdAt: result.userMessage.createdAt, updatedAt: result.message.createdAt },
-        messages: [...(current?.messages || []), result.userMessage, result.message],
-        hasMore: current?.hasMore || false,
-        nextBeforeId: current?.nextBeforeId
-      }));
-      void queryClient.invalidateQueries({ queryKey: ['chatbot', 'sessions'] });
+      if (isAuthenticated) {
+        setActiveSessionId(result.sessionId);
+        const key = ['chatbot', 'session', result.sessionId];
+        queryClient.setQueryData<SessionPage>(key, (current) => ({
+          session: current?.session || { id: result.sessionId, title: 'New Chat', createdAt: result.userMessage.createdAt, updatedAt: result.message.createdAt },
+          messages: [...(current?.messages || []), result.userMessage, result.message],
+          hasMore: current?.hasMore || false,
+          nextBeforeId: current?.nextBeforeId
+        }));
+        void queryClient.invalidateQueries({ queryKey: ['chatbot', 'sessions'] });
+      } else {
+        setGuestSessionId(result.sessionId);
+        setGuestMessages((prev) => [...prev, result.userMessage, result.message]);
+      }
+
+      if (result.response?.actions?.length) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('cart-updated'));
+        }
+        void queryClient.invalidateQueries({ queryKey: ['cart'] });
+        const targetCard = result.response.productCards?.[0];
+        const toastMsg = targetCard
+          ? `${targetCard.name} added to cart successfully!`
+          : 'Item added to cart successfully!';
+        showSuccess(toastMsg);
+      }
       setShowHistory(false);
     },
     onSettled: () => {
@@ -214,15 +252,17 @@ export function ChatbotWidget() {
     }
   });
 
-  const messages = chatQuery.data?.messages || [];
   const displayMessages = useMemo(() => {
+    const messages = isAuthenticated ? (chatQuery.data?.messages || []) : guestMessages;
     if (!pendingMessage) return messages;
     return [...messages, pendingMessage];
-  }, [messages, pendingMessage]);
+  }, [isAuthenticated, chatQuery.data?.messages, guestMessages, pendingMessage]);
 
   const activeSession = useMemo(() =>
-    sessionsQuery.data?.find((item) => item.id === activeSessionId) || chatQuery.data?.session,
-  [sessionsQuery.data, activeSessionId, chatQuery.data?.session]);
+    isAuthenticated
+      ? (sessionsQuery.data?.find((item) => item.id === activeSessionId) || chatQuery.data?.session)
+      : undefined,
+  [isAuthenticated, sessionsQuery.data, activeSessionId, chatQuery.data?.session]);
 
   useEffect(() => {
     if (isOpen) inputRef.current?.focus();
@@ -242,8 +282,6 @@ export function ChatbotWidget() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isOpen]);
 
-  if (!isAuthenticated) return null;
-
   const sendMessage = (textToSend?: string, event?: FormEvent) => {
     event?.preventDefault();
     const message = (typeof textToSend === 'string' ? textToSend : draft).trim();
@@ -254,7 +292,16 @@ export function ChatbotWidget() {
       content: message,
       createdAt: new Date().toISOString()
     });
-    sendMutation.mutate({ message, ...(activeSessionId ? { sessionId: activeSessionId } : {}) });
+
+    if (isAuthenticated) {
+      sendMutation.mutate({ message, ...(activeSessionId ? { sessionId: activeSessionId } : {}) });
+    } else {
+      sendMutation.mutate({
+        message,
+        sessionId: guestSessionId,
+        context: guestMessages.slice(-10)
+      });
+    }
     setDraft('');
   };
 
@@ -279,16 +326,33 @@ export function ChatbotWidget() {
     }
   };
 
+  const handleStartNewChat = () => {
+    if (isAuthenticated) {
+      createSessionMutation.mutate();
+    } else {
+      setGuestMessages([]);
+      setGuestSessionId(`guest_${Date.now()}`);
+      setPendingMessage(null);
+      setShowHistory(false);
+    }
+  };
+
   const quickPrompts = isAdmin ? [
-    'Store revenue this month',
+    'Store revenue & sales summary',
     'Top selling products',
     'Low stock inventory report',
-    'Recent orders status'
-  ] : [
+    'Order fulfillment status breakdown',
+    'Lowest selling products'
+  ] : isAuthenticated ? [
     'Watches under $50',
     'What about my last order?',
     'Do you have any slippers?',
     'What is your return policy?'
+  ] : [
+    'Watches under $50',
+    'Show popular sneakers',
+    'What is your return policy?',
+    'Do you support Cash on Delivery?'
   ];
 
   return (
@@ -362,7 +426,7 @@ export function ChatbotWidget() {
               <div className="flex items-center gap-1">
                 {!showHistory && (
                   <>
-                    {activeSessionId && (
+                    {isAuthenticated && activeSessionId && (
                       <button
                         type="button"
                         aria-label="Delete this conversation"
@@ -381,7 +445,7 @@ export function ChatbotWidget() {
                     <button type="button" aria-label="Chat history" title="Chat history" onClick={() => setShowHistory(true)} className="rounded-xl p-2 text-slate-300 hover:bg-slate-800 hover:text-white transition">
                       <Clock3 className="h-4 w-4" />
                     </button>
-                    <button type="button" aria-label="New conversation" title="New conversation" onClick={() => createSessionMutation.mutate()} className="rounded-xl p-2 text-slate-300 hover:bg-slate-800 hover:text-white transition">
+                    <button type="button" aria-label="New conversation" title="New conversation" onClick={handleStartNewChat} className="rounded-xl p-2 text-slate-300 hover:bg-slate-800 hover:text-white transition">
                       <Plus className="h-4 w-4" />
                     </button>
                   </>
@@ -394,49 +458,67 @@ export function ChatbotWidget() {
 
             {showHistory ? (
               <div className="flex-1 overflow-y-auto p-3">
-                {sessionsQuery.isLoading ? <p className="p-4 text-center text-sm text-slate-500">Loading conversations…</p> : null}
-                {(sessionsQuery.data || []).length === 0 && !sessionsQuery.isLoading ? (
-                  <div className="py-12 text-center">
+                {!isAuthenticated ? (
+                  <div className="py-12 text-center px-4">
                     <MessageSquareText className="mx-auto h-8 w-8 text-slate-300" />
-                    <p className="mt-2 text-sm text-slate-500 font-medium">No conversation history yet.</p>
-                  </div>
-                ) : null}
-                {(sessionsQuery.data || []).map((item) => (
-                  <div
-                    key={item.id}
-                    className="group mb-1.5 flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-left hover:bg-blue-50/60 border border-transparent hover:border-blue-100 transition"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => { setActiveSessionId(item.id); setShowHistory(false); }}
-                      className="min-w-0 flex-1 text-left"
+                    <p className="mt-2 text-sm font-semibold text-slate-800">Sign in to save history</p>
+                    <p className="mt-1 text-xs text-slate-500 leading-relaxed">
+                      Sign in or create an account to access and sync your chat conversations across all your devices.
+                    </p>
+                    <a
+                      href="/login"
+                      className="mt-4 inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 transition"
                     >
-                      <span className="block truncate text-sm font-semibold text-slate-800">{item.title}</span>
-                      <span className="mt-0.5 block text-[11px] text-slate-400">{new Date(item.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                    </button>
-                    <div className="ml-2 flex items-center gap-1.5 shrink-0">
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{item._count?.messages || 0}</span>
-                      <button
-                        type="button"
-                        title="Delete conversation"
-                        aria-label="Delete conversation"
-                        disabled={deleteSessionMutation.isPending}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteSessionMutation.mutate(item.id);
-                        }}
-                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                      Sign In / Register
+                    </a>
                   </div>
-                ))}
+                ) : (
+                  <>
+                    {sessionsQuery.isLoading ? <p className="p-4 text-center text-sm text-slate-500">Loading conversations…</p> : null}
+                    {(sessionsQuery.data || []).length === 0 && !sessionsQuery.isLoading ? (
+                      <div className="py-12 text-center">
+                        <MessageSquareText className="mx-auto h-8 w-8 text-slate-300" />
+                        <p className="mt-2 text-sm text-slate-500 font-medium">No conversation history yet.</p>
+                      </div>
+                    ) : null}
+                    {(sessionsQuery.data || []).map((item) => (
+                      <div
+                        key={item.id}
+                        className="group mb-1.5 flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-left hover:bg-blue-50/60 border border-transparent hover:border-blue-100 transition"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => { setActiveSessionId(item.id); setShowHistory(false); }}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <span className="block truncate text-sm font-semibold text-slate-800">{item.title}</span>
+                          <span className="mt-0.5 block text-[11px] text-slate-400">{new Date(item.updatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                        </button>
+                        <div className="ml-2 flex items-center gap-1.5 shrink-0">
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{item._count?.messages || 0}</span>
+                          <button
+                            type="button"
+                            title="Delete conversation"
+                            aria-label="Delete conversation"
+                            disabled={deleteSessionMutation.isPending}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteSessionMutation.mutate(item.id);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
             ) : (
               <>
                 <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto bg-slate-50/70 p-3.5 sm:p-4" aria-live="polite">
-                  {chatQuery.data?.hasMore && (
+                  {isAuthenticated && chatQuery.data?.hasMore && (
                     <div className="text-center">
                       <button type="button" onClick={loadOlderMessages} className="text-xs font-medium text-blue-600 hover:underline">Load earlier messages</button>
                     </div>
@@ -460,7 +542,9 @@ export function ChatbotWidget() {
                       <p className="mt-1 text-xs text-slate-500 leading-relaxed">
                         {isAdmin
                           ? 'Ask for live revenue figures, top selling products, low-stock inventory, or order analytics.'
-                          : 'I can search products, compare styles & prices, check stock, or look up your order status.'}
+                          : isAuthenticated
+                            ? 'I can search products, compare styles & prices, check stock, or look up your order status.'
+                            : 'I can help you search products, check prices, answer store policies, or find what you need.'}
                       </p>
 
                       <div className="mt-5 text-left">
@@ -484,7 +568,7 @@ export function ChatbotWidget() {
                     </div>
                   )}
 
-                  {chatQuery.isLoading && <p className="py-8 text-center text-sm text-slate-500">Loading conversation…</p>}
+                  {isAuthenticated && chatQuery.isLoading && <p className="py-8 text-center text-sm text-slate-500">Loading conversation…</p>}
 
                   {/* Message Stream */}
                   {displayMessages.map((message) => {
@@ -504,12 +588,14 @@ export function ChatbotWidget() {
                           </div>
                         )}
                         <div className={`max-w-[85%] ${isAssistant ? 'items-start' : 'items-end'} flex flex-col`}>
-                          <div className={`whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${isAssistant ? 'rounded-tl-xs border border-slate-200/80 bg-white text-slate-800 shadow-sm' : 'rounded-tr-xs bg-blue-600 text-white shadow-sm'}`}>
-                            {message.content}
+                          <div className={`break-words rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${isAssistant ? 'rounded-tl-xs border border-slate-200/80 bg-white text-slate-800 shadow-sm' : 'rounded-tr-xs bg-blue-600 text-white shadow-sm'}`}>
+                            <FormattedChatMessage content={message.content} isAssistant={isAssistant} />
                           </div>
                           {enhanced?.productCards?.length ? (
                             <div className="mt-2.5 flex max-w-[calc(100vw-56px)] gap-2.5 overflow-x-auto pb-2 sm:max-w-[340px]">
-                              {enhanced.productCards.map((product) => <ChatProductCard key={product.id} product={product} />)}
+                              {enhanced.productCards.map((product) => (
+                                <ChatProductCard key={product.id} product={product} isAuthenticated={isAuthenticated} isAdmin={isAdmin} />
+                              ))}
                             </div>
                           ) : null}
                           <span className="mt-1 px-1 text-[10px] text-slate-400 font-medium">
@@ -558,7 +644,7 @@ export function ChatbotWidget() {
                       onKeyDown={onInputKeyDown}
                       maxLength={1000}
                       rows={1}
-                      placeholder={isAdmin ? "Ask store analytics, revenue, or inventory…" : "Ask ShopFast Assistant…"}
+                      placeholder={isAdmin ? 'Ask store analytics, revenue, or inventory…' : 'Ask ShopFast Assistant…'}
                       aria-label="Message ShopFast Assistant"
                       className="max-h-28 min-h-9 flex-1 resize-none bg-transparent px-1 py-1.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 leading-normal"
                     />

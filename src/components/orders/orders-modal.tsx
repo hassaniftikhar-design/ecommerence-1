@@ -11,6 +11,7 @@ import { OrderProductsTable } from '@/components/orders/order-products-table';
 import { getOrders, getOrderById } from '@/services/order.service';
 import type { OrderDetail, OrderListItem } from '@/types/order.types';
 import { cn } from '@/lib/utils';
+import { getPaginationRange } from '@/lib/pagination-util';
 
 const PAGE_SIZE = 13;
 
@@ -196,7 +197,7 @@ export function OrdersModal({ isOpen, onClose, initialOrderId }: OrdersModalProp
                         Previous
                       </button>
 
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                      {getPaginationRange(currentPage, totalPages).map((p) => (
                         <button
                           key={p}
                           type="button"

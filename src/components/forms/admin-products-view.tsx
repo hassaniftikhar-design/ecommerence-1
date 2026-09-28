@@ -30,6 +30,7 @@ import { Tooltip } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { getValidImageUrl } from '@/lib/image-util';
 import { useSocket } from '@/providers/socket-provider';
+import { getPaginationRange } from '@/lib/pagination-util';
 
 export function AdminProductsView() {
   const router = useRouter();
@@ -544,7 +545,7 @@ export function AdminProductsView() {
             >
               Previous
             </button>
-            {Array.from({ length: paginationMeta.totalPages }, (_, i) => i + 1).map((page) => (
+            {getPaginationRange(paginationMeta.page, paginationMeta.totalPages).map((page) => (
               <button
                 key={page}
                 onClick={() => handlePageChange(page)}

@@ -23,6 +23,7 @@ import { renderStatusBadge, renderPaymentStatusBadge } from '@/components/orders
 import { getOrders } from '@/services/order.service';
 import type { OrderListItem } from '@/types/order.types';
 import { useDebounce } from '@/hooks/use-debounce';
+import { getPaginationRange } from '@/lib/pagination-util';
 
 export function AdminOrdersView() {
   const router = useRouter();
@@ -252,7 +253,7 @@ export function AdminOrdersView() {
             >
               Previous
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            {getPaginationRange(currentPage, totalPages).map((page) => (
               <button
                 key={page}
                 type="button"
