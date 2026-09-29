@@ -123,7 +123,7 @@ export function OrdersModal({ isOpen, onClose, initialOrderId }: OrdersModalProp
     <div className="fixed inset-0 z-[9999] flex justify-end overflow-hidden">
       {/* Backdrop Overlay */}
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity duration-300"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
         onClick={onClose}
       />
 

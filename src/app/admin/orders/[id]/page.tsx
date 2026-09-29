@@ -91,8 +91,15 @@ export default function AdminOrderDetailPage({
         order.payment.status === 'PROCESSING' ||
         order.payment.status === 'FAILED')
   );
+  const isPaymentPaid = Boolean(
+    order?.payment?.status === 'SUCCEEDED' ||
+      order?.paymentStatus === 'SUCCEEDED'
+  );
 
-  const currentOptions = order ? ALLOWED_STATUS_OPTIONS[order.status] || [] : [];
+  const rawOptions = order ? ALLOWED_STATUS_OPTIONS[order.status] || [] : [];
+  const currentOptions = isPaymentPaid
+    ? rawOptions.filter((opt) => opt.value !== 'REJECTED')
+    : rawOptions;
   const totalUnits = order?.products.reduce((acc, it) => acc + (it.quantity || 0), 0) || 0;
 
   return (

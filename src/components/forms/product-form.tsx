@@ -1241,7 +1241,11 @@ export function ProductForm({ mode, initialData, onSubmitSuccess }: ProductFormP
       {/* Status Change Confirmation Modal */}
       {pendingStatusChange && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full  space-y-4 border border-slate-200/90 ring-1 ring-slate-900/10">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+            onClick={() => setPendingStatusChange(null)}
+          />
+          <div className="relative z-10 bg-white rounded-2xl p-6 max-w-md w-full space-y-4 border border-slate-200/90 shadow-2xl animate-in zoom-in-95 duration-200">
             <div className="flex items-center gap-3">
               <div
                 className={cn(

@@ -711,6 +711,15 @@ export async function updateOrderStatusServer(id: string, status: unknown) {
         message: 'This order has been refunded and cannot be advanced. Only cancellation (Rejected) is permitted.'
       };
     }
+
+    if (paymentStatus === 'SUCCEEDED' && validStatus === 'REJECTED') {
+      return {
+        success: false as const,
+        status: 400,
+        errors: ['ORDER_ALREADY_PAID'],
+        message: 'Paid orders cannot be rejected or cancelled.'
+      };
+    }
   }
 
   const previousStatus = existingOrder.status;

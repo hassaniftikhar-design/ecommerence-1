@@ -38,7 +38,6 @@ export function AdminOrdersView() {
   const [totalAmount, setTotalAmount] = useState(0);
   const pageSize = 10;
 
-  // Reset to page 1 whenever debounced search term changes
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedSearchQuery]);

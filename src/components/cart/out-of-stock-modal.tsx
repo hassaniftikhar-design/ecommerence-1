@@ -22,12 +22,13 @@ export function OutOfStockModal({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 border border-slate-200"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+        onClick={onClose}
+      />
+      <div
+        className="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 border border-slate-200"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Icon */}

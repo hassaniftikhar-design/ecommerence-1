@@ -44,7 +44,7 @@ export function OrderSuccessModal({
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-hidden">
       {/* Non-interactive backdrop overlay (No close on click) */}
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-300" />
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300" />
 
       {/* Decision-making Popup Card */}
       <div className="relative z-[10000] w-full max-w-md bg-white rounded-2xl p-6 sm:p-8 shadow-2xl border border-slate-100 text-center animate-in fade-in zoom-in-95 duration-200">

@@ -53,7 +53,7 @@ export function RequireLoginModal({
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-hidden">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-300"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300"
         onClick={onClose}
       />
 

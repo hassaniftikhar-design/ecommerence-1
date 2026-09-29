@@ -262,7 +262,7 @@ export function ChatbotWidget() {
     isAuthenticated
       ? (sessionsQuery.data?.find((item) => item.id === activeSessionId) || chatQuery.data?.session)
       : undefined,
-  [isAuthenticated, sessionsQuery.data, activeSessionId, chatQuery.data?.session]);
+    [isAuthenticated, sessionsQuery.data, activeSessionId, chatQuery.data?.session]);
 
   useEffect(() => {
     if (isOpen) inputRef.current?.focus();
@@ -362,7 +362,7 @@ export function ChatbotWidget() {
           type="button"
           aria-label={`Open ${CHATBOT_NAME}`}
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-[70] flex h-14 w-14 items-center justify-center rounded-full bg-white p-1 shadow-xl shadow-blue-500/20 ring-2 ring-blue-600/30 transition-all duration-300 hover:scale-110 hover:shadow-2xl hover:shadow-blue-500/30 active:scale-95 group"
+          className="fixed bottom-[84px] right-6 z-[70] flex h-14 w-14 items-center justify-center rounded-full bg-white p-1 shadow-xl shadow-blue-500/20 ring-2 ring-blue-600/30 transition-all duration-300 hover:scale-110 hover:shadow-2xl hover:shadow-blue-500/30 active:scale-95 group"
         >
           <div className="relative h-full w-full overflow-hidden rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 p-0.5">
             <Image
@@ -390,7 +390,7 @@ export function ChatbotWidget() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="shopfast-chat-title"
-            className="animate-in fade-in zoom-in-95 fixed inset-x-2 bottom-2 flex h-[min(720px,calc(100dvh-16px))] flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl duration-200 sm:inset-x-auto sm:bottom-6 sm:right-6 sm:w-[420px]"
+            className="animate-in fade-in zoom-in-95 fixed inset-x-2 bottom-2 flex h-[min(720px,calc(100dvh-16px))] flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-2xl duration-200 sm:inset-x-auto sm:bottom-[88px] sm:right-6 sm:w-[420px]"
           >
             {/* Header */}
             <header className="flex items-center justify-between border-b border-slate-800 bg-slate-950 px-4 py-3 shadow-sm text-white">

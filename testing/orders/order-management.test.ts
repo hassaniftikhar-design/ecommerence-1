@@ -199,11 +199,28 @@ describe('Order Management, State Transitions & Payment Methods Suite', () => {
       expect(result.message).toContain('Delivered orders cannot be modified');
     });
 
-    it('restores stock when order is cancelled/marked REJECTED', async () => {
+    it('blocks rejecting order when payment is SUCCEEDED (400 ORDER_ALREADY_PAID)', async () => {
       mockPrisma.order.findUnique.mockResolvedValueOnce({
         ...mockTestOrder,
         status: 'IN_PROGRESS',
         payment: mockTestPaymentSucceeded,
+        items: [mockTestOrderItem1]
+      });
+
+      const result = await updateOrderStatusServer(TEST_ORDER_ID, 'REJECTED');
+
+      expect(result.success).toBe(false);
+      expect(result.status).toBe(400);
+      expect(result.errors).toContain('ORDER_ALREADY_PAID');
+      expect(result.message).toContain('Paid orders cannot be rejected');
+      expect(mockPrisma.order.update).not.toHaveBeenCalled();
+    });
+
+    it('restores stock when unpaid/COD order is cancelled/marked REJECTED', async () => {
+      mockPrisma.order.findUnique.mockResolvedValueOnce({
+        ...mockTestOrder,
+        status: 'IN_PROGRESS',
+        payment: null,
         items: [mockTestOrderItem1]
       });
 
