@@ -16,23 +16,14 @@ const userSocketsMap: Map<string, Set<string>> =
 const socketToUserMap: Map<string, string> =
   global.__socketToUserMap || (global.__socketToUserMap = new Map<string, string>());
 
-/**
- * Sets the global Socket.IO instance
- */
 export function setIO(io: SocketIOServer): void {
   global.__ioInstance = io;
 }
 
-/**
- * Gets the global Socket.IO instance
- */
 export function getIO(): SocketIOServer | null {
   return global.__ioInstance || null;
 }
 
-/**
- * Registers a socket connection for a specific authenticated userId.
- */
 export function addUserSocket(userId: string, socketId: string): void {
   if (!userId || !socketId) return;
 
@@ -43,9 +34,6 @@ export function addUserSocket(userId: string, socketId: string): void {
   socketToUserMap.set(socketId, userId);
 }
 
-/**
- * Removes a socket connection when disconnected.
- */
 export function removeUserSocket(userId: string, socketId: string): void {
   if (userId && userSocketsMap.has(userId)) {
     const sockets = userSocketsMap.get(userId)!;
@@ -57,9 +45,6 @@ export function removeUserSocket(userId: string, socketId: string): void {
   socketToUserMap.delete(socketId);
 }
 
-/**
- * Handles cleanup if only socketId is known on disconnect.
- */
 export function removeSocketById(socketId: string): void {
   const userId = socketToUserMap.get(socketId);
   if (userId) {
@@ -67,9 +52,6 @@ export function removeSocketById(socketId: string): void {
   }
 }
 
-/**
- * Gets all active socket IDs belonging to a specific userId.
- */
 export function getUserSockets(userId: string): string[] {
   if (!userId || !userSocketsMap.has(userId)) {
     return [];
@@ -77,10 +59,6 @@ export function getUserSockets(userId: string): string[] {
   return Array.from(userSocketsMap.get(userId)!);
 }
 
-/**
- * Emits an event with payload exclusively to all active sockets belonging to a specific user.
- * Never broadcasts to other users or uses client-controlled rooms.
- */
 export function emitToUser(userId: string, event: string, payload: unknown): void {
   const io = getIO();
   if (!io || !userId) return;

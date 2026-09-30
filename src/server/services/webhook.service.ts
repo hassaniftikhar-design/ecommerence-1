@@ -6,10 +6,7 @@ import { getFriendlyPaymentErrorMessage, logStripeError } from '@/lib/stripe/err
 import { validateStripeWebhookInput } from '@/server/middlewares';
 import { createAndEmitNotificationServer } from '@/server/services/notification.service';
 
-/**
- * Resolves the Payment entity for a PaymentIntent with robust metadata fallback
- * and strict security verification.
- */
+
 async function findAndValidatePaymentForIntent(paymentIntent: Stripe.PaymentIntent) {
   const paymentIntentId = paymentIntent.id;
 
@@ -60,7 +57,6 @@ async function findAndValidatePaymentForIntent(paymentIntent: Stripe.PaymentInte
         return null;
       }
 
-      // Populate stripePaymentIntentId on DB Payment
       await prisma.payment.update({
         where: { id: payment.id },
         data: { stripePaymentIntentId: paymentIntentId }
@@ -71,10 +67,6 @@ async function findAndValidatePaymentForIntent(paymentIntent: Stripe.PaymentInte
   return payment;
 }
 
-/**
- * Handles payment_intent.processing event:
- * Sets Payment.status = PROCESSING.
- */
 async function handlePaymentIntentProcessing(paymentIntent: Stripe.PaymentIntent) {
   const payment = await findAndValidatePaymentForIntent(paymentIntent);
   if (!payment) return;
@@ -90,10 +82,6 @@ async function handlePaymentIntentProcessing(paymentIntent: Stripe.PaymentIntent
   }
 }
 
-/**
- * Handles payment_intent.succeeded event:
- * Sets Payment.status = SUCCEEDED, paidAt = now(), saves PaymentMethod if requested.
- */
 async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
   const paymentIntentId = paymentIntent.id;
   const paymentMethodId =
@@ -262,42 +250,37 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
     orderId: payment.order.id
   });
 }
+// async function handleChargeRefunded(charge: Stripe.Charge) {
+//   const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : null;
 
-/**
- * Handles charge.refunded event:
- * Sets Payment.status = REFUNDED or PARTIALLY_REFUNDED, refundedAt = now().
- */
-async function handleChargeRefunded(charge: Stripe.Charge) {
-  const paymentIntentId = typeof charge.payment_intent === 'string' ? charge.payment_intent : null;
+//   if (!paymentIntentId) return;
 
-  if (!paymentIntentId) return;
+//   const payment = await prisma.payment.findUnique({
+//     where: { stripePaymentIntentId: paymentIntentId },
+//     include: { order: true }
+//   });
 
-  const payment = await prisma.payment.findUnique({
-    where: { stripePaymentIntentId: paymentIntentId },
-    include: { order: true }
-  });
+//   if (!payment) return;
 
-  if (!payment) return;
+//   const isFullRefund = charge.amount_refunded >= charge.amount;
+//   const newStatus = isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED';
 
-  const isFullRefund = charge.amount_refunded >= charge.amount;
-  const newStatus = isFullRefund ? 'REFUNDED' : 'PARTIALLY_REFUNDED';
+//   await prisma.payment.update({
+//     where: { id: payment.id },
+//     data: {
+//       status: newStatus,
+//       refundedAt: new Date()
+//     }
+//   });
 
-  await prisma.payment.update({
-    where: { id: payment.id },
-    data: {
-      status: newStatus,
-      refundedAt: new Date()
-    }
-  });
-
-  await createAndEmitNotificationServer({
-    recipientId: payment.order.userId,
-    title: 'Payment Refunded',
-    message: `A refund of $${(charge.amount_refunded / 100).toFixed(2)} was processed for Order #${payment.order.orderNumber}.`,
-    type: 'PAYMENT_REFUNDED',
-    orderId: payment.order.id
-  });
-}
+//   await createAndEmitNotificationServer({
+//     recipientId: payment.order.userId,
+//     title: 'Payment Refunded',
+//     message: `A refund of $${(charge.amount_refunded / 100).toFixed(2)} was processed for Order #${payment.order.orderNumber}.`,
+//     type: 'PAYMENT_REFUNDED',
+//     orderId: payment.order.id
+//   });
+// }
 
 /**
  * Handles setup_intent.succeeded event:
@@ -342,9 +325,7 @@ async function handleSetupIntentSucceeded(setupIntent: Stripe.SetupIntent) {
   }
 }
 
-/**
- * Main Stripe Webhook processing service.
- */
+
 export async function processStripeWebhookServer(body: string, signature: string | null) {
   const validation = validateStripeWebhookInput(signature, process.env.STRIPE_WEBHOOK_SECRET);
   if (!validation.success) {
@@ -422,11 +403,11 @@ export async function processStripeWebhookServer(body: string, signature: string
         break;
       }
 
-      case 'charge.refunded': {
-        const charge = event.data.object as Stripe.Charge;
-        await handleChargeRefunded(charge);
-        break;
-      }
+      // case 'charge.refunded': {
+      //   const charge = event.data.object as Stripe.Charge;
+      //   await handleChargeRefunded(charge);
+      //   break;
+      // }
 
       case 'setup_intent.succeeded': {
         const setupIntent = event.data.object as Stripe.SetupIntent;

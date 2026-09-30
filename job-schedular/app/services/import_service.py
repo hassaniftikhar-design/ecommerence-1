@@ -43,10 +43,7 @@ def cleanup_import_storage_folder(
     csv_path: Optional[str] = None,
     images_path: Optional[str] = None
 ) -> None:
-    """
-    Safely removes the physical import folder from disk (storage/imports/<jobId>)
-    once the import has 100% succeeded or all error items have been resolved.
-    """
+   
     candidates = []
     if csv_path and os.path.exists(csv_path):
         candidates.append(os.path.dirname(os.path.abspath(csv_path)))
@@ -70,15 +67,6 @@ def cleanup_import_storage_folder(
                 logger.info(f"Cleaned up physical import storage directory for job {job_id}: {path}")
             except Exception as e:
                 logger.warning(f"Failed to clean up storage folder {path} for job {job_id}: {e}")
-
-
-
-def generate_sku() -> str:
-    """Generate unique SKU string."""
-    rand_hex = secrets.token_hex(3).upper()
-    timestamp = hex(int(time.time()))[2:].upper()
-    return f"SKU-{timestamp}-{rand_hex}"
-
 
 def create_file_import_job(
     db: Session,
@@ -107,7 +95,7 @@ def create_file_import_job(
     db.refresh(job)
     return job
 
-
+# legacy based
 def create_import_job(
     db: Session,
     created_by_id: str,
@@ -144,18 +132,8 @@ def create_import_job(
     db.refresh(job)
     return job
 
-
 def parse_csv_into_grouped_products(csv_path: str) -> List[Dict[str, Any]]:
-    """
-    Parse a CSV file and group rows into product definitions.
-    Strictly preserves CASE-SENSITIVE product titles:
-    Matching key = (exact title, exact price, exact categoryName).
 
-    Deduplication Rule:
-    - Tracks global seen SKUs across the entire CSV.
-    - If a row contains a duplicate SKU (or matching generated SKU if SKU column is omitted),
-      the duplicate row is silently ignored and skipped in parsing before batch creation.
-    """
     if not os.path.exists(csv_path):
         raise FileNotFoundError(f"CSV file not found at path: {csv_path}")
 
@@ -163,7 +141,7 @@ def parse_csv_into_grouped_products(csv_path: str) -> List[Dict[str, Any]]:
     with open(csv_path, mode="r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         for idx, row in enumerate(reader):
-            # Normalize column names (case-insensitive for header keys, but preserve value case)
+            # Normalize column names 
             clean_row = {}
             for k, v in row.items():
                 if k is not None:

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 
+import { createPortal } from 'react-dom';
 import { Edit2, Search, ChevronDown, ChevronUp, X, AlertTriangle } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
@@ -60,6 +61,22 @@ export function AdminProductsView() {
 
   // Image preview modal state
   const [previewImage, setPreviewImage] = useState<{ url: string; title: string } | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (previewImage) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [previewImage]);
 
   const toggleRowExpand = (productId: string) => {
     setExpandedProductId((prev) => (prev === productId ? null : productId));
@@ -567,16 +584,16 @@ export function AdminProductsView() {
       )}
 
       {/* Full-Screen Lightbox Image Preview Modal */}
-      {previewImage && (
+      {previewImage && mounted && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/90 backdrop-blur-md p-2 sm:p-4 animate-in fade-in duration-200"
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/90 backdrop-blur-md p-2 sm:p-4 animate-in fade-in duration-200"
           onClick={() => setPreviewImage(null)}
         >
           {/* Floating Close Button */}
           <button
             type="button"
             onClick={() => setPreviewImage(null)}
-            className="absolute top-4 right-4 sm:top-6 sm:right-6 z-[10001] rounded-full p-2.5 bg-black/60 hover:bg-black/90 text-white transition cursor-pointer shadow-2xl border border-white/20"
+            className="absolute top-4 right-4 sm:top-6 sm:right-6 z-[100000] rounded-full p-2.5 bg-black/60 hover:bg-black/90 text-white transition cursor-pointer shadow-2xl border border-white/20"
             aria-label="Close preview"
           >
             <X className="h-6 w-6" />
@@ -595,7 +612,8 @@ export function AdminProductsView() {
               className="object-contain rounded-2xl shadow-2xl"
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <WelcomeToast />

@@ -24,7 +24,6 @@ export interface ProductGridProps {
 }
 
 export function ProductGrid({ initialData, q = '', category = '', sort = '' }: ProductGridProps) {
-  // Only seed initialData when initial params match default unsorted/unfiltered initial page load
   const isInitialFilter = !q && !category && (!sort || sort === 'newest');
 
   const {
@@ -67,7 +66,6 @@ export function ProductGrid({ initialData, q = '', category = '', sort = '' }: P
     staleTime: 60 * 1000
   });
 
-  // Flatten and deduplicate products across all loaded pages
   const products = useMemo(() => {
     if (!data?.pages) return [];
     const seen = new Set<string>();
@@ -88,7 +86,6 @@ export function ProductGrid({ initialData, q = '', category = '', sort = '' }: P
   const totalCatalogCount = data?.pages?.[0]?.total ?? products.length;
   const filterKey = `${q}|${category}|${sort}`;
 
-  // Bidirectional bounded virtualization layer
   const {
     visibleProducts,
     topSpacerHeight,

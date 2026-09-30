@@ -34,7 +34,6 @@ export function ProductColorSelector({
   const [showDropdown, setShowDropdown] = useState(false);
   const isMobile = useIsMobile();
 
-  // If product has no colors, do not render color selector
   if (!colors || colors.length === 0) {
     return null;
   }
@@ -43,7 +42,6 @@ export function ProductColorSelector({
   const activeColor = selectedColor || colors[0] || '';
   const isOverMax = colors.length > maxColors;
 
-  // Render Select Dropdown mode if colors > maxColors and dropdown is active
   if (isOverMax && showDropdown) {
     const activeHex = getColorHex(activeColor);
     const isActiveWhite = activeColor.toLowerCase() === 'white' || activeHex.toLowerCase() === '#ffffff';

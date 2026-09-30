@@ -19,12 +19,10 @@ export function ProductSearchBar({
   const [inputValue, setInputValue] = useState(value);
   const debouncedQuery = useDebounce(inputValue, 350);
 
-  // Sync internal input state when parent resets value
   useEffect(() => {
     setInputValue(value);
   }, [value]);
 
-  // Notify parent when debounced value changes
   useEffect(() => {
     if (onChange && debouncedQuery !== value) {
       onChange(debouncedQuery);

@@ -33,7 +33,6 @@ export function ProductSizeSelector({
   const [showDropdown, setShowDropdown] = useState(false);
   const isMobile = useIsMobile();
 
-  // If product has no sizes, do not render size selector
   if (!sizes || sizes.length === 0) {
     return null;
   }
@@ -42,7 +41,6 @@ export function ProductSizeSelector({
   const activeSize = selectedSize || sizes[0] || '';
   const isOverMax = sizes.length > maxSizes;
 
-  // Render Select Dropdown mode if sizes > maxSizes and dropdown is active
   if (isOverMax && showDropdown) {
     return (
       <div className={cn('flex flex-col gap-1.5 w-full', className)}>

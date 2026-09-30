@@ -22,7 +22,6 @@ export function QuantitySelector({
   const popupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const prevInitialValueRef = useRef(initialValue);
 
-  // Sync state ONLY when initialValue prop actually changes from the outside
   useEffect(() => {
     if (prevInitialValueRef.current !== initialValue) {
       prevInitialValueRef.current = initialValue;
@@ -31,7 +30,6 @@ export function QuantitySelector({
     }
   }, [initialValue]);
 
-  // Enforce max stock constraints
   useEffect(() => {
     if (!isFocused) {
       if (max !== undefined && max <= 0) {
