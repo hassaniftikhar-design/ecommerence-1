@@ -1,5 +1,5 @@
 import { apiSuccess, apiError } from '@/lib/api-response';
-import { getCurrentUser } from '@/lib/server-auth';
+import { withAuth } from '@/lib/server-auth';
 import {
   getSavedPaymentMethodsServer,
   savePaymentMethodServer
@@ -7,15 +7,8 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
+export const GET = withAuth(async ({ userId }) => {
   try {
-    const user = await getCurrentUser(request);
-    const userId = user?.id || user?.sub;
-
-    if (!user || !userId) {
-      return apiError('Unauthorized: Please log in', [], 401);
-    }
-
     const result = await getSavedPaymentMethodsServer(userId);
 
     if (!result.success) {
@@ -28,17 +21,10 @@ export async function GET(request: Request) {
       (error as Error).message
     ], 500);
   }
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withAuth(async ({ request, userId }) => {
   try {
-    const user = await getCurrentUser(request);
-    const userId = user?.id || user?.sub;
-
-    if (!user || !userId) {
-      return apiError('Unauthorized: Please log in', [], 401);
-    }
-
     const body = await request.json();
     const result = await savePaymentMethodServer(userId, body.paymentMethodId, body.setAsDefault);
 
@@ -52,4 +38,5 @@ export async function POST(request: Request) {
       (error as Error).message
     ], 500);
   }
-}
+});
+

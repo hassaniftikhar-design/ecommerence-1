@@ -1,6 +1,6 @@
 import type { OrderStatus } from '@prisma/client';
 
-import { getCurrentUser, isAdmin } from '@/lib/server-auth';
+import { getCurrentUser, withAdmin } from '@/lib/server-auth';
 import { apiSuccess, apiError } from '@/lib/api-response';
 import {
   getOrderByIdServer,
@@ -28,29 +28,23 @@ export async function GET(
   }
 }
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const user = await getCurrentUser(request);
+export const PATCH = withAdmin<{ params: Promise<{ id: string }> }>(
+  async ({ request, params }) => {
+    try {
+      const { id } = await params;
+      const body = await request.json();
+      const { status } = body as { status: OrderStatus };
 
-    if (!user || !isAdmin(user)) {
-      return apiError('Forbidden: Only ADMIN users can update order status', [], 403);
+      const result = await updateOrderStatusServer(id, status);
+
+      if (!result.success) {
+        return apiError(result.message, result.errors, result.status);
+      }
+
+      return apiSuccess('Order status updated successfully', { order: result.order });
+    } catch (error) {
+      return apiError('Failed to update order status', [(error as Error).message], 500);
     }
-
-    const { id } = await params;
-    const body = await request.json();
-    const { status } = body as { status: OrderStatus };
-
-    const result = await updateOrderStatusServer(id, status);
-
-    if (!result.success) {
-      return apiError(result.message, result.errors, result.status);
-    }
-
-    return apiSuccess('Order status updated successfully', { order: result.order });
-  } catch (error) {
-    return apiError('Failed to update order status', [(error as Error).message], 500);
   }
-}
+);
+

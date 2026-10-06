@@ -1,0 +1,6 @@
+title,description,sku,price,categoryName,colorName,sizeName,stock,imagePath
+Product1,Premium heavyweight cotton classic fit everyday t-shirt.,BRAC-001-BLK-M,34.99,Apparel,Black,M,50,tee_black.jpg
+Product1,Premium heavyweight cotton classic fit everyday t-shirt.,BRAC-001-BLK-L,34.99,Apparel,Black,L,40,tee_black.jpg
+Product1,Premium heavyweight cotton classic fit everyday t-shirt.,BRAC-001-WHT-M,34.99,Apparel,White,M,35,tee_white.jpg
+Product2,Ultra-low latency wireless mechanical keyboard with ergonomic layout.,KEYB-001-GRY-L,23,Electronics,Gray,L,25,keyboard_gray.png
+Product3,Handcrafted ceramic coffee mug with heat-resistant matte finish.,MUG-001-DEF,,Apparel,,,-4,mug_standard.png

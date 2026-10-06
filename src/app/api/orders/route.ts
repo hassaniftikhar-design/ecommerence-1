@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@/lib/server-auth';
+import { getCurrentUser, withAuth } from '@/lib/server-auth';
 import { apiSuccess, apiError } from '@/lib/api-response';
 import {
   listOrdersServer,
@@ -29,15 +29,8 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export const POST = withAuth(async ({ request, userId }) => {
   try {
-    const user = await getCurrentUser(request);
-    const userId = user?.id || user?.sub;
-
-    if (!userId) {
-      return apiError('Unauthorized to place order', [], 401);
-    }
-
     let body: { itemIds?: string[]; expectedTotal?: number } = {};
     try {
       body = await request.json();
@@ -59,4 +52,5 @@ export async function POST(request: Request) {
   } catch (error) {
     return apiError('Failed to place order', [(error as Error).message], 500);
   }
-}
+});
+

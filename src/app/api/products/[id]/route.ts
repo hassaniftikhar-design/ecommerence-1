@@ -1,4 +1,4 @@
-import { getCurrentUser, isAdmin } from '@/lib/server-auth';
+import { getCurrentUser, isAdmin, withAdmin } from '@/lib/server-auth';
 import { apiSuccess, apiError } from '@/lib/api-response';
 import {
   getProductByIdServer,
@@ -27,28 +27,20 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  return handleUpdate(request, await params);
-}
+export const PUT = withAdmin<{ params: Promise<{ id: string }> }>(
+  async ({ request, params }) => {
+    return handleUpdate(request, await params);
+  }
+);
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  return handleUpdate(request, await params);
-}
+export const PATCH = withAdmin<{ params: Promise<{ id: string }> }>(
+  async ({ request, params }) => {
+    return handleUpdate(request, await params);
+  }
+);
 
 async function handleUpdate(request: Request, { id }: { id: string }) {
   try {
-    const user = await getCurrentUser(request);
-
-    if (!user || !isAdmin(user)) {
-      return apiError('Forbidden: Only ADMIN users can update products', [], 403);
-    }
-
     const body = await request.json();
     const result = await updateProductServer(id, body);
 
@@ -62,26 +54,20 @@ async function handleUpdate(request: Request, { id }: { id: string }) {
   }
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const user = await getCurrentUser(request);
+export const DELETE = withAdmin<{ params: Promise<{ id: string }> }>(
+  async ({ params }) => {
+    try {
+      const { id } = await params;
+      const result = await deactivateProductServer(id);
 
-    if (!user || !isAdmin(user)) {
-      return apiError('Forbidden: Only ADMIN users can deactivate products', [], 403);
+      if (!result.success) {
+        return apiError(result.message, result.errors, result.status);
+      }
+
+      return apiSuccess(result.message);
+    } catch (error) {
+      return apiError('Failed to deactivate product', [(error as Error).message], 500);
     }
-
-    const { id } = await params;
-    const result = await deactivateProductServer(id);
-
-    if (!result.success) {
-      return apiError(result.message, result.errors, result.status);
-    }
-
-    return apiSuccess(result.message);
-  } catch (error) {
-    return apiError('Failed to deactivate product', [(error as Error).message], 500);
   }
-}
+);
+

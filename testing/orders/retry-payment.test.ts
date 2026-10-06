@@ -38,10 +38,36 @@ import {
 } from '../fixtures/user.fixtures';
 import { createTestRequest } from '../helpers/request.helper';
 
-jest.mock('@/lib/server-auth', () => ({
-  getCurrentUser: jest.fn(),
-  isAdmin: jest.fn()
-}));
+jest.mock('@/lib/server-auth', () => {
+  const mockGetCurrentUser = jest.fn();
+  const mockIsAdmin = jest.fn();
+  return {
+    getCurrentUser: mockGetCurrentUser,
+    isAdmin: mockIsAdmin,
+    withAuth: (handler: any) => async (req: any, ctx: any) => {
+      const user = await mockGetCurrentUser(req);
+      const userId = user?.id || user?.sub;
+      if (!user || !userId) {
+        const { apiError } = require('@/lib/api-response');
+        return apiError('Unauthorized', [], 401);
+      }
+      return handler({ request: req, user, userId, context: ctx, params: ctx?.params });
+    },
+    withAdmin: (handler: any) => async (req: any, ctx: any) => {
+      const user = await mockGetCurrentUser(req);
+      const userId = user?.id || user?.sub;
+      if (!user || !userId) {
+        const { apiError } = require('@/lib/api-response');
+        return apiError('Unauthorized', [], 401);
+      }
+      if (!mockIsAdmin(user)) {
+        const { apiError } = require('@/lib/api-response');
+        return apiError('Forbidden: Admin access required', [], 403);
+      }
+      return handler({ request: req, user, userId, context: ctx, params: ctx?.params });
+    }
+  };
+});
 
 describe('Pay Again & Payment Retry Suite', () => {
   beforeEach(() => {

@@ -1,5 +1,5 @@
 import { apiSuccess, apiError } from '@/lib/api-response';
-import { getCurrentUser } from '@/lib/server-auth';
+import { withAuth } from '@/lib/server-auth';
 import {
   getUserAddressServer,
   updateUserAddressServer
@@ -7,15 +7,8 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
+export const GET = withAuth(async ({ userId }) => {
   try {
-    const user = await getCurrentUser(request);
-    const userId = user?.id || user?.sub;
-
-    if (!user || !userId) {
-      return apiError('Unauthorized: Please log in', [], 401);
-    }
-
     const result = await getUserAddressServer(userId);
 
     if (!result.success) {
@@ -26,17 +19,10 @@ export async function GET(request: Request) {
   } catch (error) {
     return apiError('Failed to fetch address', [(error as Error).message], 500);
   }
-}
+});
 
-export async function PUT(request: Request) {
+export const PUT = withAuth(async ({ request, userId }) => {
   try {
-    const user = await getCurrentUser(request);
-    const userId = user?.id || user?.sub;
-
-    if (!user || !userId) {
-      return apiError('Unauthorized: Please log in', [], 401);
-    }
-
     const body = await request.json();
     const result = await updateUserAddressServer(userId, body);
 
@@ -48,5 +34,5 @@ export async function PUT(request: Request) {
   } catch (error) {
     return apiError('Failed to update address', [(error as Error).message], 500);
   }
-}
+});
 

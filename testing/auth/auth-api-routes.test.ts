@@ -68,9 +68,15 @@ jest.mock('@/server/services/auth.service', () => ({
   verifyEmailServer: jest.fn()
 }));
 
-jest.mock('@/lib/server-auth', () => ({
-  getCurrentUser: jest.fn()
-}));
+jest.mock('@/lib/server-auth', () => {
+  const actual = jest.requireActual('@/lib/server-auth');
+  const mockGetCurrentUser = jest.fn();
+  actual.authConfig.getCurrentUser = mockGetCurrentUser;
+  return {
+    ...actual,
+    getCurrentUser: mockGetCurrentUser
+  };
+});
 
 import { POST as signupHandler } from '@/app/api/auth/signup/route';
 import { POST as forgotPasswordHandler } from '@/app/api/auth/forgot-password/route';

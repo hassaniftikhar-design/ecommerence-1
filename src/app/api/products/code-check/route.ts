@@ -1,17 +1,12 @@
-import { getCurrentUser, isAdmin } from '@/lib/server-auth';
+import { withAdmin } from '@/lib/server-auth';
 import { apiSuccess, apiError } from '@/lib/api-response';
 import {
   checkProductCodeAvailableServer,
   getNextAvailableProductCodeServer
 } from '@/server/services/product.service';
 
-export async function GET(request: Request) {
+export const GET = withAdmin(async ({ request }) => {
   try {
-    const user = await getCurrentUser(request);
-    if (!user || !isAdmin(user)) {
-      return apiError('Forbidden: Only ADMIN users can check product codes', [], 403);
-    }
-
     const { searchParams } = new URL(request.url);
     const code = (searchParams.get('code') || '').trim();
     const title = (searchParams.get('title') || searchParams.get('prefix') || '').trim();
@@ -32,4 +27,5 @@ export async function GET(request: Request) {
   } catch (error) {
     return apiError('Failed to check product code', [(error as Error).message], 500);
   }
-}
+});
+

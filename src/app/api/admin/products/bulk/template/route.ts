@@ -1,24 +1,14 @@
 import { NextResponse } from 'next/server';
 
-import { getCurrentUser, isAdmin } from '@/lib/server-auth';
+import { withAdmin } from '@/lib/server-auth';
 import { apiError } from '@/lib/api-response';
 import {
   generateBulkProductImportTemplateServer,
   generateBulkProductImportCsvTemplateServer
 } from '@/server/services/admin-import.service';
 
-export async function GET(request: Request) {
+export const GET = withAdmin(async ({ request }) => {
   try {
-    const user = await getCurrentUser(request);
-
-    if (!user || !isAdmin(user)) {
-      return apiError(
-        'Forbidden: Only ADMIN users can download import templates',
-        [],
-        403
-      );
-    }
-
     const { searchParams } = new URL(request.url);
     const format = searchParams.get('format');
 
@@ -51,5 +41,5 @@ export async function GET(request: Request) {
       500
     );
   }
-}
+});
 

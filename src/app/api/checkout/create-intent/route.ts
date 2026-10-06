@@ -1,18 +1,11 @@
 import { apiSuccess, apiError } from '@/lib/api-response';
-import { getCurrentUser } from '@/lib/server-auth';
+import { withAuth } from '@/lib/server-auth';
 import { createCheckoutPaymentIntentServer } from '@/server/services/payment.service';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(request: Request) {
+export const POST = withAuth(async ({ request, userId }) => {
   try {
-    const user = await getCurrentUser(request);
-    const userId = user?.id || user?.sub;
-
-    if (!user || !userId) {
-      return apiError('Unauthorized: Please log in to checkout', [], 401);
-    }
-
     const body = await request.json();
     const result = await createCheckoutPaymentIntentServer({
       userId,
@@ -42,4 +35,5 @@ export async function POST(request: Request) {
       (error as Error).message
     ], 500);
   }
-}
+});
+

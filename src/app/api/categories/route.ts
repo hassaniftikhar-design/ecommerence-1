@@ -1,4 +1,4 @@
-import { getCurrentUser, isAdmin } from '@/lib/server-auth';
+import { withAdmin } from '@/lib/server-auth';
 import { apiSuccess, apiError } from '@/lib/api-response';
 import {
   getCategoriesServer,
@@ -14,14 +14,8 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export const POST = withAdmin(async ({ request }) => {
   try {
-    const user = await getCurrentUser(request);
-
-    if (!user || !isAdmin(user)) {
-      return apiError('Forbidden: Only ADMIN users can create categories', [], 403);
-    }
-
     const body = await request.json();
     const { name } = body as { name?: string };
 
@@ -35,4 +29,5 @@ export async function POST(request: Request) {
   } catch (error) {
     return apiError('Failed to create category', [(error as Error).message], 500);
   }
-}
+});
+

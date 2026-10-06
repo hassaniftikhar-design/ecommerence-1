@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@/lib/server-auth';
+import { getCurrentUser, withAuth } from '@/lib/server-auth';
 import { apiSuccess, apiError } from '@/lib/api-response';
 import {
   getNotificationsServer,
@@ -28,15 +28,8 @@ export async function GET(request: Request) {
   }
 }
 
-export async function PATCH(request: Request) {
+export const PATCH = withAuth(async ({ request, userId }) => {
   try {
-    const user = await getCurrentUser(request);
-    const userId = user?.id || user?.sub;
-
-    if (!userId) {
-      return apiError('Unauthorized', [], 401);
-    }
-
     const body = await request.json();
     const { notificationId, markAll } = body as {
       notificationId?: string;
@@ -53,4 +46,5 @@ export async function PATCH(request: Request) {
   } catch (error) {
     return apiError('Failed to update notification', [(error as Error).message], 500);
   }
-}
+});
+

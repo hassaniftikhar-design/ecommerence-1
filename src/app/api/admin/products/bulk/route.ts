@@ -1,4 +1,4 @@
-import { getCurrentUser, isAdmin } from '@/lib/server-auth';
+import { withAdmin } from '@/lib/server-auth';
 import { apiSuccess, apiError } from '@/lib/api-response';
 import {
   validateBulkImportFileInput,
@@ -9,15 +9,9 @@ import {
   enqueueBulkProductImportJsonServer
 } from '@/server/services/admin-import.service';
 
-export async function POST(request: Request) {
+export const POST = withAdmin(async ({ request, userId }) => {
   try {
-    const user = await getCurrentUser(request);
-
-    if (!user || !isAdmin(user)) {
-      return apiError('Forbidden: Only ADMIN users can import products', [], 403);
-    }
-
-    const adminUserId = (user.id || (user as { sub?: string }).sub)!;
+    const adminUserId = userId;
     const contentType = request.headers.get('content-type') || '';
 
     // 1. Handle Multipart Form Data
@@ -71,4 +65,5 @@ export async function POST(request: Request) {
   } catch (error) {
     return apiError('Failed to process bulk import request', [(error as Error).message], 500);
   }
-}
+});
+

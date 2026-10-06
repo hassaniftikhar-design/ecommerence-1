@@ -1,4 +1,4 @@
-import { getCurrentUser, isAdmin } from '@/lib/server-auth';
+import { getCurrentUser, isAdmin, withAdmin } from '@/lib/server-auth';
 import { apiSuccess, apiError } from '@/lib/api-response';
 import {
   getProductsServer,
@@ -44,18 +44,10 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export const POST = withAdmin(async ({ request, userId }) => {
   try {
-    const user = await getCurrentUser(request);
-
-    if (!user || !isAdmin(user)) {
-      return apiError('Forbidden: Only ADMIN users can create products', [], 403);
-    }
-
     const body = await request.json();
-    const adminUserId = (user.id || user.sub)!;
-
-    const result = await createProductServer(body, adminUserId);
+    const result = await createProductServer(body, userId);
 
     if (!result.success) {
       return apiError(result.message, result.errors, result.status);
@@ -65,4 +57,5 @@ export async function POST(request: Request) {
   } catch (error) {
     return apiError('Failed to create product', [(error as Error).message], 500);
   }
-}
+});
+

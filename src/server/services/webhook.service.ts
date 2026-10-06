@@ -6,7 +6,6 @@ import { getFriendlyPaymentErrorMessage, logStripeError } from '@/lib/stripe/err
 import { validateStripeWebhookInput } from '@/server/middlewares';
 import { createAndEmitNotificationServer } from '@/server/services/notification.service';
 
-
 async function findAndValidatePaymentForIntent(paymentIntent: Stripe.PaymentIntent) {
   const paymentIntentId = paymentIntent.id;
 
@@ -324,7 +323,6 @@ async function handleSetupIntentSucceeded(setupIntent: Stripe.SetupIntent) {
     logStripeError('handleSetupIntentSucceeded', err, { userId, paymentMethodId });
   }
 }
-
 
 export async function processStripeWebhookServer(body: string, signature: string | null) {
   const validation = validateStripeWebhookInput(signature, process.env.STRIPE_WEBHOOK_SECRET);

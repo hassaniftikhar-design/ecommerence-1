@@ -1,16 +1,11 @@
-import { getCurrentUser } from '@/lib/server-auth';
+import { withAuth } from '@/lib/server-auth';
 import { apiSuccess, apiError } from '@/lib/api-response';
 import { changePasswordServer } from '@/server/services/auth.service';
 
-export async function POST(request: Request) {
+export const POST = withAuth(async ({ request, userId }) => {
   try {
-    const user = await getCurrentUser(request);
-    if (!user || !user.sub) {
-      return apiError('Unauthorized', [], 401);
-    }
-
     const body = await request.json();
-    const result = await changePasswordServer(user.sub, body);
+    const result = await changePasswordServer(userId, body);
 
     if (!result.success) {
       return apiError(result.message, result.errors, result.status);
@@ -20,4 +15,5 @@ export async function POST(request: Request) {
   } catch (error) {
     return apiError('An internal server error occurred', [(error as Error).message], 500);
   }
-}
+});
+

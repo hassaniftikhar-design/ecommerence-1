@@ -1,36 +1,28 @@
-import { getCurrentUser } from '@/lib/server-auth';
+import { withAuth } from '@/lib/server-auth';
 import { apiSuccess, apiError } from '@/lib/api-response';
 import {
   updateCartItemQuantityServer,
   removeCartItemServer
 } from '@/server/services/cart.service';
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  return handleQuantityUpdate(request, await params);
-}
+export const PATCH = withAuth<{ params: Promise<{ id: string }> }>(
+  async ({ request, userId, params }) => {
+    return handleQuantityUpdate(request, userId, await params);
+  }
+);
 
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  return handleQuantityUpdate(request, await params);
-}
+export const PUT = withAuth<{ params: Promise<{ id: string }> }>(
+  async ({ request, userId, params }) => {
+    return handleQuantityUpdate(request, userId, await params);
+  }
+);
 
 async function handleQuantityUpdate(
   request: Request,
+  userId: string,
   { id }: { id: string }
 ) {
   try {
-    const user = await getCurrentUser(request);
-    const userId = user?.id || user?.sub;
-
-    if (!userId) {
-      return apiError('Unauthorized. You must be logged in to access cart.', [], 401);
-    }
-
     const body = await request.json();
     const { quantity } = body;
 
@@ -46,27 +38,20 @@ async function handleQuantityUpdate(
   }
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const user = await getCurrentUser(request);
-    const userId = user?.id || user?.sub;
+export const DELETE = withAuth<{ params: Promise<{ id: string }> }>(
+  async ({ userId, params }) => {
+    try {
+      const { id } = await params;
+      const result = await removeCartItemServer(userId, id);
 
-    if (!userId) {
-      return apiError('Unauthorized. You must be logged in to access cart.', [], 401);
+      if (!result.success) {
+        return apiError(result.message, result.errors, result.status);
+      }
+
+      return apiSuccess(result.message, result.cartData);
+    } catch (error) {
+      return apiError('Failed to remove item from cart', [(error as Error).message], 500);
     }
-
-    const { id } = await params;
-    const result = await removeCartItemServer(userId, id);
-
-    if (!result.success) {
-      return apiError(result.message, result.errors, result.status);
-    }
-
-    return apiSuccess(result.message, result.cartData);
-  } catch (error) {
-    return apiError('Failed to remove item from cart', [(error as Error).message], 500);
   }
-}
+);
+

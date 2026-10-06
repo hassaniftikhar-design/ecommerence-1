@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@/lib/server-auth';
+import { withAuth } from '@/lib/server-auth';
 import { apiSuccess, apiError } from '@/lib/api-response';
 import {
   getCartServer,
@@ -6,31 +6,17 @@ import {
   clearCartServer
 } from '@/server/services/cart.service';
 
-export async function GET(request: Request) {
+export const GET = withAuth(async ({ userId }) => {
   try {
-    const user = await getCurrentUser(request);
-    const userId = user?.id || user?.sub;
-
-    if (!userId) {
-      return apiError('Unauthorized. You must be logged in to access cart.', [], 401);
-    }
-
     const cartData = await getCartServer(userId);
     return apiSuccess('Cart retrieved successfully', cartData);
   } catch (error) {
     return apiError('Failed to fetch cart', [(error as Error).message], 500);
   }
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withAuth(async ({ request, userId }) => {
   try {
-    const user = await getCurrentUser(request);
-    const userId = user?.id || user?.sub;
-
-    if (!userId) {
-      return apiError('Unauthorized. You must be logged in to access cart.', [], 401);
-    }
-
     const body = await request.json();
     const { productId, variantId, quantity = 1 } = body;
 
@@ -48,17 +34,10 @@ export async function POST(request: Request) {
   } catch (error) {
     return apiError('Failed to add item to cart', [(error as Error).message], 500);
   }
-}
+});
 
-export async function DELETE(request: Request) {
+export const DELETE = withAuth(async ({ request, userId }) => {
   try {
-    const user = await getCurrentUser(request);
-    const userId = user?.id || user?.sub;
-
-    if (!userId) {
-      return apiError('Unauthorized. You must be logged in to access cart.', [], 401);
-    }
-
     let itemIds: string[] | undefined = undefined;
     try {
       const body = await request.json();
@@ -81,4 +60,5 @@ export async function DELETE(request: Request) {
   } catch (error) {
     return apiError('Failed to remove items from cart', [(error as Error).message], 500);
   }
-}
+});
+
